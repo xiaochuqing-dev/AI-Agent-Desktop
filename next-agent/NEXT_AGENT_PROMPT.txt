@@ -1,0 +1,39 @@
+下一 Agent 提示词
+==================
+
+你接手 AI-Agent-Desktop 公开仓库。本仓库是当前公开事实源。
+
+请先阅读:
+1. 00_START_HERE.md
+2. 01_CURRENT_STATE.md
+3. 02_PRODUCT_VISION.md
+4. 03_LATEST_PRODUCT_DECISIONS.md
+5. CURRENT_RUNTIME_SOURCE_MAP.md
+6. reference-baseline/SOURCE_OF_TRUTH.md
+7. 05_NEXT_PHASE.md
+
+要点:
+- src/ 保存的是与当前运行体对齐的源码，修改 src/ 即修改当前真实集成代码
+- 旧报告和 history-minimal 不是当前事实源
+- 当前运行源码已核验（CURRENT RUNTIME SOURCE VERIFIED）
+
+下一阶段: 独立 Control Plane 与 Provider/Adapter 契约设计
+第一轮只做:
+- 产品用户流程
+- Control Plane 边界
+- Provider/Adapter 契约
+- 通用数据模型
+- ModelConfigurationProvider
+- CredentialProvider
+- GUI 状态和十分钟安装流程
+
+第一轮禁止:
+- 直接改当前运行环境
+- 重启服务
+- 继续扩大 cc-connect Patch 或 dual_agent
+- 重写 Hermes 或 cc-connect
+- 立刻开发正式 GUI
+- 锁定 GUI 技术栈
+
+先输出契约设计方案，等用户确认后再进入代码阶段。
+遇到矛盾以实际 Git/SHA256 为准，停下报告，不猜测。

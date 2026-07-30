@@ -1,0 +1,124 @@
+# ============================================================================
+# AI Agent Collaboration v0.1 Baseline - CC Connect 配置模板
+# ----------------------------------------------------------------------------
+# 这是脱敏模板，所有真实 Token/ID/路径/Bearer 已替换为 ${VAR} 占位符。
+# 真实值放 .env 或 bot-tokens.env (不入 git)，由启动脚本注入环境。
+#
+# 用法: 由部署脚本复制到 ~/.cc-connect/config.toml，并把 ${VAR} 替换为
+#       环境变量值 (cc-connect 支持 ${VAR} 语法读取环境变量)。
+#
+# 注意: cc-connect 确认支持 token 字段的 ${VAR} 替换。
+#       admin_from/allow_from/work_dir/proxy/Authorization 字段是否支持 ${VAR}
+#       未完全验证，部署脚本应做兜底替换。
+#
+# 此模板基于 2026-07-27 运行 config.toml (137 行) 脱敏生成，
+# 保留了 [relay] / [[hooks]] / [[projects]] 全部结构。
+# 原始运行版含真实 Bearer/User ID/路径，不入 git (见 .gitignore)。
+# ============================================================================
+
+# ---- 全局设置 ----
+language = "zh"
+shell = "cmd"
+
+[log]
+level = "info"
+
+# ---- 透明展示设置 ----
+[display]
+mode = "full"
+thinking_messages = true
+thinking_max_len = 300
+tool_messages = true
+tool_max_len = 500
+history_max_len = 1000
+show_context_indicator = true
+reply_footer = true
+hide_agent_footer = false
+
+# ---- Relay (Hermes Orchestrator 执行通道) ----
+# Hermes 通过 cc-connect relay send 同步调用 Claude/Codex 并取回完整回复。
+# visibility=full: Worker Bot 以自己身份在群里发言，Hermes 通过 RPC 返回值取完整结果。
+[relay]
+timeout_secs = 600
+visibility = "full"
+
+# ---- Hooks (多 Agent 治理) ----
+# 把 cc-connect 收到/发出的消息事件 POST 到 Hermes 本地 HTTP receiver。
+# 鉴权用 Authorization: Bearer header (不放 URL query)。
+[[hooks]]
+event = "message.received"
+type = "http"
+url = "${CC_HOOK_RECEIVER_URL}"
+async = true
+timeout = 5
+
+[hooks.headers]
+Authorization = "Bearer ${CC_HOOK_BEARER_TOKEN}"
+
+[[hooks]]
+event = "message.sent_delivered"
+type = "http"
+url = "${CC_HOOK_RECEIVER_URL}"
+async = true
+timeout = 5
+
+[hooks.headers]
+Authorization = "Bearer ${CC_HOOK_BEARER_TOKEN}"
+
+# ---- Project 1: claude-expert (连接 Claude Code CLI) ----
+[[projects]]
+name = "claude-expert"
+admin_from = "${TELEGRAM_USER_ID}"
+# Session 连续性: 6h 内可恢复同一对话
+reset_on_idle_mins = 360
+idle_timeout_mins = 120
+agent_session_idle_timeout_mins = 360
+
+[projects.agent]
+type = "claudecode"
+
+[projects.agent.options]
+# work_dir 指向安全测试目录，部署时替换为实际路径
+work_dir = "${PROJECT_ROOT}/workspace/claude-safe"
+mode = "plan"
+reasoning_effort = "high"
+
+[[projects.platforms]]
+type = "telegram"
+
+[projects.platforms.options]
+token = "${CLAUDE_CODE_BOT_TOKEN}"
+allow_from = "${TELEGRAM_USER_ID}"
+group_reply_all = false
+share_session_in_channel = false
+proxy = "${TELEGRAM_PROXY}"
+enable_reactions = false
+progress_style = "compact"
+
+# ---- Project 2: codex-expert (连接 Codex CLI) ----
+[[projects]]
+name = "codex-expert"
+admin_from = "${TELEGRAM_USER_ID}"
+reset_on_idle_mins = 360
+idle_timeout_mins = 120
+agent_session_idle_timeout_mins = 360
+
+[projects.agent]
+type = "codex"
+
+[projects.agent.options]
+work_dir = "${PROJECT_ROOT}/workspace/codex-safe"
+mode = "suggest"
+reasoning_effort = "high"
+
+[[projects.platforms]]
+type = "telegram"
+
+[projects.platforms.options]
+token = "${CODEX_BOT_TOKEN}"
+allow_from = "${TELEGRAM_USER_ID}"
+group_reply_all = false
+share_session_in_channel = false
+proxy = "${TELEGRAM_PROXY}"
+enable_reactions = false
+progress_style = "compact"

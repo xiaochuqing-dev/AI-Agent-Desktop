@@ -1,0 +1,41 @@
+diff --git a/core/relay.go b/core/relay.go
+index e6459ea..e0d8a66 100644
+--- a/core/relay.go
++++ b/core/relay.go
+@@ -322,9 +322,11 @@ func relayVisibilityRequestLabel(mode, fromName, toName, message string) string
+ 
+ func relayVisibilityResponseLabel(mode, toName, response string) string {
+ 	if normalizeRelayVisibility(mode) == RelayVisibilitySummary {
+-		return fmt.Sprintf("[%s] relay response ready (%d chars)", toName, len([]rune(response)))
++		return fmt.Sprintf("relay response ready (%d chars)", len([]rune(response)))
+ 	}
+-	return fmt.Sprintf("[%s] %s", toName, truncateRelay(response, 2000))
++	// Stage 2.5 patch: 去掉 [toName] 前缀。Worker Bot 已以自己身份发言，
++	// 不需要 cc-connect 再加 [Claude]/[Codex] 前缀（否则群里像机器人自报身份）。
++	return truncateRelay(response, 2000)
+ }
+ 
+ func (rm *RelayManager) relayContext(ctx context.Context) (context.Context, context.CancelFunc) {
+
+diff --git a/core/relay_test.go b/core/relay_test.go
+index b662331..e6d4afe 100644
+--- a/core/relay_test.go
++++ b/core/relay_test.go
+@@ -321,7 +321,7 @@ func TestRelayManager_DefaultVisibilityEchoesFullMessages(t *testing.T) {
+ 	if len(sourceSent) != 1 || sourceSent[0] != "[source-bot → target-bot] please ask target" {
+ 		t.Fatalf("source sent = %#v, want full relay request", sourceSent)
+ 	}
+-	if len(targetSent) != 1 || targetSent[0] != "[target-bot] target says long answer" {
++	if len(targetSent) != 1 || targetSent[0] != "target says long answer" {
+ 		t.Fatalf("target sent = %#v, want full relay response", targetSent)
+ 	}
+ }
+@@ -335,7 +335,7 @@ func TestRelayManager_VisibilitySummarySuppressesBodies(t *testing.T) {
+ 	if len(sourceSent) != 1 || sourceSent[0] != "[source-bot → target-bot] relay request sent" {
+ 		t.Fatalf("source sent = %#v, want summary relay request", sourceSent)
+ 	}
+-	if len(targetSent) != 1 || targetSent[0] != "[target-bot] relay response ready (23 chars)" {
++	if len(targetSent) != 1 || targetSent[0] != "relay response ready (23 chars)" {
+ 		t.Fatalf("target sent = %#v, want summary relay response", targetSent)
+ 	}
+ }

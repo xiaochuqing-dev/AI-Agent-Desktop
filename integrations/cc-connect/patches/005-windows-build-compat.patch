@@ -1,0 +1,12 @@
+diff --git a/agent/pi/proc_windows.go b/agent/pi/proc_windows.go
+index c14325e..c8786b7 100644
+--- a/agent/pi/proc_windows.go
++++ b/agent/pi/proc_windows.go
+@@ -3,7 +3,6 @@
+ package pi
+ 
+ import (
+-	"os"
+ 	"os/exec"
+ 	"syscall"
+ )

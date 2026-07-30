@@ -1,0 +1,745 @@
+diff --git a/core/engine.go b/core/engine.go
+index ea74ea4..7647770 100644
+--- a/core/engine.go
++++ b/core/engine.go
+@@ -38,6 +38,49 @@ const defaultMaxQueuedMessages = 5 // default cap for queued messages per sessio
+ // platform does not block startup logging indefinitely.
+ const defaultPendingRestartTimeout = 10 * time.Second
+ 
++// messageReceivedExtra builds the Extra map for the message.received hook,
++// exposing metadata that already exists on core.Message but was previously
++// dropped at the hook boundary.  This lets an external multi-agent governance
++// layer (Hermes HTTP receiver) record full Transcript entries without a second
++// Telegram poller.
++func messageReceivedExtra(msg *Message) map[string]any {
++	if msg == nil {
++		return nil
++	}
++	extra := map[string]any{
++		"message_id": msg.MessageID,
++		"chat_id":    msg.ChatID,
++		"thread_id":  msg.ThreadID,
++		"sender_type": func() string {
++			if msg.SenderIsBot {
++				return "bot"
++			}
++			return "human"
++		}(),
++		"has_images": len(msg.Images) > 0,
++		"has_files":  len(msg.Files) > 0,
++		"has_audio":  msg.Audio != nil,
++	}
++	if msg.ReplyToMessageID != "" {
++		extra["reply_to_message_id"] = msg.ReplyToMessageID
++	}
++	return extra
++}
++
++// messageSentDeliveredExtra builds the Extra map for the
++// message.sent_delivered hook, carrying the real outbound Telegram
++// message_id (the one the user sees) so the governance layer can map it back
++// to the agent that produced it.
++func messageSentDeliveredExtra(sessionKey, platform, sentMessageID, chatID, threadID, msgType string) map[string]any {
++	extra := map[string]any{
++		"message_id":  sentMessageID,
++		"chat_id":     chatID,
++		"thread_id":   threadID,
++		"message_type": msgType,
++	}
++	return extra
++}
++
+ // previewText truncates s to maxRunes runes for safe inclusion in debug logs.
+ // Truncation uses runes (not bytes) so multi-byte characters render cleanly.
+ // Newlines are replaced with literal "\n" to keep each log entry on one line.
+@@ -2765,6 +2808,7 @@ func (e *Engine) handleMessage(p Platform, msg *Message) {
+ 		UserID:     msg.UserID,
+ 		UserName:   msg.UserName,
+ 		Content:    msg.Content,
++		Extra:      messageReceivedExtra(msg),
+ 	})
+ 
+ 	// Voice message: transcribe to text first
+@@ -5742,6 +5786,14 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
+ 				slog.Debug("EventResult: suppressed duplicate side-channel text", "response_len", len(fullResponse))
+ 			} else if sp.finish(fullResponse, statusFooter) {
+ 				slog.Debug("EventResult: finalized via stream preview", "response_len", len(fullResponse), "footer_len", len(statusFooter))
++				// Stage 2: the stream-preview path finalizes the message in-place via
++				// UpdateMessage (editing the preview started by SendPreviewStart), so it
++				// never goes through sendAlreadyRenderedWithError and its
++				// emitSentDelivered call.  Fire the delivered hook here so the
++				// governance Transcript records the real outbound message_id (the
++				// preview message_id, which is the one the user sees).  The platform's
++				// recordSent still holds that id from SendPreviewStart.
++				e.emitSentDelivered(p, fullResponse, "text")
+ 			} else {
+ 				slog.Debug("EventResult: sending via p.Send (preview inactive or failed)", "response_len", len(fullResponse), "footer_len", len(statusFooter))
+ 				if !sendChunksWithStatusFooter(e.ctx, p, replyCtx, fullResponse, statusFooter, sendWorkspaceWithError) {
+@@ -6054,6 +6106,10 @@ channelClosed:
+ 			}
+ 		} else if sp.finish(fullResponse, "") {
+ 			slog.Debug("stream preview: finalized in-place (process exited)")
++			// Stage 2: same gap as the EventResult stream-preview branch above -
++			// in-place finalize skips sendAlreadyRenderedWithError, so fire the
++			// delivered hook here to record the outbound message_id.
++			e.emitSentDelivered(p, fullResponse, "text")
+ 		} else {
+ 			for _, chunk := range splitMessage(fullResponse, maxPlatformMessageLen) {
+ 				if err := sendWorkspaceWithError(p, replyCtx, chunk); err != nil {
+@@ -11678,9 +11734,33 @@ func (e *Engine) sendAlreadyRenderedWithError(p Platform, replyCtx any, content
+ 	if elapsed := time.Since(start); elapsed >= slowPlatformSend {
+ 		slog.Warn("slow platform send", "platform", p.Name(), "elapsed", elapsed, "content_len", len(content))
+ 	}
++	// Fire the delivered hook so the governance layer can record the real
++	// outbound message_id.  Only platforms implementing SentMessageRecorder
++	// (Telegram) can supply it; others are skipped silently.
++	e.emitSentDelivered(p, content, "text")
+ 	return nil
+ }
+ 
++// emitSentDelivered queries the platform for the just-sent message_id and, if
++// available, fires the message.sent_delivered hook.  Best-effort: failures are
++// logged at debug level only so they never break the send path.
++func (e *Engine) emitSentDelivered(p Platform, content, msgType string) {
++	rec, ok := p.(SentMessageRecorder)
++	if !ok {
++		return
++	}
++	sentID, chatID, threadID, ok := rec.LastSentMessageID()
++	if !ok || sentID == "" {
++		return
++	}
++	rec.ClearLastSent()
++	e.hooks.Emit(HookEvent{
++		Event:   HookEventMessageSentDelivered,
++		Content: content,
++		Extra:   messageSentDeliveredExtra("", p.Name(), sentID, chatID, threadID, msgType),
++	})
++}
++
+ // send wraps p.Send with error logging, slow-operation warnings, and outgoing rate limiting.
+ func (e *Engine) send(p Platform, replyCtx any, content string) {
+ 	_ = e.sendWithError(p, replyCtx, content)
+diff --git a/core/hooks.go b/core/hooks.go
+index 02dae79..bb5c4fa 100644
+--- a/core/hooks.go
++++ b/core/hooks.go
+@@ -19,6 +19,12 @@ type HookEventType string
+ const (
+ 	HookEventMessageReceived    HookEventType = "message.received"
+ 	HookEventMessageSent        HookEventType = "message.sent"
++	// HookEventMessageSentDelivered fires AFTER a platform send succeeds and
++	// carries the real outbound message_id (the Telegram message_id of the
++	// message the user actually sees).  Unlike message.sent (which fires
++	// pre-send with only the reply text), this lets an external governance
++	// layer record the delivered message_id for transcript/audit/Studio.
++	HookEventMessageSentDelivered HookEventType = "message.sent_delivered"
+ 	HookEventSessionStarted     HookEventType = "session.started"
+ 	HookEventSessionEnded       HookEventType = "session.ended"
+ 	HookEventCronTriggered      HookEventType = "cron.triggered"
+diff --git a/core/interfaces.go b/core/interfaces.go
+index 81f4d1c..6bbea38 100644
+--- a/core/interfaces.go
++++ b/core/interfaces.go
+@@ -47,6 +47,26 @@ type MessageRecallDetector interface {
+ 	IsMessageRecalled(ctx context.Context, replyCtx any) (bool, error)
+ }
+ 
++// SentMessageRecorder is an optional interface for platforms that can report
++// the real platform message_id of the message they most recently sent (the one
++// the user actually sees in chat).  The engine queries it right after a
++// successful Send/SendImage/SendFile/preview-finalize so the governance layer
++// can record the delivered message_id for transcript/audit/Studio via the
++// message.sent_delivered hook.
++//
++// Platforms that cannot capture the sent message_id simply don't implement
++// this interface; the engine skips the delivered-hook silently.
++//
++// The returned chatID/threadID let the hook carry full routing context
++// without parsing session keys.
++type SentMessageRecorder interface {
++	// LastSentMessageID returns (sentMessageID, chatID, threadID, ok).
++	// ok=false means no send happened or the id is unavailable.
++	LastSentMessageID() (sentMessageID, chatID, threadID string, ok bool)
++	// ClearLastSent resets the tracked id so it is never read twice.
++	ClearLastSent()
++}
++
+ // CronReplyTargetResolver is an optional interface for platforms that need to
+ // map a logical cron session key to the actual reply target used at execution
+ // time. This is useful for platforms where proactive replies may need to create
+diff --git a/core/message.go b/core/message.go
+index efd94a6..c5bf804 100644
+--- a/core/message.go
++++ b/core/message.go
+@@ -347,6 +347,21 @@ type Message struct {
+ 	UserName     string
+ 	ChatName     string // human-readable chat/group name (optional)
+ 	Content      string
++	// ChatID is the platform chat identifier (e.g. Telegram chat.ID).  Populated
++	// by platforms so the multi-agent governance hook can record it without
++	// parsing SessionKey.  Empty for platforms that don't expose a stable id.
++	ChatID string
++	// ThreadID is the forum topic / message-thread identifier (Telegram
++	// message_thread_id).  Empty when not applicable.
++	ThreadID string
++	// ReplyToMessageID is the platform message_id of the message this one
++	// replies to.  Populated by platforms from the native reply context so the
++	// governance layer can build cross-agent reference chains.  Empty when not a
++	// reply.
++	ReplyToMessageID string
++	// SenderIsBot is true when the sender is a bot account.  Used by the
++	// governance anti-loop rule (bot-origin messages never auto-trigger agents).
++	SenderIsBot bool
+ 	Images       []ImageAttachment   // attached images (if any)
+ 	Files        []FileAttachment    // attached files (if any)
+ 	Audio        *AudioAttachment    // voice message (if any)
+diff --git a/platform/telegram/telegram.go b/platform/telegram/telegram.go
+index 95a78ee..733fec6 100644
+--- a/platform/telegram/telegram.go
++++ b/platform/telegram/telegram.go
+@@ -126,6 +126,15 @@ type Platform struct {
+ 	newBot              botFactory
+ 	newBackoffTimer     func(time.Duration) backoffTimer
+ 	newTypingTicker     func(time.Duration) typingTicker
++
++	// lastSent tracks the most recently delivered Telegram message_id (the one
++	// the user sees) plus its chat/thread, so the engine can emit a
++	// message.sent_delivered hook for the governance layer.  Guarded by mu.
++	// Reset to zero on each successful send so a stale value is never read.
++	lastSentMu     sync.Mutex
++	lastSentMsgID  string
++	lastSentChatID string
++	lastSentThread string
+ }
+ 
+ const (
+@@ -582,6 +591,21 @@ func (p *Platform) handleMessage(ctx context.Context, msg *models.Message) {
+ }
+ 
+ func (p *Platform) dispatchMessage(msg *core.Message, tgMsg *models.Message) {
++	// Populate governance metadata fields on core.Message from the raw Telegram
++	// message.  These already-exist internally but were not surfaced; the
++	// message.received hook (engine.go) reads them to build the hook Extra map
++	// so an external governance layer can record full Transcript entries.
++	msg.ChatID = strconv.FormatInt(tgMsg.Chat.ID, 10)
++	if tgMsg.MessageThreadID != 0 {
++		msg.ThreadID = strconv.Itoa(tgMsg.MessageThreadID)
++	}
++	if tgMsg.From != nil {
++		msg.SenderIsBot = tgMsg.From.IsBot
++	}
++	if tgMsg.ReplyToMessage != nil {
++		msg.ReplyToMessageID = strconv.Itoa(tgMsg.ReplyToMessage.ID)
++	}
++
+ 	// Enrich with platform-specific context (reply quotes, location text, etc.)
+ 	var extras []string
+ 	if replyText := enrichReplyContent(tgMsg); replyText != "" {
+@@ -607,6 +631,45 @@ func (p *Platform) dispatchMessage(msg *core.Message, tgMsg *models.Message) {
+ 	handler(p, msg)
+ }
+ 
++// recordSent stores the just-delivered Telegram message_id so the engine can
++// emit a message.sent_delivered hook via LastSentMessageID().  Called by every
++// Send/SendImage/SendFile/SendWithButtons path after a successful platform send.
++func (p *Platform) recordSent(sentMsgID string, chatID int64, threadID int) {
++	if sentMsgID == "" {
++		return
++	}
++	p.lastSentMu.Lock()
++	p.lastSentMsgID = sentMsgID
++	p.lastSentChatID = strconv.FormatInt(chatID, 10)
++	if threadID != 0 {
++		p.lastSentThread = strconv.Itoa(threadID)
++	} else {
++		p.lastSentThread = ""
++	}
++	p.lastSentMu.Unlock()
++}
++
++// LastSentMessageID implements core.SentMessageRecorder.  Returns the message_id
++// of the most recent successful send.  The engine reads (then clears) this right
++// after a Send call to fire the message.sent_delivered hook.
++func (p *Platform) LastSentMessageID() (sentMessageID, chatID, threadID string, ok bool) {
++	p.lastSentMu.Lock()
++	defer p.lastSentMu.Unlock()
++	if p.lastSentMsgID == "" {
++		return "", "", "", false
++	}
++	return p.lastSentMsgID, p.lastSentChatID, p.lastSentThread, true
++}
++
++// ClearLastSent resets the tracked sent id so it is never read twice.
++func (p *Platform) ClearLastSent() {
++	p.lastSentMu.Lock()
++	p.lastSentMsgID = ""
++	p.lastSentChatID = ""
++	p.lastSentThread = ""
++	p.lastSentMu.Unlock()
++}
++
+ func (p *Platform) messageHandler() core.MessageHandler {
+ 	p.mu.RLock()
+ 	defer p.mu.RUnlock()
+@@ -1054,7 +1133,8 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+ 		ReplyParameters: &models.ReplyParameters{MessageID: rc.messageID},
+ 	}
+ 
+-	if _, err := bot.SendMessage(ctx, params); err != nil {
++	sent, err := bot.SendMessage(ctx, params)
++	if err != nil {
+ 		errMsg := err.Error()
+ 		// Handle HTML parsing errors by falling back to plain text
+ 		if strings.Contains(errMsg, "can't parse") {
+@@ -1066,7 +1146,7 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+ 			)
+ 			params.Text = content
+ 			params.ParseMode = ""
+-			_, err = bot.SendMessage(ctx, params)
++			sent, err = bot.SendMessage(ctx, params)
+ 		} else if strings.Contains(errMsg, "message is too long") {
+ 			// Handle message too long by splitting and sending as multiple messages
+ 			slog.Warn("telegram: message too long, splitting into chunks",
+@@ -1079,6 +1159,9 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+ 			return fmt.Errorf("telegram: send: %w", err)
+ 		}
+ 	}
++	if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	}
+ 	return nil
+ }
+ 
+@@ -1101,7 +1184,8 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+ 		ParseMode:       models.ParseModeHTML,
+ 	}
+ 
+-	if _, err := bot.SendMessage(ctx, params); err != nil {
++	sent, err := bot.SendMessage(ctx, params)
++	if err != nil {
+ 		errMsg := err.Error()
+ 		// Handle HTML parsing errors by falling back to plain text
+ 		if strings.Contains(errMsg, "can't parse") {
+@@ -1113,7 +1197,7 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+ 			)
+ 			params.Text = content
+ 			params.ParseMode = ""
+-			_, err = bot.SendMessage(ctx, params)
++			sent, err = bot.SendMessage(ctx, params)
+ 		} else if strings.Contains(errMsg, "message is too long") {
+ 			// Handle message too long by splitting and sending as multiple messages
+ 			slog.Warn("telegram: message too long, splitting into chunks",
+@@ -1126,6 +1210,9 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+ 			return fmt.Errorf("telegram: send: %w", err)
+ 		}
+ 	}
++	if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	}
+ 	return nil
+ }
+ 
+@@ -1149,8 +1236,10 @@ func (p *Platform) SendImage(ctx context.Context, rctx any, img core.ImageAttach
+ 		MessageThreadID: rc.threadID,
+ 		Photo:           &models.InputFileUpload{Filename: name, Data: bytes.NewReader(img.Data)},
+ 	}
+-	if _, err := bot.SendPhoto(ctx, params); err != nil {
++	if sent, err := bot.SendPhoto(ctx, params); err != nil {
+ 		return fmt.Errorf("telegram: send image: %w", err)
++	} else if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
+ 	}
+ 	return nil
+ }
+@@ -1174,8 +1263,10 @@ func (p *Platform) SendFile(ctx context.Context, rctx any, file core.FileAttachm
+ 		MessageThreadID: rc.threadID,
+ 		Document:        &models.InputFileUpload{Filename: name, Data: bytes.NewReader(file.Data)},
+ 	}
+-	if _, err := bot.SendDocument(ctx, params); err != nil {
++	if sent, err := bot.SendDocument(ctx, params); err != nil {
+ 		return fmt.Errorf("telegram: send file: %w", err)
++	} else if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
+ 	}
+ 	return nil
+ }
+@@ -1235,8 +1326,10 @@ func (p *Platform) sendVoice(ctx context.Context, rc replyContext, audio []byte,
+ 		MessageThreadID: rc.threadID,
+ 		Voice:           &models.InputFileUpload{Filename: "tts_audio." + telegramAudioFileExt(format), Data: bytes.NewReader(audio)},
+ 	}
+-	if _, err := bot.SendVoice(ctx, params); err != nil {
++	if sent, err := bot.SendVoice(ctx, params); err != nil {
+ 		return err
++	} else if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
+ 	}
+ 	return nil
+ }
+@@ -1251,8 +1344,10 @@ func (p *Platform) sendAudio(ctx context.Context, rc replyContext, audio []byte,
+ 		MessageThreadID: rc.threadID,
+ 		Audio:           &models.InputFileUpload{Filename: "tts_audio." + telegramAudioFileExt(format), Data: bytes.NewReader(audio)},
+ 	}
+-	if _, err := bot.SendAudio(ctx, params); err != nil {
++	if sent, err := bot.SendAudio(ctx, params); err != nil {
+ 		return err
++	} else if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
+ 	}
+ 	return nil
+ }
+@@ -1297,7 +1392,8 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+ 		ReplyMarkup:     &models.InlineKeyboardMarkup{InlineKeyboard: rows},
+ 	}
+ 
+-	if _, err := bot.SendMessage(ctx, params); err != nil {
++	sent, err := bot.SendMessage(ctx, params)
++	if err != nil {
+ 		errMsg := err.Error()
+ 		// Handle HTML parsing errors by falling back to plain text
+ 		if strings.Contains(errMsg, "can't parse") {
+@@ -1309,7 +1405,7 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+ 			)
+ 			params.Text = content
+ 			params.ParseMode = ""
+-			_, err = bot.SendMessage(ctx, params)
++			sent, err = bot.SendMessage(ctx, params)
+ 		} else if strings.Contains(errMsg, "message is too long") {
+ 			// Handle message too long: first chunk with buttons, rest without
+ 			slog.Warn("telegram: message too long, splitting into chunks",
+@@ -1322,6 +1418,9 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+ 			return fmt.Errorf("telegram: sendWithButtons: %w", err)
+ 		}
+ 	}
++	if sent != nil {
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	}
+ 	return nil
+ }
+ 
+@@ -1462,6 +1561,11 @@ func (p *Platform) SendPreviewStart(ctx context.Context, rctx any, content strin
+ 			return nil, fmt.Errorf("telegram: send preview: %w", err)
+ 		}
+ 	}
++	if sent != nil {
++		// The preview message_id is the one the user ultimately sees (later
++		// UpdateMessage calls edit it in place, never creating a new id).
++		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	}
+ 	return &telegramPreviewHandle{chatID: rc.chatID, threadID: rc.threadID, messageID: sent.ID}, nil
+ }
+ 
+@@ -1536,18 +1640,24 @@ func (p *Platform) sendChunked(ctx context.Context, bot telegramBot, rc replyCon
+ 		if i == 0 && rc.messageID != 0 {
+ 			params.ReplyParameters = &models.ReplyParameters{MessageID: rc.messageID}
+ 		}
+-		if _, err := bot.SendMessage(ctx, params); err != nil {
++		sent, err := bot.SendMessage(ctx, params)
++		if err != nil {
+ 			// If HTML fails, try plain text
+ 			if strings.Contains(err.Error(), "can't parse") {
+ 				params.Text = chunk
+ 				params.ParseMode = ""
+-				if _, err2 := bot.SendMessage(ctx, params); err2 != nil {
+-					return fmt.Errorf("telegram: send chunk %d: %w", i, err2)
++				sent, err = bot.SendMessage(ctx, params)
++				if err != nil {
++					return fmt.Errorf("telegram: send chunk %d: %w", i, err)
+ 				}
+ 			} else {
+ 				return fmt.Errorf("telegram: send chunk %d: %w", i, err)
+ 			}
+ 		}
++		// Record the last chunk's message_id (the final one the user sees).
++		if sent != nil {
++			p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++		}
+ 	}
+ 	return nil
+ }
+@@ -1567,18 +1677,23 @@ func (p *Platform) sendChunkedWithButtons(ctx context.Context, bot telegramBot,
+ 		if i == 0 {
+ 			params.ReplyMarkup = &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+ 		}
+-		if _, err := bot.SendMessage(ctx, params); err != nil {
++		sent, err := bot.SendMessage(ctx, params)
++		if err != nil {
+ 			// If HTML fails, try plain text
+ 			if strings.Contains(err.Error(), "can't parse") {
+ 				params.Text = chunk
+ 				params.ParseMode = ""
+-				if _, err2 := bot.SendMessage(ctx, params); err2 != nil {
+-					return fmt.Errorf("telegram: send chunk %d: %w", i, err2)
++				sent, err = bot.SendMessage(ctx, params)
++				if err != nil {
++					return fmt.Errorf("telegram: send chunk %d: %w", i, err)
+ 				}
+ 			} else {
+ 				return fmt.Errorf("telegram: send chunk %d: %w", i, err)
+ 			}
+ 		}
++		if sent != nil {
++			p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++		}
+ 	}
+ 	return nil
+ }
+
+diff --git a/core/multiagent_hook_test.go b/core/multiagent_hook_test.go
+new file mode 100644
+index 0000000..676055b
+--- /dev/null
++++ b/core/multiagent_hook_test.go
+@@ -0,0 +1,85 @@
++package core
++
++import (
++	"testing"
++)
++
++// TestMessageReceivedExtra verifies the helper that builds the Extra map for
++// the message.received hook carries the governance metadata fields.
++func TestMessageReceivedExtra(t *testing.T) {
++	t.Run("human message with reply and attachments", func(t *testing.T) {
++		msg := &Message{
++			MessageID:        "999",
++			ChatID:           "-100123",
++			ThreadID:         "88",
++			ReplyToMessageID: "555",
++			SenderIsBot:      false,
++			Images:           []ImageAttachment{{}},
++			Files:            []FileAttachment{{}},
++		}
++		extra := messageReceivedExtra(msg)
++		if extra["message_id"] != "999" {
++			t.Fatalf("message_id = %v, want 999", extra["message_id"])
++		}
++		if extra["chat_id"] != "-100123" {
++			t.Fatalf("chat_id = %v, want -100123", extra["chat_id"])
++		}
++		if extra["thread_id"] != "88" {
++			t.Fatalf("thread_id = %v, want 88", extra["thread_id"])
++		}
++		if extra["reply_to_message_id"] != "555" {
++			t.Fatalf("reply_to_message_id = %v, want 555", extra["reply_to_message_id"])
++		}
++		if extra["sender_type"] != "human" {
++			t.Fatalf("sender_type = %v, want human", extra["sender_type"])
++		}
++		if extra["has_images"] != true {
++			t.Fatalf("has_images = %v, want true", extra["has_images"])
++		}
++		if extra["has_files"] != true {
++			t.Fatalf("has_files = %v, want true", extra["has_files"])
++		}
++	})
++
++	t.Run("bot sender no reply no attachments", func(t *testing.T) {
++		msg := &Message{
++			MessageID:   "100",
++			ChatID:      "-200",
++			SenderIsBot: true,
++		}
++		extra := messageReceivedExtra(msg)
++		if extra["sender_type"] != "bot" {
++			t.Fatalf("sender_type = %v, want bot", extra["sender_type"])
++		}
++		if _, ok := extra["reply_to_message_id"]; ok {
++			t.Fatal("reply_to_message_id should be absent when empty")
++		}
++		if extra["has_images"] != false {
++			t.Fatalf("has_images = %v, want false", extra["has_images"])
++		}
++	})
++
++	t.Run("nil message", func(t *testing.T) {
++		if extra := messageReceivedExtra(nil); extra != nil {
++			t.Fatalf("expected nil for nil message, got %v", extra)
++		}
++	})
++}
++
++// TestMessageSentDeliveredExtra verifies the delivered hook Extra carries the
++// sent message_id and routing context.
++func TestMessageSentDeliveredExtra(t *testing.T) {
++	extra := messageSentDeliveredExtra("telegram:-100:88:123", "telegram", "777", "-100", "88", "text")
++	if extra["message_id"] != "777" {
++		t.Fatalf("message_id = %v, want 777", extra["message_id"])
++	}
++	if extra["chat_id"] != "-100" {
++		t.Fatalf("chat_id = %v, want -100", extra["chat_id"])
++	}
++	if extra["thread_id"] != "88" {
++		t.Fatalf("thread_id = %v, want 88", extra["thread_id"])
++	}
++	if extra["message_type"] != "text" {
++		t.Fatalf("message_type = %v, want text", extra["message_type"])
++	}
++}
+diff --git a/platform/telegram/multiagent_metadata_test.go b/platform/telegram/multiagent_metadata_test.go
+new file mode 100644
+index 0000000..334e8ef
+--- /dev/null
++++ b/platform/telegram/multiagent_metadata_test.go
+@@ -0,0 +1,161 @@
++package telegram
++
++import (
++	"context"
++	"testing"
++
++	"github.com/chenhg5/cc-connect/core"
++	"github.com/go-telegram/bot/models"
++)
++
++// TestSendRecordsMessageID verifies that Send captures the returned Telegram
++// message_id via the SentMessageRecorder interface, so the engine can emit
++// message.sent_delivered for the governance Transcript.
++func TestSendRecordsMessageID(t *testing.T) {
++	p := &Platform{
++		bot:      newStubTelegramBot(),
++		selfUser: &models.User{ID: 1, Username: "testbot"},
++	}
++	rc := replyContext{chatID: 42, threadID: 7, messageID: 10}
++
++	if err := p.Send(context.Background(), rc, "hello"); err != nil {
++		t.Fatalf("Send: %v", err)
++	}
++
++	id, chatID, threadID, ok := p.LastSentMessageID()
++	if !ok {
++		t.Fatal("LastSentMessageID: expected ok=true after Send")
++	}
++	if id != "99" {
++		t.Fatalf("sent id = %q, want 99", id)
++	}
++	if chatID != "42" {
++		t.Fatalf("chatID = %q, want 42", chatID)
++	}
++	if threadID != "7" {
++		t.Fatalf("threadID = %q, want 7", threadID)
++	}
++
++	// ClearLastSent should reset so a stale value is never read twice.
++	p.ClearLastSent()
++	if _, _, _, ok := p.LastSentMessageID(); ok {
++		t.Fatal("expected ok=false after ClearLastSent")
++	}
++}
++
++// TestSendImageRecordsMessageID verifies the image send path records the id.
++func TestSendImageRecordsMessageID(t *testing.T) {
++	p := &Platform{
++		bot:      newStubTelegramBot(),
++		selfUser: &models.User{ID: 1, Username: "testbot"},
++	}
++	rc := replyContext{chatID: 42}
++	if err := p.SendImage(context.Background(), rc, core.ImageAttachment{Data: []byte("x")}); err != nil {
++		t.Fatalf("SendImage: %v", err)
++	}
++	id, _, _, ok := p.LastSentMessageID()
++	if !ok || id != "99" {
++		t.Fatalf("after SendImage: id=%q ok=%v, want 99/true", id, ok)
++	}
++}
++
++// TestSendFileRecordsMessageID verifies the file send path records the id.
++func TestSendFileRecordsMessageID(t *testing.T) {
++	p := &Platform{
++		bot:      newStubTelegramBot(),
++		selfUser: &models.User{ID: 1, Username: "testbot"},
++	}
++	rc := replyContext{chatID: 42}
++	if err := p.SendFile(context.Background(), rc, core.FileAttachment{Data: []byte("x")}); err != nil {
++		t.Fatalf("SendFile: %v", err)
++	}
++	id, _, _, ok := p.LastSentMessageID()
++	if !ok || id != "99" {
++		t.Fatalf("after SendFile: id=%q ok=%v, want 99/true", id, ok)
++	}
++}
++
++// TestDispatchMessagePopulatesMetadata verifies dispatchMessage fills the new
++// governance fields (ChatID, ThreadID, ReplyToMessageID, SenderIsBot) on
++// core.Message from the raw Telegram message, so the engine's message.received
++// hook Extra carries them.
++func TestDispatchMessagePopulatesMetadata(t *testing.T) {
++	p := &Platform{
++		bot:      newStubTelegramBot(),
++		selfUser: &models.User{ID: 1, Username: "testbot"},
++	}
++
++	// A human message that replies to a bot message (ID 555) in a forum topic.
++	tgMsg := &models.Message{
++		ID: 999,
++		Chat: models.Chat{
++			ID:   -100123,
++			Type: models.ChatTypeSupergroup,
++		},
++		MessageThreadID: 88,
++		From: &models.User{
++			ID:       1000000001,
++			IsBot:    false,
++			Username: "test_human_user",
++		},
++		Text: "hello @testbot",
++		ReplyToMessage: &models.Message{
++			ID: 555,
++			From: &models.User{ID: 1, IsBot: true, Username: "testbot"},
++			Text: "previous bot reply",
++		},
++	}
++
++	msg := &core.Message{
++		SessionKey: "telegram:-100123:88:1000000001",
++		Platform:   "telegram",
++		MessageID:  "999",
++		Content:    "hello @testbot",
++	}
++
++	// dispatchMessage reads tgMsg; we don't need the handler to fire.
++	var captured *core.Message
++	p.handler = func(_ core.Platform, m *core.Message) {
++		captured = m
++	}
++	// Avoid nil-messageHandler path.
++	p.dispatchMessage(msg, tgMsg)
++
++	if captured == nil {
++		t.Fatal("handler was not called")
++	}
++	if captured.ChatID != "-100123" {
++		t.Fatalf("ChatID = %q, want -100123", captured.ChatID)
++	}
++	if captured.ThreadID != "88" {
++		t.Fatalf("ThreadID = %q, want 88", captured.ThreadID)
++	}
++	if captured.ReplyToMessageID != "555" {
++		t.Fatalf("ReplyToMessageID = %q, want 555", captured.ReplyToMessageID)
++	}
++	if captured.SenderIsBot {
++		t.Fatal("SenderIsBot = true, want false (human sender)")
++	}
++}
++
++// TestDispatchMessageBotSender verifies SenderIsBot is set when the sender is a bot.
++func TestDispatchMessageBotSender(t *testing.T) {
++	p := &Platform{
++		bot:      newStubTelegramBot(),
++		selfUser: &models.User{ID: 1, Username: "testbot"},
++	}
++	tgMsg := &models.Message{
++		ID:   100,
++		Chat: models.Chat{ID: -100, Type: models.ChatTypeSupergroup},
++		From: &models.User{ID: 2, IsBot: true, Username: "other_bot"},
++		Text: "a bot message",
++	}
++	msg := &core.Message{SessionKey: "telegram:-100:2", Platform: "telegram", MessageID: "100"}
++	var captured *core.Message
++	p.handler = func(_ core.Platform, m *core.Message) { captured = m }
++	p.dispatchMessage(msg, tgMsg)
++
++	if !captured.SenderIsBot {
++		t.Fatal("SenderIsBot = false, want true (bot sender)")
++	}
++}

@@ -1,0 +1,36 @@
+PUBLIC_FILE_MANIFEST
+====================
+
+生成时间: 2026-07-30
+仓库: https://github.com/xiaochuqing-dev/AI-Agent-Desktop.git
+文件总数: 92
+
+一、根目录文档
+--------------
+README.md, 00_START_HERE.md, 01_CURRENT_STATE.md, 02_PRODUCT_VISION.md,
+03_LATEST_PRODUCT_DECISIONS.md, 04_REFERENCE_BASELINE.md, 05_NEXT_PHASE.md,
+CURRENT_RUNTIME_SOURCE_MAP.md, SECURITY_REVIEW.md, PUBLIC_FILE_MANIFEST.txt,
+SHA256SUMS.txt, .gitignore
+
+二、目录
+--------
+src/                  37 文件  hermes-adapter / dual-agent-fallback / lifecycle
+integrations/cc-connect/  12 文件  patches / scripts / manifests
+config-examples/      3 文件   脱敏配置模板
+product/              6 文件   产品文档
+architecture/         6 文件   架构契约需求
+reference-baseline/   5 文件   版本矩阵 / E2E / 已知问题 / 上游 / 事实源
+tests/                9 文件   unit + e2e-summaries
+history-minimal/      1 文件   历史索引
+next-agent/           1 文件   下一 Agent 提示词
+
+三、排除内容
+------------
+不含: exe / zip / 7z / bundle / 数据库 / 日志 / PID / Session / Transcript
+不含: Token / API Key / Bearer / 真实 Telegram ID / 真实用户名 / 真实路径
+所有真实值已替换为占位符。
+
+四、校验
+--------
+完整 SHA256 清单见 SHA256SUMS.txt（92 项）。
+校验方法: sha256sum -c SHA256SUMS.txt

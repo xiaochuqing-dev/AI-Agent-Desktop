@@ -1,0 +1,6 @@
+name: multiagent
+version: "0.1.0"
+description: "Stage 1.5 multi-agent group governance: hard routing, session isolation, Shared Memory, Transcript, idempotency, anti-loop. Hermes-side pre-agent gate + shared SQLite DB. cc-connect side uses static config (group_reply_all=false) + hook notifications into the shared DB."
+author: "stage-1.5"
+hooks:
+  - pre_gateway_dispatch

@@ -1,0 +1,11 @@
+{
+  "_comment": "AI Agent Collaboration v0.1 Baseline - relay_bindings 模板。真实群 chat_id 已替换为占位。由 cc-connect 读取，绑定 relay 目标 Bot。",
+  "REPLACE_WITH_YOUR_TELEGRAM_GROUP_CHAT_ID": {
+    "platform": "telegram",
+    "chat_id": "REPLACE_WITH_YOUR_TELEGRAM_GROUP_CHAT_ID",
+    "bots": {
+      "claude-expert": "Claude",
+      "codex-expert": "Codex"
+    }
+  }
+}

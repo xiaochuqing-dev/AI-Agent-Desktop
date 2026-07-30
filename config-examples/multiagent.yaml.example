@@ -1,0 +1,44 @@
+# =============================================================================
+# Multi-Agent Group Governance Configuration (Stage 1.5) - example
+# -----------------------------------------------------------------------------
+# 这是脱敏模板。真实运行版放 <HERMES_HOME>/multiagent.yaml，由安装器写入。
+# 字段含义见 src/hermes-multiagent/config.py 的 MultiAgentConfig。
+# =============================================================================
+
+enabled: true
+
+# 三个 Telegram Bot 的用户名（不含前导 @，必须以 bot 结尾）。
+# 必须与 @BotFather 创建的真实用户名一致，并和 cc-connect 启动日志匹配。
+agents:
+  hermes:
+    telegram_username: "your_hermes_bot"
+    role: orchestrator
+  claude:
+    telegram_username: "your_claude_code_bot"
+    role: coder
+  codex:
+    telegram_username: "your_codex_bot"
+    role: coder
+
+# 受治理的 Telegram 群 chat_id。仅此群的消息走硬路由规则。
+group_chat_id: "-100xxxxxxxxxx"
+
+# @all 识别别名。当前阶段 @all 真正广播未启用，仅识别并告知用户。
+at_all_aliases: ["@all", "@everyone", "@全体"]
+
+# 允许写共享内存和执行特权治理命令的 Telegram user_id。
+admins:
+  - "REPLACE_WITH_YOUR_TELEGRAM_USER_ID"
+
+# HTTP hook receiver（仅绑定 localhost，cc-connect 把消息事件 POST 到这里）。
+receiver_host: "127.0.0.1"
+receiver_port: 8423
+receiver_secret: "REPLACE_WITH_A_LONG_RANDOM_SECRET"
+
+# 默认共享内存作用域。
+default_scope_type: "group"
+
+# dual_agent 核心模块根目录。并行/顺序编排依赖此包。
+# 由安装器按实际安装位置写入绝对路径；此 example 仅占位。
+# 解析优先级:环境变量 AI_AGENT_COLLAB_ROOT > 本字段 > 标准 junction 兼容回退。
+dual_agent_root: "/path/to/ai-agent-collaboration"

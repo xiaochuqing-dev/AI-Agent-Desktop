@@ -1,0 +1,125 @@
+# ============================================================================
+# v0.1 Baseline 版本锁 (VERSIONS.lock)
+# 采集时间: 2026-07-27
+# 说明: 各组件版本分开记录，不合并成单一版本号。
+#       本文件是 Step 0 现场采集结果，非最终发布版本锁。
+# ============================================================================
+
+# cc-connect 上游源码
+[cc-connect-source]
+repo = "https://github.com/chenhg5/cc-connect.git"
+branch = "main"
+head_commit = "fc315d213b49d62e9d90ea4a510189d4115e636f"
+describe = "fc315d2"
+last_commit_author = "zhilei zhang"
+last_commit_date = "2026-07-19 20:15:03 +0800"
+last_commit_message = "feat(tuitui): add platform support (#849)"
+upstream_sync = "本地 origin/main 与 HEAD 一致 (ahead 0 / behind 0，未 fetch 远程最新)"
+note = "用户提示该 HEAD 落后上游约 7 个提交，但本轮禁止 fetch/pull，仅记录当前状态。后续在全新 clone 中验证 Patch 时再对齐。"
+
+# cc-connect npm 包
+[cc-connect-npm]
+package_version = "1.4.1"
+install_path = "C:/Users/<WINDOWS_USER>/AppData/Roaming/npm/node_modules/cc-connect/"
+note = "npm 安装的是 v1.4.1 框架，但 bin/cc-connect.exe 已被自编译版本覆盖。"
+
+# cc-connect 自编译二进制 (当前运行)
+[cc-connect-binary]
+display_version = "v1.3.3"
+commit_label = "patch-noprefix"
+build_time = "2026-07-26T15:06:37Z"
+file_size_bytes = 26980864
+sha256 = "36958686579ED5E3C1DABCA4AD636B127359B8551782D7979FCCA548C4023827"
+actual_source_head = "fc315d2"
+note = "不是从 v1.4.1 回退到 v1.3.3，而是 npm 装 v1.4.1 框架 + 用 v1.4.1 时期源码(fc315d2)自编译，但 ldflags 把 version 字段人为写为 v1.3.3。版本号不一致是 ldflags 注入，非真实版本回退。"
+
+# cc-connect 二进制备份链 (回滚锚点，不入版本库)
+[cc-connect-backups]
+# 这些文件不进 git，仅记录 SHA256 用于回滚校验
+bak_stage1_5_sha256 = "D3F7B0C673A4D5539A461639C98ECA054D18B1FA38FC1AFC6422A7BBF3A2B18D"
+bak_stage1_5_date = "2026-07-22"
+bak_stage2_sha256 = "08030F501DD2987EBA6AF263CFCE3A1FFA691A4D298A7CED1F4BE8E434E2C25E"
+bak_stage2_date = "2026-07-23"
+bak_stage2_5_sha256 = "39F9A4172D639954A7E7E46179B33F69A04E52C640BE154FE3DC815CA88BEC8F"
+bak_stage2_5_date = "2026-07-26 19:09:23"
+bak_prefix_sha256 = "39F9A4172D639954A7E7E46179B33F69A04E52C640BE154FE3DC815CA88BEC8F"
+bak_prefix_date = "2026-07-26 23:06:12"
+bak_prefix_note = "与 bak_stage2_5 SHA256 相同，是同一二进制的重命名备份"
+exe_tilde_note = "cc-connect.exe~ 编辑器残留，SHA256 与 bak_prefix 相同，可删"
+
+# 自定义 patch set
+[custom-patch-set]
+version = "0.1 (v0.1 baseline, Step 1 正式化)"
+modified_files = 10
+untracked_new_files = 2  # core/multiagent_hook_test.go + platform/telegram/multiagent_metadata_test.go (随 Patch 004)
+diff_stat = "+355 / -38 行 (tracked)"
+patch_count = 5  # 按真实 diff 依赖关系拆分，不沿用旧文档"6 个"
+# 分类按实际 diff 得出，不以旧文档"6 个 Patch"为准
+[custom-patch-set.categories]
+A_runtime_behavior = "4 个 Patch: 001 isDirectedAtBot 路由优先级 + 002 HookConfig Headers 透传 + 003 relay response 去[toName]前缀 + 004 message.sent_delivered 链路(跨5文件+2新测试)"
+B_build_compat = "1 个 Patch: 005 proc_windows.go 删 unused import (修复 fc315d2 遗留编译错误)"
+C_test_case = "测试随功能走: 001 含 TestIsDirectedAtBot+4用例; 004 含 2 个新测试文件; 不单独成 Patch"
+D_untracked_new = "2 个新测试文件(随 004); test_ws_*.json 是测试运行产物，未纳入 Patch"
+
+[custom-patch-set.patches]
+001 = "telegram-directed-routing (platform/telegram/telegram.go + telegram_test.go)"
+002 = "hook-config-headers (config.go + main.go + hooks.go)"
+003 = "relay-response-prefix (core/relay.go + core/relay_test.go) [Step 1.5: 新增 relay_test.go 断言修正]"
+004 = "message-delivery-hooks (engine.go + hooks.go + interfaces.go + message.go + telegram.go + 2新测试) [Step 1.5: 新测试 PII sanitized]"
+005 = "windows-build-compat (proc_windows.go)"
+
+# cc-connect 构建参数（build 脚本读取本节）
+[cc-connect-build]
+go_version = "go1.26.5 windows/amd64"
+build_tags = "no_web goolm no_pi"
+# tags 说明:
+#   no_web - 跳过 web admin 前端 embed (web/embed.go 的 //go:embed all:dist 需 dist 目录)
+#   goolm  - 用 goolm olm 库 (默认)
+#   no_pi  - 排除 pi agent (cmd/cc-connect/plugin_agent_pi.go)
+ldflags_template = "-s -w -X main.version={VERSION} -X main.commit={SHORTSHA} -X main.buildTime={BUILDTIME}"
+# 版本号构成（用户决策：upstream-version + patchset-version + source-short-sha，不沿用旧 v1.3.3）
+version_format = "v{npm_package_version}-patchset{patchset_version}-{source_short_sha}"
+example_version = "v1.4.1-patchset0.1-fc315d2"
+note = "旧运行二进制 ldflags 把 version 写成 v1.3.3 patch-noprefix（人为注入，非真实回退）。新版用明确构成，不复制旧字符串。"
+
+# 候选二进制（Step 1.5 重建，未替换运行二进制）
+[cc-connect-candidate]
+display_version = "v1.4.1-patchset0.1-fc315d2"
+commit = "fc315d2"
+build_time = "2026-07-27T16:48:22Z"
+file_size_bytes = 26981376
+sha256 = "f7a577bba84bf732519d98cfdf70fa6c089fbc50ae9e14deb775d3c46d0409fb"
+path = "build/output/cc-connect-candidate.exe (gitignored，本地候选)"
+test_status = "patch 相关测试全绿 (含 Step 1.5 修正的 relay visibility 断言); 预存 AppendFileRefs Windows 路径失败与 patch 无关"
+note = "每次构建因 buildTime 嵌入 ldflags，SHA256 会变（非位级可复现）。功能代码同源(fc315d2+5 Patch)。"
+note2 = "与运行二进制(3695868657...)不同: 版本串+构建时间不同，非功能差异。待单独验收后才替换运行二进制。"
+note3 = "Step 1.5 变更: patch 003 新增 relay_test.go 断言修正(2 hunks); patch 004 新测试文件 PII 已 sanitize。"
+
+# 其他组件版本
+[other-components]
+hermes = "v0.19.0 (2026.7.20) upstream 215ec101 local 163fab8d (+9474 carried commits)"
+hermes_install_path = "C:/Users/<WINDOWS_USER>/AppData/Local/hermes/hermes-agent/ (editable install)"
+claude_code_cli = "v2.1.220"
+codex_cli = "codex-cli 0.145.0"
+node = "v24.16.0"
+npm = "11.13.0"
+python = "3.11.15"
+go = "go1.26.5 windows/amd64"
+
+# 运行环境指纹
+[runtime-env]
+proxy = "socks5://127.0.0.1:10808"
+hermes_receiver = "http://127.0.0.1:8423/cc-event"
+telegram_group_id = "见 relay_bindings.example.json 占位 (真实值不入版本库)"
+project_root = "C:/Users/<WINDOWS_USER>/ZCodeProject/无任何东西的文件夹/ai-agent-collaboration"
+junction = "C:/ai-agent-collaboration -> project_root"
+scheduled_tasks = "Hermes_Gateway, Hermes_Gateway_Watchdog (已注册，运行中)"
+resident_processes = "cc-connect.exe + pythonw(Hermes gateway) + 8423 端口监听中"
+
+# 文档宣称版本 (历史，非事实源)
+[doc-claimed-versions]
+note = "历史文档版本信息已过时，以本文件实测为准"
+readme_claim = "cc-connect v1.4.1 (与 npm 一致，与运行二进制 v1.3.3 不符)"
+patches_readme_claim = "v1.3.3 patch-noprefix (与运行二进制一致)"
+test_status_claim = "Hermes v0.18.2 (实际已升 v0.19.0)"
+phase1_claim = "Claude CLI v2.1.216 (实际 2.1.220), Codex 0.144.5 (实际 0.145.0)"

@@ -1,0 +1,69 @@
+diff --git a/cmd/cc-connect/main.go b/cmd/cc-connect/main.go
+index 96c887a..86aea16 100644
+--- a/cmd/cc-connect/main.go
++++ b/cmd/cc-connect/main.go
+@@ -599,6 +599,11 @@ func main() {
+ 					URL:     h.URL,
+ 					Timeout: h.Timeout,
+ 					Async:   h.Async,
++					// Stage 2 fix: Headers (e.g. Authorization: Bearer) MUST be
++					// propagated to the HookManager, otherwise executeHTTP sends
++					// hook POSTs with no auth header and the receiver rejects them
++					// all (root cause of msgid_agent_map staying empty).
++					Headers: h.Headers,
+ 				}
+ 			}
+ 			engine.SetHooks(core.NewHookManager(proj.Name, coreHooks, shell, shellFlag, shellProfile))
+diff --git a/config/config.go b/config/config.go
+index 908027d..eb336c3 100644
+--- a/config/config.go
++++ b/config/config.go
+@@ -167,12 +167,17 @@ type BridgeConfig struct {
+ 
+ // HookConfig is a single event hook rule.
+ type HookConfig struct {
+-	Event   string `toml:"event"`             // event name or "*"
+-	Type    string `toml:"type"`              // "command" or "http"
+-	Command string `toml:"command,omitempty"` // shell command (type=command)
+-	URL     string `toml:"url,omitempty"`     // HTTP endpoint (type=http)
+-	Timeout int    `toml:"timeout,omitempty"` // seconds; 0 = default
+-	Async   *bool  `toml:"async,omitempty"`   // nil = true (async by default)
++	Event   string            `toml:"event"`             // event name or "*"
++	Type    string            `toml:"type"`              // "command" or "http"
++	Command string            `toml:"command,omitempty"` // shell command (type=command)
++	URL     string            `toml:"url,omitempty"`     // HTTP endpoint (type=http)
++	Timeout int               `toml:"timeout,omitempty"` // seconds; 0 = default
++	Async   *bool             `toml:"async,omitempty"`   // nil = true (async by default)
++	// Stage 2 fix: Headers MUST be present on the config struct too, otherwise
++	// TOML parsing silently drops the [hooks.headers] table and the value never
++	// reaches core.HookManager (root cause of receiver rejecting all POSTs as
++	// unauthenticated).  Mirrors core.HookConfig.Headers.
++	Headers map[string]string `toml:"headers,omitempty"`
+ }
+ 
+ // ManagementConfig controls the HTTP Management API for external tools.
+diff --git a/core/hooks.go b/core/hooks.go
+index 02dae79..bb5c4fa 100644
+--- a/core/hooks.go
++++ b/core/hooks.go
+@@ -43,6 +49,9 @@ type HookConfig struct {
+ 	URL     string `toml:"url" json:"url,omitempty"`
+ 	Timeout int    `toml:"timeout" json:"timeout,omitempty"` // seconds; 0 = default (10s cmd, 5s http)
+ 	Async   *bool  `toml:"async" json:"async,omitempty"`     // nil = true (async by default)
++	// Headers are extra HTTP headers sent with type="http" hooks.  Used to pass
++	// an Authorization bearer token without leaking it into the URL query.
++	Headers map[string]string `toml:"headers" json:"headers,omitempty"`
+ }
+ 
+ func (h *HookConfig) isAsync() bool {
+@@ -215,6 +224,10 @@ func (hm *HookManager) executeHTTP(h *HookConfig, event HookEvent) {
+ 	req.Header.Set("Content-Type", "application/json")
+ 	req.Header.Set("User-Agent", "CC-Connect-Hooks/1.0")
+ 	req.Header.Set("X-Hook-Event", string(event.Event))
++	// Apply any custom headers from config (e.g. Authorization: Bearer <secret>).
++	for k, v := range h.Headers {
++		req.Header.Set(k, v)
++	}
+ 
+ 	resp, err := hm.client.Do(req)
+ 	if err != nil {
