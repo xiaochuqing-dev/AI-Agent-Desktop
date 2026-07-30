@@ -11,7 +11,9 @@ reference baseline v0.1 已冻结（Tag v0.1-reference-baseline）。
 当前参考实现通过真实 Telegram 群聊与 Hermes 私聊 E2E。
 当前运行 cc-connect v1.4.1-patchset0.1-fc315d2。
 源码与当前运行体一致（见 CURRENT_RUNTIME_SOURCE_MAP.md）。
-当前未进入 Control Plane 编码或 GUI 开发。
+Control Plane v1 正式设计包与机器可读契约已经形成，当前处于正式评审与实施准备阶段。
+当前仍未实现 Control Plane 运行时代码、安装器或正式 GUI。
+正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但核心契约与 Control Plane 不绑定 GUI 技术栈或实现语言。
 
 二、这不是什么
 --------------
@@ -19,7 +21,7 @@ reference baseline v0.1 已冻结（Tag v0.1-reference-baseline）。
 - 不是最终产品 v0.1.0
 - 不是最终产品架构
 - 不重写 Hermes、Claude Code、Codex 或完整 Runtime
-- 不锁定 GUI 技术栈
+- 可以确定当前 GUI 首选实现，但不让核心架构依赖该技术栈
 
 三、快速阅读
 ------------
@@ -28,10 +30,14 @@ reference baseline v0.1 已冻结（Tag v0.1-reference-baseline）。
 3. 02_PRODUCT_VISION.md（产品愿景）
 4. 03_LATEST_PRODUCT_DECISIONS.md（最新产品决策）
 5. 04_REFERENCE_BASELINE.md（参考基线）
-6. 05_NEXT_PHASE.md（下一阶段）
-7. CURRENT_RUNTIME_SOURCE_MAP.md（运行源码映射）
-8. src/（与当前运行体对齐的源码）
-9. next-agent/NEXT_AGENT_PROMPT.txt（下一 Agent 提示词）
+6. CURRENT_RUNTIME_SOURCE_MAP.md（运行源码映射）
+7. reference-baseline/SOURCE_OF_TRUTH.md（事实源优先级）
+8. architecture/control-plane-v1/README.md（正式设计包）
+9. contracts/control-plane-v1/control-plane.openapi.yaml（本地 API 契约）
+10. contracts/control-plane-v1/core-models.schema.json（核心模型契约）
+11. contracts/control-plane-v1/event-envelope.schema.json（事件契约）
+12. 05_NEXT_PHASE.md（下一阶段）
+13. next-agent/NEXT_AGENT_PROMPT.txt（下一 Agent 提示词）
 
 四、目录结构
 ------------
@@ -39,11 +45,13 @@ src/                  当前有效源码（hermes-adapter / dual-agent-fallback 
 integrations/cc-connect/  cc-connect Patch、构建脚本、manifest
 config-examples/      脱敏配置模板
 product/              产品宪法、十分钟安装、组件定位、模型配置权、GUI 状态、非目标
-architecture/         Control Plane 契约需求
+architecture/         原始需求与 Control Plane v1 正式设计包
+contracts/            OpenAPI 与 JSON Schema 机器可读契约
 reference-baseline/   版本矩阵、E2E 验证、已知问题、上游版本、事实源
 tests/                单元测试与 E2E 摘要
 history-minimal/      历史摘要
 next-agent/           下一 Agent 提示词
+reports/              阶段完成报告
 
 五、第三方组件
 --------------

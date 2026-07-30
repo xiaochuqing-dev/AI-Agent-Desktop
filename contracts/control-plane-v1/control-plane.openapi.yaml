@@ -1,0 +1,1725 @@
+openapi: 3.1.0
+info:
+  title: AI Agent Desktop Local Control Plane API
+  version: 1.0.0-rc.1
+  summary: Stable local management contract for the desktop GUI and trusted clients.
+  description: |
+    Design contract only. No Control Plane runtime or GUI implementation is claimed.
+    The service binds to loopback, requires a high-entropy bearer token, and never
+    accepts credentials in URL query parameters. Long-running mutations return an
+    Operation. Provider-specific structures remain behind Adapter boundaries.
+  license:
+    name: See repository LICENSE
+    identifier: Apache-2.0
+  x-contract-status: frozen-for-review
+  x-implementation-status: not-implemented
+servers:
+  - url: http://127.0.0.1:{port}/api/v1
+    description: Endpoint discovered from the current-user protected service record.
+    variables:
+      port:
+        default: "58080"
+        description: Illustrative only; the default allocation remains a draft implementation decision.
+security:
+  - localBearer: []
+tags:
+  - name: System
+    description: Control Plane instance and contract negotiation.
+  - name: Discovery
+    description: Read-only discovery of approved local components and dependencies.
+  - name: Components
+    description: Component state, lifecycle, and health operations.
+  - name: Configuration
+    description: Redacted configuration, authentication, and single-writer ownership.
+  - name: Credentials
+    description: Secret storage boundaries that never return plaintext values.
+  - name: Agents
+    description: First-class Agent and Capability Registry queries.
+  - name: Channels
+    description: Provider-neutral Channel discovery and connection management.
+  - name: Diagnostics
+    description: Allowlisted, redacted diagnostics and logs.
+  - name: Maintenance
+    description: Update, backup, rollback, and migration operations.
+  - name: Tasks
+    description: Task inspection and human control receipts.
+  - name: Operations
+    description: Durable long-running control operations and cancellation requests.
+  - name: Events
+    description: Authenticated Server-Sent Events with replay cursors.
+paths:
+  /system:
+    get:
+      tags: [System]
+      operationId: getSystem
+      summary: Read the Control Plane instance and contract versions.
+      x-stability: stable
+      responses:
+        "200":
+          description: Current instance information.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/SystemInfo"
+        default:
+          $ref: "#/components/responses/Problem"
+  /system/capabilities:
+    get:
+      tags: [System]
+      operationId: listSystemCapabilities
+      summary: Negotiate API and Provider capabilities before enabling client actions.
+      x-stability: stable
+      responses:
+        "200":
+          description: Capability snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Capability"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/discovery:run":
+    post:
+      tags: [Discovery]
+      operationId: runDiscovery
+      summary: Start a read-only discovery of approved local components and dependencies.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoveryRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /components:
+    get:
+      tags: [Components]
+      operationId: listComponents
+      summary: Read the latest component and orthogonal state snapshot.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/ObservedAfter"
+      responses:
+        "200":
+          description: Component snapshot. An empty list is valid.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            X-Resource-Version:
+              $ref: "#/components/headers/ResourceVersion"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Component"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Components]
+      operationId: getComponent
+      summary: Read one component, its version, state, and conditions.
+      x-stability: stable
+      responses:
+        "200":
+          description: Component snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Component"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:install":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: installComponent
+      summary: Install or repair one component after preflight.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstallRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:start":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: startComponent
+      summary: Request the running target state.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifecycleRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:stop":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: stopComponent
+      summary: Request the stopped target state.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifecycleRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:restart":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: restartComponent
+      summary: Perform one serialized restart operation.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifecycleRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/health:check":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: checkComponentHealth
+      summary: Run an explicitly scoped health check.
+      description: The default check is read-only. A deep check that can produce external effects requires explicit confirmation.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthCheckRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/configuration":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Configuration]
+      operationId: getComponentConfiguration
+      summary: Read a redacted configuration and its owner/revision.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/ScopeIdQuery"
+      responses:
+        "200":
+          description: Redacted configuration. Secret values are never returned.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/RedactedConfig"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      tags: [Configuration]
+      operationId: putComponentConfiguration
+      summary: Atomically write a non-secret configuration for the current owner.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigurationWriteRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "412":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/configuration:validate":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: validateComponentConfiguration
+      summary: Validate current or candidate configuration without activating it.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigurationValidationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/management-owner":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Configuration]
+      operationId: getManagementOwner
+      summary: Read the only allowed writer for a configuration scope.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/ScopeIdQuery"
+      responses:
+        "200":
+          description: Current management owner.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/ManagementOwner"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/management-owner:transfer":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: transferManagementOwner
+      summary: Prepare, back up, and atomically transfer one configuration scope.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerTransferRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "412":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/authentication":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Configuration]
+      operationId: getAuthenticationStatus
+      summary: Read official login or API authentication status without tokens.
+      x-stability: stable
+      responses:
+        "200":
+          description: Redacted authentication status.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/AuthenticationStatus"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/authentication:begin":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: beginAuthentication
+      summary: Start an upstream-owned authentication flow without intercepting credentials.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthenticationBeginRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /credentials:
+    get:
+      tags: [Credentials]
+      operationId: listCredentialMetadata
+      summary: List credential metadata without values or value fragments.
+      x-stability: stable
+      responses:
+        "200":
+          description: Credential metadata only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Credentials]
+      operationId: createCredential
+      summary: Store a secret and return metadata without echoing the value.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialCreateRequest"
+      responses:
+        "201":
+          description: Stored credential metadata. The submitted secret is not returned.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/credentials/{credentialId}:validate":
+    parameters:
+      - $ref: "#/components/parameters/CredentialId"
+    post:
+      tags: [Credentials]
+      operationId: validateCredential
+      summary: Validate a credential through a restricted Provider use.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialValidationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/credentials/{credentialId}":
+    parameters:
+      - $ref: "#/components/parameters/CredentialId"
+    delete:
+      tags: [Credentials]
+      operationId: deleteCredential
+      summary: Delete a credential after reference checks and explicit confirmation.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: confirm
+          in: query
+          required: true
+          schema:
+            type: boolean
+            const: true
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /agents:
+    get:
+      tags: [Agents]
+      operationId: listAgents
+      summary: List first-class Agents and their observed state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Agent snapshot.
+          headers:
+            X-Resource-Version:
+              $ref: "#/components/headers/ResourceVersion"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Agent"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/agents/{agentId}":
+    parameters:
+      - $ref: "#/components/parameters/AgentId"
+    get:
+      tags: [Agents]
+      operationId: getAgent
+      summary: Read one Agent, Runtime reference, capabilities, and state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Agent snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Agent"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /capabilities:
+    get:
+      tags: [Agents]
+      operationId: listCapabilities
+      summary: Read a consistent Capability Registry snapshot.
+      x-stability: stable
+      responses:
+        "200":
+          description: Registered capabilities.
+          headers:
+            X-Resource-Version:
+              $ref: "#/components/headers/ResourceVersion"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Capability"
+        default:
+          $ref: "#/components/responses/Problem"
+  /channels:
+    get:
+      tags: [Channels]
+      operationId: listChannels
+      summary: List generic Channel instances and connection state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Channel snapshot.
+          headers:
+            X-Resource-Version:
+              $ref: "#/components/headers/ResourceVersion"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Channel"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/channels/{channelId}":
+    parameters:
+      - $ref: "#/components/parameters/ChannelId"
+    get:
+      tags: [Channels]
+      operationId: getChannel
+      summary: Read one generic Channel instance.
+      x-stability: stable
+      responses:
+        "200":
+          description: Channel snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Channel"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/channels/{channelId}:validate":
+    parameters:
+      - $ref: "#/components/parameters/ChannelId"
+    post:
+      tags: [Channels]
+      operationId: validateChannel
+      summary: Validate Channel configuration without sending a message.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelValidationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/channels/{channelId}:connect":
+    parameters:
+      - $ref: "#/components/parameters/ChannelId"
+    post:
+      tags: [Channels]
+      operationId: connectChannel
+      summary: Request the connected target state.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeadlineRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/channels/{channelId}:disconnect":
+    parameters:
+      - $ref: "#/components/parameters/ChannelId"
+    post:
+      tags: [Channels]
+      operationId: disconnectChannel
+      summary: Request the disconnected target state.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeadlineRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /diagnostics:
+    get:
+      tags: [Diagnostics]
+      operationId: listDiagnostics
+      summary: List redacted diagnostic records.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warning, error]
+      responses:
+        "200":
+          description: Diagnostic page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/diagnostics/{diagnosticId}":
+    parameters:
+      - $ref: "#/components/parameters/DiagnosticId"
+    get:
+      tags: [Diagnostics]
+      operationId: getDiagnostic
+      summary: Read one redacted diagnostic with user guidance.
+      x-stability: stable
+      responses:
+        "200":
+          description: Diagnostic record.
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Diagnostic"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /logs:
+    get:
+      tags: [Diagnostics]
+      operationId: listLogs
+      summary: Read a page of allowlisted, redacted log entries.
+      description: Message bodies, authorization values, private paths, and raw configuration are excluded.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: source_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/Id"
+      responses:
+        "200":
+          description: Redacted log page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/updates:check":
+    post:
+      tags: [Maintenance]
+      operationId: checkUpdates
+      summary: Check compatible updates without installing them.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCheckRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:update":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Maintenance]
+      operationId: updateComponent
+      summary: Back up and update one component.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:rollback":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Maintenance]
+      operationId: rollbackComponent
+      summary: Roll back one component to a verified backup.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RollbackRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /backups:
+    get:
+      tags: [Maintenance]
+      operationId: listBackups
+      summary: List available backup and rollback points.
+      x-stability: stable
+      responses:
+        "200":
+          description: Backup snapshot.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/Backup"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Maintenance]
+      operationId: createBackup
+      summary: Create a scoped backup; credentials are excluded unless explicitly requested.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/backups/{backupId}:restore":
+    parameters:
+      - $ref: "#/components/parameters/BackupId"
+    post:
+      tags: [Maintenance]
+      operationId: restoreBackup
+      summary: Validate and restore selected backup scopes.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /migrations:
+    post:
+      tags: [Maintenance]
+      operationId: createMigration
+      summary: Export or import an authenticated encrypted migration package.
+      x-stability: experimental
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MigrationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /tasks:
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      summary: List orchestration tasks without message transcripts.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running, pausing, paused, cancel_requested, canceled, succeeded, failed]
+      responses:
+        "200":
+          description: Task page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/tasks/{taskId}":
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      tags: [Tasks]
+      operationId: getTask
+      summary: Read a task and its control revision.
+      x-stability: stable
+      responses:
+        "200":
+          description: Task snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Task"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/tasks/{taskId}/interventions":
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      tags: [Tasks]
+      operationId: createTaskIntervention
+      summary: Submit a human pause, resume, cancel, intervention, or reassignment.
+      x-stability: experimental
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HumanInterventionRequest"
+      responses:
+        "202":
+          description: Control request accepted; acceptance does not prove that the Provider has applied it.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterventionAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "412":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /operations:
+    get:
+      tags: [Operations]
+      operationId: listOperations
+      summary: List persisted Control Plane operations.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running, cancel_requested, succeeded, failed, canceled]
+        - name: kind
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+        - name: target_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/Id"
+      responses:
+        "200":
+          description: Operation page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/operations/{operationId}":
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    get:
+      tags: [Operations]
+      operationId: getOperation
+      summary: Read current progress and the mutually exclusive result or error.
+      x-stability: stable
+      responses:
+        "200":
+          description: Operation snapshot.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/Operation"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/operations/{operationId}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    post:
+      tags: [Operations]
+      operationId: cancelOperation
+      summary: Request cancellation without claiming the target has terminated.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /events:
+    get:
+      tags: [Events]
+      operationId: subscribeEvents
+      summary: Subscribe to an authenticated, at-least-once SSE stream.
+      description: Use Last-Event-ID to resume. A 410 response requires a fresh resource snapshot before resubscribing without a cursor.
+      x-stability: stable
+      parameters:
+        - name: topics
+          in: query
+          description: Optional comma-separated stable event type prefixes. It never contains credentials.
+          schema:
+            type: string
+            maxLength: 1024
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9._:-]+:[1-9][0-9]*$"
+      responses:
+        "200":
+          description: SSE records whose data field validates against event-envelope.schema.json.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "410":
+          description: EVENT_CURSOR_EXPIRED. Fetch resource snapshots and then create a new subscription.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    localBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-local-token
+      description: At least 256 bits of entropy. Supplied only in the Authorization header.
+  headers:
+    ETag:
+      description: Opaque resource revision for optimistic concurrency.
+      schema:
+        type: string
+    ResourceVersion:
+      description: Opaque version for a consistent collection snapshot.
+      schema:
+        type: string
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Reusing a key with a different normalized request returns IDEMPOTENCY_KEY_REUSE.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      schema:
+        $ref: "#/components/schemas/Id"
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Opaque expected revision. A stale value returns REVISION_CONFLICT.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    ComponentId:
+      name: componentId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    CredentialId:
+      name: credentialId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    DiagnosticId:
+      name: diagnosticId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    BackupId:
+      name: backupId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    ScopeIdQuery:
+      name: scope_id
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    ObservedAfter:
+      name: observed_after
+      in: query
+      required: false
+      description: Return snapshots observed after this RFC 3339 timestamp when supported.
+      schema:
+        type: string
+        format: date-time
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 512
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  responses:
+    OperationAccepted:
+      description: Operation accepted. This does not prove that an external side effect has completed.
+      headers:
+        Location:
+          description: Relative Operation resource URL.
+          schema:
+            type: string
+        Retry-After:
+          description: Suggested minimum polling interval in seconds when SSE is unavailable.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "./core-models.schema.json#/$defs/Operation"
+    Problem:
+      description: RFC 9457 compatible, user-facing and redacted problem details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    DeadlineRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        deadline_at:
+          type: string
+          format: date-time
+    DiscoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope:
+          type: string
+          enum: [known_components, configured_components, all_approved]
+        component_kinds:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 64
+        deadline_at:
+          type: string
+          format: date-time
+    InstallRequest:
+      type: object
+      additionalProperties: false
+      required: [version_policy, source_ref, expected_digest, confirm]
+      properties:
+        version_policy:
+          type: string
+          enum: [exact, compatible, repair_current]
+        requested_version:
+          type: string
+          maxLength: 128
+        source_ref:
+          $ref: "#/components/schemas/Id"
+        expected_digest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    LifecycleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision:
+          type: string
+          minLength: 1
+          maxLength: 128
+        deadline_at:
+          type: string
+          format: date-time
+    HealthCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [depth, allow_external_side_effects]
+      properties:
+        depth:
+          type: string
+          enum: [shallow, standard, deep]
+        allow_external_side_effects:
+          type: boolean
+          default: false
+        deadline_at:
+          type: string
+          format: date-time
+      allOf:
+        - if:
+            properties:
+              depth:
+                const: deep
+          then:
+            properties:
+              allow_external_side_effects:
+                const: true
+    ConfigurationValidationRequest:
+      type: object
+      additionalProperties: false
+      required: [scope_id, mode, connectivity_check]
+      properties:
+        scope_id:
+          $ref: "#/components/schemas/Id"
+        mode:
+          type: string
+          enum: [current, candidate]
+        candidate:
+          type: object
+          additionalProperties: true
+        expected_revision:
+          type: string
+          maxLength: 128
+        connectivity_check:
+          type: boolean
+          default: false
+        deadline_at:
+          type: string
+          format: date-time
+      allOf:
+        - if:
+            properties:
+              mode:
+                const: candidate
+          then:
+            required: [candidate, expected_revision]
+            properties:
+              candidate:
+                type: object
+                additionalProperties: true
+              expected_revision:
+                type: string
+                maxLength: 128
+    ConfigurationWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [scope_id, values, owner_type, expected_revision]
+      properties:
+        scope_id:
+          $ref: "#/components/schemas/Id"
+        values:
+          type: object
+          additionalProperties: true
+          description: Non-secret values and credential references only.
+        owner_type:
+          type: string
+          enum: [application, official_login, cc_switch, external]
+        expected_revision:
+          type: string
+          minLength: 1
+          maxLength: 128
+        deadline_at:
+          type: string
+          format: date-time
+    OwnerTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [scope_id, from_owner, to_owner, expected_revision, confirm]
+      properties:
+        scope_id:
+          $ref: "#/components/schemas/Id"
+        from_owner:
+          type: string
+          enum: [application, official_login, cc_switch, external]
+        to_owner:
+          type: string
+          enum: [application, official_login, cc_switch, external]
+        expected_revision:
+          type: string
+          minLength: 1
+          maxLength: 128
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    AuthenticationBeginRequest:
+      type: object
+      additionalProperties: false
+      required: [scope_id, route]
+      properties:
+        scope_id:
+          $ref: "#/components/schemas/Id"
+        route:
+          type: string
+          enum: [official_login, application_api]
+        deadline_at:
+          type: string
+          format: date-time
+    CredentialCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, owner, secret]
+      properties:
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 128
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 128
+        secret:
+          type: string
+          minLength: 1
+          maxLength: 65536
+          writeOnly: true
+          description: Never logged, echoed, placed in a URL, or returned to the GUI.
+        expires_at:
+          type: string
+          format: date-time
+    CredentialValidationRequest:
+      type: object
+      additionalProperties: false
+      required: [provider_id, purpose]
+      properties:
+        provider_id:
+          $ref: "#/components/schemas/Id"
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 128
+        deadline_at:
+          type: string
+          format: date-time
+    ChannelValidationRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, allow_send]
+      properties:
+        scope:
+          type: string
+          enum: [configuration, authentication, connection]
+        allow_send:
+          type: boolean
+          const: false
+        deadline_at:
+          type: string
+          format: date-time
+    UpdateCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [component_ids, channel]
+      properties:
+        component_ids:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/Id"
+        channel:
+          type: string
+          enum: [stable, preview]
+        deadline_at:
+          type: string
+          format: date-time
+    UpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [target_version, backup_id, expected_digest, confirm]
+      properties:
+        target_version:
+          type: string
+          minLength: 1
+          maxLength: 128
+        backup_id:
+          $ref: "#/components/schemas/Id"
+        expected_digest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    RollbackRequest:
+      type: object
+      additionalProperties: false
+      required: [backup_id, expected_revision, confirm]
+      properties:
+        backup_id:
+          $ref: "#/components/schemas/Id"
+        expected_revision:
+          type: string
+          minLength: 1
+          maxLength: 128
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    BackupRequest:
+      type: object
+      additionalProperties: false
+      required: [scopes, include_credentials, confirm]
+      properties:
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [program, configuration, credentials, metadata]
+        include_credentials:
+          type: boolean
+          default: false
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    RestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [scopes, confirm]
+      properties:
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [program, configuration, credentials, metadata]
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    MigrationRequest:
+      type: object
+      additionalProperties: false
+      required: [direction, scopes, encrypted, confirm]
+      properties:
+        direction:
+          type: string
+          enum: [export, import]
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [configuration, credentials, metadata]
+        package_ref:
+          $ref: "#/components/schemas/Id"
+        encrypted:
+          type: boolean
+          const: true
+        confirm:
+          type: boolean
+          const: true
+        deadline_at:
+          type: string
+          format: date-time
+    HumanInterventionRequest:
+      type: object
+      additionalProperties: false
+      required: [action, target_type, target_id, expected_revision, causation_id]
+      properties:
+        action:
+          type: string
+          enum: [pause, resume, cancel, intervene, reassign]
+        target_type:
+          type: string
+          enum: [task, child_task, agent]
+        target_id:
+          $ref: "#/components/schemas/Id"
+        expected_revision:
+          type: string
+          minLength: 1
+          maxLength: 128
+        payload:
+          type: object
+          additionalProperties: true
+        causation_id:
+          $ref: "#/components/schemas/Id"
+        deadline_at:
+          type: string
+          format: date-time
+    InterventionAccepted:
+      type: object
+      additionalProperties: false
+      required: [operation, receipt]
+      properties:
+        operation:
+          $ref: "./core-models.schema.json#/$defs/Operation"
+        receipt:
+          $ref: "./core-models.schema.json#/$defs/ControlReceipt"
+    CancelRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 512
+        deadline_at:
+          type: string
+          format: date-time
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [has_more]
+      properties:
+        next_cursor:
+          type: string
+          maxLength: 512
+        has_more:
+          type: boolean
+        resource_version:
+          type: string
+          maxLength: 128
+    DiagnosticPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "./core-models.schema.json#/$defs/Diagnostic"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    LogPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "./core-models.schema.json#/$defs/LogEntry"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    TaskPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "./core-models.schema.json#/$defs/Task"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    OperationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "./core-models.schema.json#/$defs/Operation"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, detail, user_message, retryable, recovery_actions, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{2,127}$"
+        detail:
+          type: string
+          maxLength: 2048
+        user_message:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        retryable:
+          type: boolean
+        recovery_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+        diagnostic_id:
+          $ref: "#/components/schemas/Id"
+        operation_id:
+          $ref: "#/components/schemas/Id"
+        correlation_id:
+          $ref: "#/components/schemas/Id"

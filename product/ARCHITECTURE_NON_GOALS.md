@@ -12,7 +12,7 @@
 2. 不开发第二套完整 Runtime：本产品的 Control Plane 是控制面，不是新的执行运行时。
 3. 不开发第二套消息总线：消息链路沿用 cc-connect 与 Hermes 既有通道，不另起总线。
 4. 不把 Control Plane 变通用 DAG：编排只做本产品所需的中枢委派，不做通用有向无环图引擎。
-5. 不锁定 GUI 技术栈：GUI 通过 Control Plane API 解耦，技术栈可替换，不写死在架构里。
+5. 不让核心绑定 GUI 技术栈：正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但 GUI 通过 Control Plane API 解耦，领域模型、Provider 契约和业务核心不依赖该技术栈。
 6. 不让 GUI 直接依赖上游内部目录：GUI 不读上游组件的内部文件结构，只经 Control Plane。
 7. 不无限扩大 Patch：cc-connect 每个 Patch 对应一个上游缺陷，上游修复即移除，不为便利新增 Patch。
 8. 不无限扩大 dual_agent：dual_agent 只承载当前编排缺口，Hermes 原生支持后即退场。

@@ -12,7 +12,11 @@
 5. CURRENT_RUNTIME_SOURCE_MAP.md（当前运行源码与 Git 的对齐核验）
 6. reference-baseline/SOURCE_OF_TRUTH.md（事实源优先级）
 7. 04_REFERENCE_BASELINE.md（参考基线）
-8. 05_NEXT_PHASE.md（下一阶段）
+8. architecture/control-plane-v1/README.md（Control Plane v1 正式设计包与阅读顺序）
+9. contracts/control-plane-v1/control-plane.openapi.yaml（本地 API 机器契约）
+10. contracts/control-plane-v1/core-models.schema.json（核心领域模型）
+11. contracts/control-plane-v1/event-envelope.schema.json（统一事件信封）
+12. 05_NEXT_PHASE.md（下一阶段）
 
 二、src/ 是什么
 ---------------
@@ -28,8 +32,9 @@ history-minimal/ 只是有长期价值的历史摘要，不是当前事实源。
 
 四、下一阶段
 ------------
-独立 Control Plane 与 Provider/Adapter 契约设计。
-第一轮只做分析和设计，不直接改运行环境，不重启服务，不开发 GUI。
+审阅并冻结 Control Plane v1 契约，然后实现第一个最小纵向切片。
+Control Plane v1 设计包是架构事实源，机器可读契约是接口和模型评审依据；二者都不能覆盖当前运行事实。
+实现只从发现、状态、能力、只读配置校验、受控生命周期、健康与脱敏诊断开始，不直接改运行环境，不重启当前服务，不开发正式 GUI。
 见 next-agent/NEXT_AGENT_PROMPT.txt。
 
 五、遇到矛盾

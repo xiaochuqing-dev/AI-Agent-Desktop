@@ -26,4 +26,5 @@ Patch-set: 0.1，5 个 Patch
 --------------------
 v0.1-reference-baseline 不代表最终产品架构。
 冻结后不在 Hermes 插件和 cc-connect Patch 上继续堆功能。
-下一阶段进入独立 Control Plane 契约设计。
+Control Plane v1 设计包已经形成，但不改变本参考基线。
+下一阶段审阅并冻结 Control Plane v1 契约，然后实现第一个最小纵向切片。

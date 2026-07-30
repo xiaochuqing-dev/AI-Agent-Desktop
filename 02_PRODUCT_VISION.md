@@ -25,6 +25,7 @@ Codex Bot -> cc-connect -> Telegram
 四、产品架构方向
 ----------------
 Desktop GUI -> Local Control Plane -> Provider/Adapter -> Hermes / cc-connect / Claude Code / Codex / Telegram
+GUI 与 Control Plane 独立运行，关闭 GUI 不停止后台。正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但核心架构和 Control Plane 不依赖该技术栈。
 
 五、默认组件定位
 ----------------
@@ -42,4 +43,4 @@ Desktop GUI -> Local Control Plane -> Provider/Adapter -> Hermes / cc-connect / 
 
 七、不得走偏
 ------------
-不重写 Hermes/Claude Code/Codex、不开发第二套完整 Runtime、不开发第二套消息总线、不把 Control Plane 变通用 DAG、不无限扩大 dual_agent 和 Patch、不锁定 GUI 技术栈、不让 GUI 直接依赖上游内部目录。
+不重写 Hermes/Claude Code/Codex、不开发第二套完整 Runtime、不开发第二套消息总线、不把 Control Plane 变通用 DAG、不无限扩大 dual_agent 和 Patch、不让核心架构绑定 GUI 技术栈、不让 GUI 直接依赖上游内部目录。

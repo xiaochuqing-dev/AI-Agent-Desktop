@@ -30,4 +30,16 @@
 13. GUI 状态不只在线/离线，至少包括:
     未安装、已安装未配置、需要登录、配置无效、正在启动、运行正常、部分能力异常、更新可用、启动失败、已停止。
 
-14. 下一阶段先冻结产品架构和 Control Plane 契约，不直接大规模写 GUI。
+14. Control Plane v1 设计包和机器可读契约已经形成；下一阶段先正式审阅并冻结，再实现第一个最小纵向切片，不直接大规模写 GUI。
+
+15. 正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，可使用受控视觉资源、主题和克制动画，但本轮没有实现 GUI。
+
+16. GUI 与 Control Plane 必须是独立进程。关闭 GUI 只断开客户端，不能停止 Control Plane 或后台 Agent/Channel 服务。
+
+17. 选择 PySide6 不代表 Control Plane 必须使用 Python。领域模型、Provider 契约和本地 API 不依赖 QWidget 或任何 GUI 框架。
+
+18. Control Plane v1 默认本地协议为 127.0.0.1 HTTP/JSON，事件使用 SSE；WebSocket 不进入 v1，IPC 仅保留未来等价传输边界。
+
+19. 变更操作采用 Operation、Idempotency-Key 和 revision；取消必须区分请求已接受与外部工作已确认终止。
+
+20. 第一个最小纵向切片只包装当前体系，不实现新 Runtime、新 Channel、通用 DAG、复杂讨论或正式 GUI。

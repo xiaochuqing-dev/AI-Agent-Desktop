@@ -1,0 +1,34 @@
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+
+# Runtime and diagnostic artifacts
+*.log
+*.pid
+*.db
+*.sqlite
+*.sqlite3
+*.session
+*.transcript
+
+# Build and package outputs
+*.exe
+*.msi
+*.zip
+*.7z
+*.bundle
+build/
+dist/
+node_modules/
+
+# Language and editor caches
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.idea/
+.vscode/

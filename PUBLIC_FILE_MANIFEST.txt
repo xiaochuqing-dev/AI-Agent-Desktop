@@ -1,36 +1,128 @@
 PUBLIC_FILE_MANIFEST
-====================
 
-生成时间: 2026-07-30
-仓库: https://github.com/xiaochuqing-dev/AI-Agent-Desktop.git
-文件总数: 92
+Generated: 2026-07-30
+Public file count: 113
 
-一、根目录文档
---------------
-README.md, 00_START_HERE.md, 01_CURRENT_STATE.md, 02_PRODUCT_VISION.md,
-03_LATEST_PRODUCT_DECISIONS.md, 04_REFERENCE_BASELINE.md, 05_NEXT_PHASE.md,
-CURRENT_RUNTIME_SOURCE_MAP.md, SECURITY_REVIEW.md, PUBLIC_FILE_MANIFEST.txt,
-SHA256SUMS.txt, .gitignore
+Scope
+This inventory contains every tracked file and every untracked, non-ignored file intended for this stage.
+It excludes .git metadata and files matched by .gitignore.
+SHA256SUMS.txt covers every listed file except SHA256SUMS.txt itself, avoiding self-reference.
+For byte-for-byte verification, use a clean clone with core.autocrlf=false before checking hashes.
 
-二、目录
---------
-src/                  37 文件  hermes-adapter / dual-agent-fallback / lifecycle
-integrations/cc-connect/  12 文件  patches / scripts / manifests
-config-examples/      3 文件   脱敏配置模板
-product/              6 文件   产品文档
-architecture/         6 文件   架构契约需求
-reference-baseline/   5 文件   版本矩阵 / E2E / 已知问题 / 上游 / 事实源
-tests/                9 文件   unit + e2e-summaries
-history-minimal/      1 文件   历史索引
-next-agent/           1 文件   下一 Agent 提示词
+Excluded artifact classes
+Executable installers, archives, bundles, logs, PID files, databases, sessions, transcripts, and local secrets are not public repository artifacts.
 
-三、排除内容
-------------
-不含: exe / zip / 7z / bundle / 数据库 / 日志 / PID / Session / Transcript
-不含: Token / API Key / Bearer / 真实 Telegram ID / 真实用户名 / 真实路径
-所有真实值已替换为占位符。
-
-四、校验
---------
-完整 SHA256 清单见 SHA256SUMS.txt（92 项）。
-校验方法: sha256sum -c SHA256SUMS.txt
+File list
+.gitignore
+00_START_HERE.md
+01_CURRENT_STATE.md
+02_PRODUCT_VISION.md
+03_LATEST_PRODUCT_DECISIONS.md
+04_REFERENCE_BASELINE.md
+05_NEXT_PHASE.md
+architecture/CHANNEL_MODEL_REQUIREMENTS.md
+architecture/CONTROL_PLANE_REQUIREMENTS.md
+architecture/control-plane-v1/01_USER_JOURNEY_AND_ONBOARDING.md
+architecture/control-plane-v1/02_CONTROL_PLANE_BOUNDARIES.md
+architecture/control-plane-v1/03_PROVIDER_ADAPTER_CONTRACTS.md
+architecture/control-plane-v1/04_DOMAIN_AND_STATE_MODELS.md
+architecture/control-plane-v1/05_LOCAL_API_AND_EVENT_CONTRACT.md
+architecture/control-plane-v1/06_MODEL_CONFIGURATION_AND_CREDENTIALS.md
+architecture/control-plane-v1/07_HUMAN_CONTROL_AND_CONCURRENCY.md
+architecture/control-plane-v1/08_CURRENT_SYSTEM_ADAPTER_MAPPING.md
+architecture/control-plane-v1/09_MIGRATION_AND_FIRST_VERTICAL_SLICE.md
+architecture/control-plane-v1/10_RISKS_OPEN_DECISIONS_AND_NON_GOALS.md
+architecture/control-plane-v1/11_OPEN_SOURCE_DESIGN_REFERENCES.md
+architecture/control-plane-v1/ACCEPTANCE_CHECKLIST.md
+architecture/control-plane-v1/README.md
+architecture/CREDENTIAL_PROVIDER_REQUIREMENTS.md
+architecture/HUMAN_CONTROL_REQUIREMENTS.md
+architecture/MODEL_CONFIGURATION_PROVIDER_REQUIREMENTS.md
+architecture/PROVIDER_CONTRACT_REQUIREMENTS.md
+config-examples/config.example.toml
+config-examples/multiagent.yaml.example
+config-examples/relay_bindings.example.json
+contracts/control-plane-v1/control-plane.openapi.yaml
+contracts/control-plane-v1/core-models.schema.json
+contracts/control-plane-v1/event-envelope.schema.json
+CURRENT_RUNTIME_SOURCE_MAP.md
+history-minimal/HISTORY_INDEX.md
+integrations/cc-connect/manifests/build-manifest.txt
+integrations/cc-connect/manifests/SHA256_MANIFEST.txt
+integrations/cc-connect/manifests/VERSIONS.lock
+integrations/cc-connect/patches/001-telegram-directed-routing.patch
+integrations/cc-connect/patches/002-hook-config-headers.patch
+integrations/cc-connect/patches/003-relay-response-prefix.patch
+integrations/cc-connect/patches/004-message-delivery-hooks.patch
+integrations/cc-connect/patches/005-windows-build-compat.patch
+integrations/cc-connect/patches/README.md
+integrations/cc-connect/README.md
+integrations/cc-connect/scripts/apply-cc-connect-patches.ps1
+integrations/cc-connect/scripts/build-cc-connect.ps1
+integrations/cc-connect/scripts/check-cc-connect-patches.ps1
+LICENSE
+next-agent/NEXT_AGENT_PROMPT.txt
+product/ARCHITECTURE_NON_GOALS.md
+product/COMPONENT_POSITIONING.md
+product/GUI_STATUS_EXPERIENCE.md
+product/MODEL_CONFIGURATION_OWNERSHIP.md
+product/PRODUCT_CONSTITUTION.md
+product/TEN_MINUTE_ONBOARDING.md
+PUBLIC_FILE_MANIFEST.txt
+PUBLIC_HANDOFF_READY.md
+README.md
+reference-baseline/E2E_VALIDATION.md
+reference-baseline/KNOWN_ISSUES.md
+reference-baseline/SOURCE_OF_TRUTH.md
+reference-baseline/UPSTREAM_REVISIONS.md
+reference-baseline/VERSION_MATRIX.md
+reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
+SECURITY_REVIEW.md
+SHA256SUMS.txt
+src/dual-agent-fallback/__init__.py
+src/dual-agent-fallback/aggregate.py
+src/dual-agent-fallback/delegator.py
+src/dual-agent-fallback/guard.py
+src/dual-agent-fallback/runner.py
+src/dual-agent-fallback/tests/__init__.py
+src/dual-agent-fallback/tests/test_dual_agent.py
+src/hermes-adapter/__init__.py
+src/hermes-adapter/_planner.py
+src/hermes-adapter/commands.py
+src/hermes-adapter/config.py
+src/hermes-adapter/orchestrator.py
+src/hermes-adapter/plugin.yaml
+src/hermes-adapter/policy.py
+src/hermes-adapter/relay_client.py
+src/hermes-adapter/store.py
+src/hermes-adapter/tests/__init__.py
+src/hermes-adapter/tests/test_dual_agent_root.py
+src/hermes-adapter/tests/test_intent.py
+src/hermes-adapter/tests/test_orchestrator.py
+src/hermes-adapter/tests/test_planner.py
+src/hermes-adapter/tests/test_policy.py
+src/hermes-adapter/tests/test_relay_client.py
+src/hermes-adapter/tests/test_store.py
+src/hermes-adapter/webhook_receiver.py
+src/lifecycle/cc-connect/apply-cc-connect-patches.ps1
+src/lifecycle/cc-connect/build-cc-connect.ps1
+src/lifecycle/cc-connect/cc_connect_autostart.py
+src/lifecycle/cc-connect/CcConnect_Autostart.cmd
+src/lifecycle/cc-connect/CcConnect_Autostart.vbs
+src/lifecycle/cc-connect/check-cc-connect-patches.ps1
+src/lifecycle/create-junction.ps1
+src/lifecycle/health-check.ps1
+src/lifecycle/Hermes_Gateway.cmd
+src/lifecycle/Hermes_Gateway.vbs
+src/lifecycle/Hermes_Gateway_Watchdog.vbs
+src/lifecycle/remove-junction.ps1
+tests/e2e-summaries/TEST_RESULTS_SUMMARY.md
+tests/unit/__init__.py
+tests/unit/test_dual_agent.py
+tests/unit/test_dual_agent_root.py
+tests/unit/test_intent.py
+tests/unit/test_orchestrator.py
+tests/unit/test_planner.py
+tests/unit/test_policy.py
+tests/unit/test_relay_client.py
+tests/unit/test_store.py

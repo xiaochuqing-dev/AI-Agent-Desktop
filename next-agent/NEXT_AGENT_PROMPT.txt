@@ -3,37 +3,49 @@
 
 你接手 AI-Agent-Desktop 公开仓库。本仓库是当前公开事实源。
 
-请先阅读:
+先按顺序阅读：
 1. 00_START_HERE.md
 2. 01_CURRENT_STATE.md
 3. 02_PRODUCT_VISION.md
 4. 03_LATEST_PRODUCT_DECISIONS.md
 5. CURRENT_RUNTIME_SOURCE_MAP.md
 6. reference-baseline/SOURCE_OF_TRUTH.md
-7. 05_NEXT_PHASE.md
+7. 04_REFERENCE_BASELINE.md
+8. architecture/control-plane-v1/README.md，并按其中顺序读完 01 至 11 和 ACCEPTANCE_CHECKLIST.md
+9. contracts/control-plane-v1/control-plane.openapi.yaml
+10. contracts/control-plane-v1/core-models.schema.json
+11. contracts/control-plane-v1/event-envelope.schema.json
+12. 05_NEXT_PHASE.md
 
-要点:
-- src/ 保存的是与当前运行体对齐的源码，修改 src/ 即修改当前真实集成代码
-- 旧报告和 history-minimal 不是当前事实源
-- 当前运行源码已核验（CURRENT RUNTIME SOURCE VERIFIED）
+下一阶段准确名称：
+审阅并冻结 Control Plane v1 契约，然后实现第一个最小纵向切片。
 
-下一阶段: 独立 Control Plane 与 Provider/Adapter 契约设计
-第一轮只做:
-- 产品用户流程
-- Control Plane 边界
-- Provider/Adapter 契约
-- 通用数据模型
-- ModelConfigurationProvider
-- CredentialProvider
-- GUI 状态和十分钟安装流程
+开始编码前：
+- 核对自然语言设计与机器契约，发现冲突时同时修正，不静默选择一方
+- 为实现语言与框架、事务存储、Windows 后台宿主、CredentialBackend 形成 ADR
+- 建立 Provider 契约测试、Operation 恢复测试、安全测试和 Reference Baseline 回归计划
+- 再次确认 src/ 与 integrations/cc-connect/patches/ 是当前参考实现证据，不得被旧快照覆盖
 
-第一轮禁止:
-- 直接改当前运行环境
-- 重启服务
-- 继续扩大 cc-connect Patch 或 dual_agent
-- 重写 Hermes 或 cc-connect
-- 立刻开发正式 GUI
-- 锁定 GUI 技术栈
+第一个最小纵向切片只能包含：
+- 本机组件与依赖发现
+- 安装、配置、授权、运行、健康、更新状态展示
+- 版本、Agent、Capability 展示
+- 脱敏配置读取和只读校验
+- 通过 shadow plan 与 controlled takeover 门禁后的启动、停止、重启
+- 无副作用健康检查
+- 统一脱敏日志、Operation、SSE 和用户可理解错误
 
-先输出契约设计方案，等用户确认后再进入代码阶段。
-遇到矛盾以实际 Git/SHA256 为准，停下报告，不猜测。
+实现顺序是先只读观测，再逐组件接管生命周期。能力不足返回 unsupported，状态无法证明返回 unknown。不要用现有脚本拼接出虚假的完整能力。
+
+禁止：
+- 直接修改当前真实运行环境、配置、凭据、计划任务、junction 或服务
+- 重启当前服务或执行会产生真实消息的 Telegram E2E
+- 扩大 dual_agent 或 5 个 cc-connect Patch
+- 重写 Hermes、cc-connect、Claude Code 或 Codex
+- 开始正式 PySide6 GUI 大开发
+- 新 Channel、新 Runtime、复杂讨论、通用 DAG、第二套消息总线或插件市场
+- 把设计端点、experimental 能力或尽力取消写成已实现/强取消
+
+PySide6 + Qt Widgets + QSS 是正式 GUI 当前首选，但 GUI 与 Control Plane 必须独立，GUI 关闭后台继续；Control Plane、领域模型和 Provider 契约不得依赖该 GUI 技术栈。
+
+遇到真正的 Git、SHA256、源码或事实冲突时，以实际文件和 Git 为准，停下报告，不猜测、不强推。

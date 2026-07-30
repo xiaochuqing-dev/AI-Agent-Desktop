@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-agent-desktop:control-plane:v1:event-envelope",
+  "title": "AI Agent Desktop Control Plane v1 event envelope",
+  "description": "CloudEvents 1.0 compatible local event envelope carried over authenticated SSE. Delivery is at least once.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "subject",
+    "datacontenttype",
+    "sequence",
+    "epoch",
+    "resourceversion",
+    "correlationid",
+    "data"
+  ],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "source": { "type": "string", "format": "uri-reference", "minLength": 1, "maxLength": 512 },
+    "type": {
+      "type": "string",
+      "pattern": "^com\\.aiagentdesktop\\.[a-z0-9]+(?:\\.[a-z0-9]+)*\\.v[1-9][0-9]*$",
+      "maxLength": 256
+    },
+    "time": { "type": "string", "format": "date-time" },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "datacontenttype": { "const": "application/json" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "epoch": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "resourceversion": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "correlationid": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "operationid": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "severity": { "type": "string", "enum": ["debug", "info", "warning", "error"] },
+    "data": { "$ref": "#/$defs/EventData" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "pattern": "^com\\.aiagentdesktop\\.operation\\."
+          }
+        }
+      },
+      "then": { "required": ["operationid"] }
+    }
+  ],
+  "$defs": {
+    "ResourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "EventData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_ref", "change"],
+      "properties": {
+        "resource_ref": { "$ref": "#/$defs/ResourceRef" },
+        "change": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "snapshot": { "type": "object", "additionalProperties": true },
+        "progress": { "type": "object", "additionalProperties": true },
+        "diagnostic_ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "log_entry_ref": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    }
+  }
+}

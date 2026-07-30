@@ -54,6 +54,9 @@ Desktop GUI -> Local Control Plane -> Provider/Adapter -> Hermes/cc-connect/Clau
 GUI 不直接调用上游组件，只与 Local Control Plane 的 API 交互。
 Control Plane 之下是 Provider/Adapter 层，负责对接具体组件。
 Hermes、cc-connect、Claude Code、Codex、Telegram 均作为可替换的 Provider 或 Channel 存在。
+GUI 与 Control Plane 必须独立运行；关闭 GUI 不能停止 Control Plane 或已运行的 Agent/Channel 服务。
+正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但该选择不得绑定 Control Plane 实现语言，也不得让领域模型、Provider 契约或业务核心依赖 QWidget。
+未来可以更换 GUI 技术栈，而不改变 Control Plane 的稳定 API。
 这一分层是本产品所有后续设计的前提。
 
 ————————————————————————————————
@@ -74,6 +77,6 @@ Hermes、cc-connect、Claude Code、Codex、Telegram 均作为可替换的 Provi
 不开发第二套消息总线。
 不把 Control Plane 变成通用 DAG 编排引擎。
 不继续无限扩大 dual_agent 和 cc-connect Patch。
-不锁定 GUI 技术栈。
+可以确定当前 GUI 首选实现，但核心架构不得依赖或绑定该技术栈。
 不让 GUI 直接依赖上游组件的内部目录结构。
 任何提案若落入上述任一条，视为偏离产品方向，需退回重新设计。
