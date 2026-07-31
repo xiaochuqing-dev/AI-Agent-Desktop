@@ -17,12 +17,21 @@
 11. contracts/control-plane-v1/event-envelope.schema.json
 12. 05_NEXT_PHASE.md
 
+上一阶段（已交付，见 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md）：
+Control Plane v1 契约正式冻结（x-contract-status: frozen，version 1.0.0），四项 ADR 已冻结
+（architecture/control-plane-v1/adr/）。独立 Control Plane 基础服务已实现于 control-plane/：
+只读就绪扫描、ReadinessReport、DryRunPlan、Operation+SSE、6 个只读发现 Adapter、
+loopback+Bearer+全链路脱敏。本地 ruff/mypy/38 测试全绿，CI 工作流已就位
+（.github/workflows/control-plane-ci.yml）。未改 src/ 与 cc-connect Patch，未发真实 Telegram 消息。
+
 下一阶段准确名称：
-审阅并冻结 Control Plane v1 契约，然后实现第一个最小纵向切片。
+单组件真实安装纵向切片——把 dry-run 安装计划升级为可确认、可审计、可取消、可回滚的真实安装。
+优先候选：cc-connect（已有 patch+构建链+SHA256 校验，边界最清晰）。
 
 开始编码前：
+- 先读 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md，了解已实现端点矩阵、DEFERRED 项与技术债
 - 核对自然语言设计与机器契约，发现冲突时同时修正，不静默选择一方
-- 为实现语言与框架、事务存储、Windows 后台宿主、CredentialBackend 形成 ADR
+- 为实现语言与框架、事务存储、Windows 后台宿主、CredentialBackend 形成 ADR（已由 ADR-001..004 冻结，沿用即可）
 - 建立 Provider 契约测试、Operation 恢复测试、安全测试和 Reference Baseline 回归计划
 - 再次确认 src/ 与 integrations/cc-connect/patches/ 是当前参考实现证据，不得被旧快照覆盖
 
