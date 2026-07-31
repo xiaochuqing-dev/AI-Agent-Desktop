@@ -2,11 +2,7 @@
 # 全程无副作用:不安装、不登录、不启停、不发消息、不改配置。
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Callable
-
 from ..domain.models import (
-    Capability,
     Component,
     DryRunAction,
     DryRunActionType,

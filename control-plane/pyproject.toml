@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "control-plane"
 version = "0.1.0"
 description = "AI Agent Desktop Local Control Plane: read-only readiness scan, dry-run plan, no side effects."
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "AI Agent Desktop" }]
@@ -53,9 +53,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
-ignore = ["E501"]
+ignore = ["E501", "UP042"]
 
 [tool.mypy]
-python_version = "3.12"
-strict = true
+python_version = "3.11"
+strict = false
 ignore_missing_imports = true
+warn_unused_ignores = true

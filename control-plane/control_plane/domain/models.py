@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -215,17 +215,17 @@ class Component(ModelConfig):
     component_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
     kind: str = Field(min_length=1, max_length=64)
     display_name: str = Field(min_length=1, max_length=256)
-    version: Optional[str] = Field(default=None, max_length=128)
+    version: str | None = Field(default=None, max_length=128)
     state: StateSnapshot
     provider_refs: list[str] = Field(default_factory=list)
 
 
 class OperationProgress(ModelConfig):
     phase: str = Field(min_length=1, max_length=128)
-    percent: Optional[float] = Field(default=None, ge=0, le=100)
+    percent: float | None = Field(default=None, ge=0, le=100)
     message: str = Field(max_length=2048)
     completed_units: int = Field(ge=0)
-    total_units: Optional[int] = Field(default=None, ge=0)
+    total_units: int | None = Field(default=None, ge=0)
     point_of_no_return: bool
 
 
@@ -234,8 +234,8 @@ class UserFacingError(ModelConfig):
     message: str = Field(min_length=1, max_length=2048)
     retryable: bool
     recovery_actions: list[str] = Field(default_factory=list)
-    diagnostic_id: Optional[str] = Field(default=None, max_length=128)
-    operation_id: Optional[str] = Field(default=None, max_length=128)
+    diagnostic_id: str | None = Field(default=None, max_length=128)
+    operation_id: str | None = Field(default=None, max_length=128)
 
 
 class Operation(ModelConfig):
@@ -244,13 +244,13 @@ class Operation(ModelConfig):
     target_ref: ResourceRef
     status: OperationStatus
     progress: OperationProgress
-    result: Optional[dict[str, Any]] = None
-    error: Optional[UserFacingError] = None
+    result: dict[str, Any] | None = None
+    error: UserFacingError | None = None
     idempotency_key: str = Field(min_length=16, max_length=256)
-    deadline_at: Optional[datetime] = None
+    deadline_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class Diagnostic(ModelConfig):
@@ -264,8 +264,8 @@ class Diagnostic(ModelConfig):
     redaction_applied: bool = True
     created_at: datetime
     correlation_id: str = Field(min_length=1, max_length=128)
-    operation_id: Optional[str] = Field(default=None, max_length=128)
-    target_ref: Optional[ResourceRef] = None
+    operation_id: str | None = Field(default=None, max_length=128)
+    target_ref: ResourceRef | None = None
 
 
 class SystemInfo(ModelConfig):
@@ -310,7 +310,7 @@ class SecretRef(ModelConfig):
     owner: str = Field(min_length=1, max_length=128)
     backend: str = Field(min_length=1, max_length=128)
     status: CredentialStatus
-    exists: Optional[bool] = None
+    exists: bool | None = None
     redacted: bool = True
 
 
@@ -343,5 +343,5 @@ class CredentialMetadata(ModelConfig):
     revision: str = Field(min_length=1, max_length=128)
     created_at: datetime
     updated_at: datetime
-    last_validated_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
+    last_validated_at: datetime | None = None
+    expires_at: datetime | None = None

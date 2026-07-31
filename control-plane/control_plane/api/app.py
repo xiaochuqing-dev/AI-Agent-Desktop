@@ -4,16 +4,13 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import threading
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
 
 from ..adapters.discovery import default_adapters
 from ..application.discovery_service import DiscoveryService
@@ -53,11 +50,11 @@ class AppState:
         # 启动恢复:未终止 Operation 转 failed
         with self.db.session() as s:
             OperationStore(s).recover_on_startup()
-        self.started_at = datetime.now(timezone.utc)
+        self.started_at = datetime.now(UTC)
         self.instance_id = f"cp-{uuid.uuid4().hex[:12]}"
 
 
-_STATE: Optional[AppState] = None
+_STATE: AppState | None = None
 
 
 def get_state() -> AppState:
@@ -70,7 +67,7 @@ def init_state(settings: Settings, adapters: list | None = None) -> None:
     _STATE = AppState(settings, adapters)
 
 
-def _bearer_auth(authorization: Optional[str] = Header(default=None)) -> str:
+def _bearer_auth(authorization: str | None = Header(default=None)) -> str:
     # 仅接受 Authorization: Bearer <token>;禁止 query token
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(
@@ -88,13 +85,19 @@ def _bearer_auth(authorization: Optional[str] = Header(default=None)) -> str:
 
 
 def _check_loopback(request: Request) -> None:
-    # 拒绝非 loopback 远端地址
-    client = request.client.host if request.client else ""
-    if client not in ("127.0.0.1", "::1", "localhost"):
+    # 校验 Host 头为 loopback(防 DNS rebinding);uvicorn 已绑 127.0.0.1 保证物理 loopback。
+    host = request.headers.get("host", "").lower()
+    ok = (
+        host == "127.0.0.1" or host.startswith("127.0.0.1:")
+        or host == "localhost" or host.startswith("localhost:")
+        or host == "[::1]" or host.startswith("[::1]:")
+        or host == "::1"
+    )
+    if not ok:
         raise HTTPException(status_code=403, detail={"code": "NON_LOOPBACK", "user_message": "仅允许 loopback。"})
 
 
-def _correlation(x_correlation_id: Optional[str]) -> str:
+def _correlation(x_correlation_id: str | None) -> str:
     return x_correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
 
 
@@ -174,7 +177,7 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
         request: Request,
         response: Response,
         idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
-        x_correlation_id: Optional[str] = Header(default=None, alias="X-Correlation-ID"),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
         _token: str = Depends(_bearer_auth),
     ):
         st = get_state()
@@ -222,13 +225,13 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
 
     @api.get("/api/v1/readiness", response_model=ReadinessReport, tags=["Discovery"])
     def get_readiness(
-        x_correlation_id: Optional[str] = Header(default=None, alias="X-Correlation-ID"),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
         _token: str = Depends(_bearer_auth),
     ):
         st = get_state()
         with st.db.session() as s:
             store = OperationStore(s)
-            ops = store.list(kind="discovery", limit=20)
+            ops = store.list_operations(kind="discovery", limit=20)
         for op in ops:
             if op.status == OperationStatus.SUCCEEDED and op.result:
                 report = ReadinessReport.model_validate(op.result)
@@ -249,7 +252,7 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
         st = get_state()
         with st.db.session() as s:
             store = OperationStore(s)
-            ops = store.list(kind="discovery", limit=20)
+            ops = store.list_operations(kind="discovery", limit=20)
         for op in ops:
             if op.status == OperationStatus.SUCCEEDED and op.result:
                 report = ReadinessReport.model_validate(op.result)
@@ -261,7 +264,7 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
         st = get_state()
         with st.db.session() as s:
             store = OperationStore(s)
-            ops = store.list(kind="discovery", limit=20)
+            ops = store.list_operations(kind="discovery", limit=20)
         for op in ops:
             if op.status == OperationStatus.SUCCEEDED and op.result:
                 report = ReadinessReport.model_validate(op.result)
@@ -280,15 +283,15 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
 
     @api.get("/api/v1/operations", response_model=list[Operation], tags=["Operations"])
     def list_operations(
-        op_status: Optional[str] = None,
-        kind: Optional[str] = None,
-        target_id: Optional[str] = None,
+        op_status: str | None = None,
+        kind: str | None = None,
+        target_id: str | None = None,
         _token: str = Depends(_bearer_auth),
     ):
         st = get_state()
         with st.db.session() as s:
             store = OperationStore(s)
-            ops = store.list(status=op_status, kind=kind, target_id=target_id, limit=50)
+            ops = store.list_operations(status=op_status, kind=kind, target_id=target_id, limit=50)
         return redact_value([o.model_dump(mode="json") for o in ops])
 
     @api.get("/api/v1/operations/{operation_id}", response_model=Operation, tags=["Operations"])
@@ -339,7 +342,8 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                 )
             store.transition(operation_id, status=OperationStatus.CANCEL_REQUESTED, phase="cancel_requested")
             op = store.get(operation_id)
-        return redact_value(op.model_dump(mode="json"))  # type: ignore[arg-type]
+        assert op is not None
+        return redact_value(op.model_dump(mode="json"))
 
     # lifecycle/credentials/owner 真实写入端点:首片统一 CAPABILITY_UNSUPPORTED
     @api.post("/api/v1/components/{component_id}:start", status_code=202, tags=["Components"])
@@ -371,8 +375,8 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
     @api.get("/api/v1/events", tags=["Events"])
     async def subscribe_events(
         request: Request,
-        topics: Optional[str] = None,
-        last_event_id: Optional[str] = Header(default=None, alias="Last-Event-ID"),
+        topics: str | None = None,
+        last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
         _token: str = Depends(_bearer_auth),
     ):
         st = get_state()
@@ -397,6 +401,8 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
         topic_set = set(topics.split(",")) if topics else None
 
         async def event_gen():
+            # 首块:连接确认,让客户端立即收到响应
+            yield ": connected\n\n"
             try:
                 for ev in replay:
                     if topic_set and not any(ev.type.startswith(t) for t in topic_set):
@@ -405,7 +411,7 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                 while True:
                     try:
                         ev = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         # 心跳,保持连接
                         yield ": ping\n\n"
                         continue

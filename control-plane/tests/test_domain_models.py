@@ -1,15 +1,16 @@
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from control_plane.domain.models import (
+    CredentialStatus,
     DryRunAction,
     DryRunActionType,
     DryRunPlan,
     EstimatedRisk,
     ReadinessReport,
     SecretRef,
-    CredentialStatus,
 )
 
 
@@ -34,7 +35,7 @@ def test_dryrun_plan_execute_always_false():
         plan_id="plan-1",
         operation_id="op-1",
         actions=[_action()],
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
     assert plan.execute is False
     assert plan.status == "planned"
@@ -75,20 +76,20 @@ def test_secret_ref_never_carries_value():
 
 
 def test_readiness_report_system_modified_false():
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     plan = DryRunPlan(
         plan_id="p",
         operation_id="o",
         actions=[_action()],
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
     rpt = ReadinessReport(
         report_id="r",
         scan_operation_id="o",
         user_summary="ok",
         dry_run_plan=plan,
-        scanned_at=datetime.now(timezone.utc),
+        scanned_at=datetime.now(UTC),
         scan_version="0.1.0",
     )
     assert rpt.system_modified is False

@@ -1,8 +1,6 @@
 # 结构化错误:problem+json + 稳定 code。Secret、堆栈、私有路径不出现。
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -16,8 +14,8 @@ class Problem(BaseModel):
     user_message: str = Field(min_length=1, max_length=2048)
     retryable: bool
     recovery_actions: list[str] = Field(default_factory=list)
-    diagnostic_id: Optional[str] = None
-    operation_id: Optional[str] = None
+    diagnostic_id: str | None = None
+    operation_id: str | None = None
     correlation_id: str = "default"
 
 

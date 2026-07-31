@@ -1,8 +1,8 @@
 # 数据库会话:SQLite WAL,启用外键。数据目录在本地磁盘。
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine

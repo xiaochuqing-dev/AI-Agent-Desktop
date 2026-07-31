@@ -7,14 +7,14 @@ import asyncio
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..domain.models import ResourceRef
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -115,9 +115,9 @@ class EventLog:
                 epoch_part, seq_part = last_event_id.split(":")
                 seq = int(seq_part)
             except ValueError:
-                raise CursorExpired()
+                raise CursorExpired() from None
             if epoch_part != self.epoch:
-                raise CursorExpired()
+                raise CursorExpired() from None
             replay = [e for e in self._events if e.sequence > seq]
         self._subscribers.append(queue)
         return queue, replay

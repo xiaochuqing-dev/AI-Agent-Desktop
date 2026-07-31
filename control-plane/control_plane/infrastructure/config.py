@@ -11,7 +11,7 @@ from platformdirs import user_data_dir
 
 def default_data_dir() -> str:
     # 平台用户数据目录,Windows 下为 %LOCALAPPDATA%/<app>/control-plane
-    return user_data_dir("AI-Agent-Desktop", appauthor=False)  # type: ignore[return-value]
+    return user_data_dir("AI-Agent-Desktop", appauthor=False)
 
 
 @dataclass
@@ -52,7 +52,7 @@ class Settings:
         return token
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         port = os.environ.get("CONTROL_PLANE_PORT")
         bind_port = int(port) if port else cls.bind_port
         data_dir = os.environ.get("CONTROL_PLANE_DATA_DIR") or default_data_dir()

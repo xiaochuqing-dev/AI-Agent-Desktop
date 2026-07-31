@@ -5,8 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,7 +21,7 @@ from ..persistence.models import IdempotencyRecord, OperationRecord
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_id(prefix: str) -> str:
@@ -108,7 +107,7 @@ class OperationStore:
         )
         self.s.merge(rec)
 
-    def _load(self, operation_id: str) -> Optional[Operation]:
+    def _load(self, operation_id: str) -> Operation | None:
         rec = self.s.get(OperationRecord, operation_id)
         if rec is None:
             return None
@@ -137,15 +136,15 @@ class OperationStore:
             completed_at=rec.completed_at,
         )
 
-    def get(self, operation_id: str) -> Optional[Operation]:
+    def get(self, operation_id: str) -> Operation | None:
         return self._load(operation_id)
 
-    def list(
+    def list_operations(
         self,
         *,
-        status: Optional[str] = None,
-        kind: Optional[str] = None,
-        target_id: Optional[str] = None,
+        status: str | None = None,
+        kind: str | None = None,
+        target_id: str | None = None,
         limit: int = 50,
     ) -> list[Operation]:
         stmt = select(OperationRecord).order_by(OperationRecord.created_at.desc()).limit(limit)
@@ -162,13 +161,13 @@ class OperationStore:
         operation_id: str,
         *,
         status: OperationStatus,
-        phase: Optional[str] = None,
-        message: Optional[str] = None,
-        completed_units: Optional[int] = None,
-        total_units: Optional[int] = None,
-        result: Optional[dict] = None,
-        error: Optional[UserFacingError] = None,
-    ) -> Optional[Operation]:
+        phase: str | None = None,
+        message: str | None = None,
+        completed_units: int | None = None,
+        total_units: int | None = None,
+        result: dict | None = None,
+        error: UserFacingError | None = None,
+    ) -> Operation | None:
         rec = self.s.get(OperationRecord, operation_id)
         if rec is None:
             return None

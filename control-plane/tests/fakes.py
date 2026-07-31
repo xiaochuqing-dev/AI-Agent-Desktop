@@ -1,7 +1,7 @@
 # 合成 Fake Adapter,供 API 与发现服务测试使用。绝不扫描真实运行环境。
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from control_plane.domain.models import (
     Capability,
@@ -20,7 +20,7 @@ from control_plane.domain.ports import DiscoveryAdapter
 
 
 def _ts() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _snap(
