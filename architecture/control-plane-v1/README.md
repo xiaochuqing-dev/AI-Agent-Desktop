@@ -2,10 +2,11 @@
 
 ## 文档状态
 
-- 设计版本：`1.0.0-rc.1`
-- 契约状态：已形成并冻结供正式评审；标记为 `experimental` 或 `draft` 的条目除外
+- 设计版本：`1.0.0`
+- 契约状态：已正式冻结；标记为 `experimental` 或 `draft` 的条目除外
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
+- 实现决策：ADR-001..004 已冻结（见 `adr/`）
 - 实现状态：仅设计契约；没有 Control Plane 运行时代码，也没有正式 GUI
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
@@ -69,13 +70,13 @@
 
 ## 未冻结项
 
-以下条目不阻塞契约评审，必须在实现前作出记录并保持接口兼容：
+以下条目不阻塞契约评审。前四项已由 ADR-001..004 冻结（见 `adr/`），其余为开放实现参数，须在首片原型中测量并记录：
 
-- Control Plane 实现语言与框架
-- 元数据存储引擎的最终选择；v1 推荐单用户事务型本地存储
-- Windows 后台宿主采用登录启动项、计划任务还是用户服务
+- Control Plane 实现语言与框架 — 已由 ADR-001 冻结
+- 元数据存储引擎的最终选择 — 已由 ADR-002 冻结（SQLite WAL + SQLAlchemy 2 + Alembic）
+- Windows 后台宿主采用登录启动项、计划任务还是用户服务 — 已由 ADR-003 冻结（本阶段前台进程，不接管生命周期）
+- Windows Credential Manager 与 DPAPI 封装的最终实现组合 — 已由 ADR-004 冻结（keyring + DPAPI 策略，本阶段只读）
 - loopback 端口分配与事件保留窗口的具体默认值
-- Windows Credential Manager 与 DPAPI 封装的最终实现组合
 - Provider 是否在后续版本支持进程外插件；v1 不实现通用插件装载器
 - 讨论模式与外部 Runtime 能否提供强暂停、强取消的能力等级
 

@@ -32,6 +32,10 @@
 | Operation | operation_id、kind、target_ref、status、progress、result/error、idempotency_key、timestamps | 安装、启停、配置等控制操作；不承载 Agent 推理 |
 | OperationProgress | phase、percent 可选、message、completed_units、total_units、point_of_no_return | 可恢复的阶段进度；percent 未知时省略 |
 | Diagnostic | diagnostic_id、severity、code、summary、user_message、suggested_actions、technical_details、redaction_applied | 技术诊断；technical_details 已脱敏且默认折叠 |
+| ReadinessReport | report_id、scan_operation_id、user_summary、blockers、warnings、ready_items、suggested_actions、estimated_next_steps、dry_run_plan、evidence_sources、scanned_at、scan_version、system_modified | 一次就绪扫描的聚合只读报告；不含 Secret；声明本次扫描未修改系统 |
+| DryRunPlan | plan_id、operation_id、execute、status、actions、generated_at | 只生成不执行的动作计划；首片 execute 恒为 false、status 恒为 planned |
+| DryRunAction | action_id、component_id、action_type、reason、prerequisites、requires_admin、requires_user_interaction、secret_required、estimated_risk、reversible、rollback_hint、status | dry-run 计划中的单条动作；首片不执行 |
+| SecretRef | secret_ref_id、credential_ref、purpose、owner、backend、status、exists | 对已存 Secret 的引用；永不承载值；就绪扫描只判断引用是否存在或可访问 |
 | UserFacingError | code、message、retryable、recovery_actions、diagnostic_id、operation_id | 面向用户的错误层，不含堆栈与 Secret |
 
 ## 状态对象
