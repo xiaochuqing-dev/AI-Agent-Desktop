@@ -57,7 +57,7 @@ def test_dryrun_action_rejects_extra_fields():
             reversible=True,
             rollback_hint="",
             status="planned",
-            unexpected="x",  # type: ignore[arg-type]
+            unexpected="x",
         )
 
 

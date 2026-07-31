@@ -66,7 +66,9 @@ def _plan_action_for(component: Component) -> DryRunAction | None:
 
 
 class DiscoveryService:
-    def __init__(self, adapters: list[DiscoveryAdapter], store: OperationStore, events: EventLog) -> None:
+    def __init__(
+        self, adapters: list[DiscoveryAdapter], store: OperationStore, events: EventLog
+    ) -> None:
         self.adapters = adapters
         self.store = store
         self.events = events
@@ -128,7 +130,8 @@ class DiscoveryService:
             operation_id=operation_id,
             execute=False,
             status="planned",
-            actions=actions or [
+            actions=actions
+            or [
                 DryRunAction(
                     action_id="act-noop",
                     component_id="system",

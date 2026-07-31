@@ -71,7 +71,9 @@ def _snapshot(
     )
 
 
-def _version_of(exe: str, args: list[str] | None = None, timeout: float = 5.0) -> tuple[str | None, bool]:
+def _version_of(
+    exe: str, args: list[str] | None = None, timeout: float = 5.0
+) -> tuple[str | None, bool]:
     # 调用 --version 解析版本(只读)。返回 (version, reliable)。
     try:
         proc = subprocess.run(
@@ -192,7 +194,9 @@ class WindowsSystemDiscoveryAdapter(DiscoveryAdapter):
                     authentication=AuthenticationState.NOT_REQUIRED,
                     runtime=RuntimeState.RUNNING,
                     health=HealthState.HEALTHY if disk_ok else HealthState.DEGRADED,
-                    user_status=UserStatus.RUNNING_HEALTHY if disk_ok else UserStatus.PARTIALLY_DEGRADED,
+                    user_status=UserStatus.RUNNING_HEALTHY
+                    if disk_ok
+                    else UserStatus.PARTIALLY_DEGRADED,
                     conditions=[cond],
                 ),
                 provider_refs=[],
@@ -222,8 +226,12 @@ class HermesDiscoveryAdapter(DiscoveryAdapter):
                 display_name="Hermes",
                 version=version,
                 state=_snapshot(
-                    installation=InstallationState.INSTALLED if installed else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.VALID if config_exists else ConfigurationState.MISSING,
+                    installation=InstallationState.INSTALLED
+                    if installed
+                    else InstallationState.NOT_INSTALLED,
+                    configuration=ConfigurationState.VALID
+                    if config_exists
+                    else ConfigurationState.MISSING,
                     runtime=RuntimeState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
@@ -260,8 +268,12 @@ class CcConnectDiscoveryAdapter(DiscoveryAdapter):
                 display_name="cc-connect",
                 version=version,
                 state=_snapshot(
-                    installation=InstallationState.INSTALLED if installed else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.VALID if config_exists else ConfigurationState.MISSING,
+                    installation=InstallationState.INSTALLED
+                    if installed
+                    else InstallationState.NOT_INSTALLED,
+                    configuration=ConfigurationState.VALID
+                    if config_exists
+                    else ConfigurationState.MISSING,
                     runtime=RuntimeState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
@@ -294,7 +306,9 @@ class ClaudeCodeDiscoveryAdapter(DiscoveryAdapter):
                 display_name="Claude Code",
                 version=version,
                 state=_snapshot(
-                    installation=InstallationState.INSTALLED if exe else InstallationState.NOT_INSTALLED,
+                    installation=InstallationState.INSTALLED
+                    if exe
+                    else InstallationState.NOT_INSTALLED,
                     user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
                     conditions=_version_condition(version, reliable),
                 ),
@@ -322,7 +336,9 @@ class CodexDiscoveryAdapter(DiscoveryAdapter):
                 display_name="Codex",
                 version=version,
                 state=_snapshot(
-                    installation=InstallationState.INSTALLED if exe else InstallationState.NOT_INSTALLED,
+                    installation=InstallationState.INSTALLED
+                    if exe
+                    else InstallationState.NOT_INSTALLED,
                     user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
                     conditions=_version_condition(version, reliable),
                 ),
@@ -351,9 +367,13 @@ class TelegramConfigDiscoveryAdapter(DiscoveryAdapter):
                 display_name="Telegram Channel",
                 version=None,
                 state=_snapshot(
-                    installation=InstallationState.INSTALLED if installed else InstallationState.NOT_INSTALLED,
+                    installation=InstallationState.INSTALLED
+                    if installed
+                    else InstallationState.NOT_INSTALLED,
                     configuration=ConfigurationState.VALID if valid else ConfigurationState.MISSING,
-                    authentication=AuthenticationState.REQUIRED if not valid else AuthenticationState.UNKNOWN,
+                    authentication=AuthenticationState.REQUIRED
+                    if not valid
+                    else AuthenticationState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
                         if installed and not valid

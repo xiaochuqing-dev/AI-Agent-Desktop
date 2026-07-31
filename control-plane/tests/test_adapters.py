@@ -74,7 +74,7 @@ def test_windows_system_adapter_low_disk(monkeypatch):
 def test_adapter_failure_returns_empty_not_exception(monkeypatch):
     # 单探针失败不抛底层异常,返回空列表(发现服务据此设 unknown)
     class _Boom(disc.HermesDiscoveryAdapter):
-        def discover(self):  # type: ignore[override]
+        def discover(self):
             raise RuntimeError("boom")
 
     # 直接调用异常由发现服务捕获;这里验证 Adapter 自身抛出能被发现服务处理

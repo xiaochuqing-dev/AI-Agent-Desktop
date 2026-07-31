@@ -50,7 +50,9 @@ class ControlPlaneError(Exception):
         super().__init__(detail)
 
 
-def capability_unsupported(component_id: str, action: str, correlation_id: str = "default") -> ControlPlaneError:
+def capability_unsupported(
+    component_id: str, action: str, correlation_id: str = "default"
+) -> ControlPlaneError:
     # 首片不实现 lifecycle/credentials/owner 真实写入;统一返回 CAPABILITY_UNSUPPORTED。
     return ControlPlaneError(
         code="CAPABILITY_UNSUPPORTED",

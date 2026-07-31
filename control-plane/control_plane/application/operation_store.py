@@ -66,7 +66,11 @@ class OperationStore:
             target_ref=target_ref,
             status=OperationStatus.QUEUED,
             progress=OperationProgress(
-                phase="queued", message="", completed_units=0, total_units=None, point_of_no_return=False
+                phase="queued",
+                message="",
+                completed_units=0,
+                total_units=None,
+                point_of_no_return=False,
             ),
             idempotency_key=idempotency_key,
             created_at=now,

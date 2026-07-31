@@ -88,13 +88,18 @@ def _check_loopback(request: Request) -> None:
     # 校验 Host 头为 loopback(防 DNS rebinding);uvicorn 已绑 127.0.0.1 保证物理 loopback。
     host = request.headers.get("host", "").lower()
     ok = (
-        host == "127.0.0.1" or host.startswith("127.0.0.1:")
-        or host == "localhost" or host.startswith("localhost:")
-        or host == "[::1]" or host.startswith("[::1]:")
+        host == "127.0.0.1"
+        or host.startswith("127.0.0.1:")
+        or host == "localhost"
+        or host.startswith("localhost:")
+        or host == "[::1]"
+        or host.startswith("[::1]:")
         or host == "::1"
     )
     if not ok:
-        raise HTTPException(status_code=403, detail={"code": "NON_LOOPBACK", "user_message": "仅允许 loopback。"})
+        raise HTTPException(
+            status_code=403, detail={"code": "NON_LOOPBACK", "user_message": "仅允许 loopback。"}
+        )
 
 
 def _correlation(x_correlation_id: str | None) -> str:
@@ -104,7 +109,9 @@ def _correlation(x_correlation_id: str | None) -> str:
 def _problem_response(err: ControlPlaneError) -> JSONResponse:
     # 响应前再次脱敏(防御性)
     payload = redact_value(err.problem.model_dump(mode="json"))
-    return JSONResponse(status_code=err.problem.status, content=payload, media_type="application/problem+json")
+    return JSONResponse(
+        status_code=err.problem.status, content=payload, media_type="application/problem+json"
+    )
 
 
 def create_app(settings: Settings | None = None, adapters: list | None = None) -> FastAPI:
@@ -331,7 +338,11 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                     user_message="未找到该操作。",
                     retryable=False,
                 )
-            if op.status in (OperationStatus.SUCCEEDED, OperationStatus.FAILED, OperationStatus.CANCELED):
+            if op.status in (
+                OperationStatus.SUCCEEDED,
+                OperationStatus.FAILED,
+                OperationStatus.CANCELED,
+            ):
                 raise ControlPlaneError(
                     code="OPERATION_ALREADY_TERMINATED",
                     title="Operation already terminated",
@@ -340,7 +351,9 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                     user_message="该操作已结束,无法取消。",
                     retryable=False,
                 )
-            store.transition(operation_id, status=OperationStatus.CANCEL_REQUESTED, phase="cancel_requested")
+            store.transition(
+                operation_id, status=OperationStatus.CANCEL_REQUESTED, phase="cancel_requested"
+            )
             op = store.get(operation_id)
         assert op is not None
         return redact_value(op.model_dump(mode="json"))
@@ -362,7 +375,9 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
     def install_component(component_id: str, _token: str = Depends(_bearer_auth)):
         raise capability_unsupported(component_id, "install")
 
-    @api.post("/api/v1/components/{component_id}/health:check", status_code=202, tags=["Components"])
+    @api.post(
+        "/api/v1/components/{component_id}/health:check", status_code=202, tags=["Components"]
+    )
     def check_health(component_id: str, _token: str = Depends(_bearer_auth)):
         # 首片:深度健康检查不实现,返回 CAPABILITY_UNSUPPORTED;只读状态已在发现中给出
         raise capability_unsupported(component_id, "health:check")

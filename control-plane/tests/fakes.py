@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from control_plane.domain.models import (
+    AuthenticationState,
     Capability,
     CapabilityAvailability,
     CapabilityMaturity,
@@ -34,7 +35,7 @@ def _snap(
     return StateSnapshot(
         installation=installation,
         configuration=configuration,
-        authentication="not_required",
+        authentication=AuthenticationState.NOT_REQUIRED,
         runtime=runtime,
         health=health,
         update=UpdateState.UP_TO_DATE,

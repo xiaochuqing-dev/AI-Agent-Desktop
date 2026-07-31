@@ -31,7 +31,12 @@ def test_redact_sensitive_field_in_dict():
 
 
 def test_redact_nested():
-    data = {"a": {"api_key": "sk-realsecret0123456789abcdefg", "list": ["sk-realsecret0123456789abcdefg"]}}
+    data = {
+        "a": {
+            "api_key": "sk-realsecret0123456789abcdefg",
+            "list": ["sk-realsecret0123456789abcdefg"],
+        }
+    }
     out = redact_value(data)
     assert out["a"]["api_key"] == "<redacted>"
     assert "<redacted>" in out["a"]["list"][0]

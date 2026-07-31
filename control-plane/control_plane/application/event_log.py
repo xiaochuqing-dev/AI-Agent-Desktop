@@ -98,7 +98,7 @@ class EventLog:
         )
         self._events.append(ev)
         if len(self._events) > self._retention:
-            self._events = self._events[-self._retention:]
+            self._events = self._events[-self._retention :]
         for q in list(self._subscribers):
             try:
                 q.put_nowait(ev)

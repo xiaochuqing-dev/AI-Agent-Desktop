@@ -8,9 +8,22 @@ from typing import Any
 
 # 敏感字段名(不区分大小写),命中即整体替换
 SENSITIVE_FIELD_NAMES = {
-    "token", "bot_token", "api_key", "apikey", "secret", "password", "passwd",
-    "authorization", "auth", "bearer", "cookie", "access_token", "refresh_token",
-    "client_secret", "private_key", "session_token",
+    "token",
+    "bot_token",
+    "api_key",
+    "apikey",
+    "secret",
+    "password",
+    "passwd",
+    "authorization",
+    "auth",
+    "bearer",
+    "cookie",
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "private_key",
+    "session_token",
 }
 
 _REDACTED = "<redacted>"

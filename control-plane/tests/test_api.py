@@ -67,7 +67,9 @@ def test_component_detail_and_not_found(client):
 
 def test_lifecycle_unsupported(client):
     for action in ("start", "stop", "restart", "install"):
-        r = client.post(f"/api/v1/components/hermes:{action}", headers={"Idempotency-Key": "k" * 16})
+        r = client.post(
+            f"/api/v1/components/hermes:{action}", headers={"Idempotency-Key": "k" * 16}
+        )
         assert r.status_code == 501
         assert r.json()["code"] == "CAPABILITY_UNSUPPORTED"
 

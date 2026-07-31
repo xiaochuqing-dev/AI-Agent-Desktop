@@ -27,8 +27,7 @@ class DiscoveryAdapter(ABC):
 class HealthProbe(ABC):
     # 无副作用健康探针:进程身份、受限端点、依赖、版本等。不发外部消息。
     @abstractmethod
-    def probe_health(self, component_id: str, depth: str) -> Diagnostic:
-        ...
+    def probe_health(self, component_id: str, depth: str) -> Diagnostic: ...
 
 
 class CredentialProvider(ABC):

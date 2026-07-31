@@ -188,7 +188,9 @@ class Condition(ModelConfig):
 
 
 class Capability(ModelConfig):
-    capability_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    capability_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
     maturity: CapabilityMaturity
     availability: CapabilityAvailability
@@ -212,7 +214,9 @@ class StateSnapshot(ModelConfig):
 
 
 class Component(ModelConfig):
-    component_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    component_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     kind: str = Field(min_length=1, max_length=64)
     display_name: str = Field(min_length=1, max_length=256)
     version: str | None = Field(default=None, max_length=128)
@@ -239,7 +243,9 @@ class UserFacingError(ModelConfig):
 
 
 class Operation(ModelConfig):
-    operation_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    operation_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     kind: str = Field(min_length=1, max_length=128)
     target_ref: ResourceRef
     status: OperationStatus
@@ -254,7 +260,9 @@ class Operation(ModelConfig):
 
 
 class Diagnostic(ModelConfig):
-    diagnostic_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    diagnostic_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     severity: DiagnosticSeverity
     code: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,127}$")
     summary: str = Field(min_length=1, max_length=512)
@@ -279,7 +287,9 @@ class SystemInfo(ModelConfig):
 
 class DryRunAction(ModelConfig):
     action_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
-    component_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    component_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     action_type: DryRunActionType
     reason: str = Field(min_length=1, max_length=512)
     prerequisites: list[str] = Field(default_factory=list)
@@ -295,7 +305,9 @@ class DryRunAction(ModelConfig):
 class DryRunPlan(ModelConfig):
     # dry-run 计划:只生成不执行。首片 execute 恒为 false,status 恒为 planned。
     plan_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
-    operation_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    operation_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     execute: bool = False
     status: str = "planned"
     actions: list[DryRunAction] = Field(min_length=1)
@@ -304,8 +316,12 @@ class DryRunPlan(ModelConfig):
 
 class SecretRef(ModelConfig):
     # 对已存 Secret 的引用:永不承载值,只判断存在性或可访问性。
-    secret_ref_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
-    credential_ref: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    secret_ref_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
+    credential_ref: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     purpose: str = Field(min_length=1, max_length=128)
     owner: str = Field(min_length=1, max_length=128)
     backend: str = Field(min_length=1, max_length=128)
@@ -317,7 +333,9 @@ class SecretRef(ModelConfig):
 class ReadinessReport(ModelConfig):
     # 一次就绪扫描的聚合只读报告。不含 Secret;声明本次扫描未修改系统。
     report_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
-    scan_operation_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    scan_operation_id: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     user_summary: str = Field(min_length=1, max_length=2048)
     components: list[Component] = Field(default_factory=list)
     blockers: list[Diagnostic] = Field(default_factory=list)
@@ -335,7 +353,9 @@ class ReadinessReport(ModelConfig):
 
 class CredentialMetadata(ModelConfig):
     # 只读凭据元数据,不含值。首片不实现写入。
-    credential_ref: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+    credential_ref: str = Field(
+        min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
     purpose: str = Field(min_length=1, max_length=128)
     owner: str = Field(min_length=1, max_length=128)
     backend: str = Field(min_length=1, max_length=128)

@@ -19,7 +19,9 @@ class OperationRecord(Base):
     kind: Mapped[str] = mapped_column(String(128))
     target_kind: Mapped[str] = mapped_column(String(64))
     target_id: Mapped[str] = mapped_column(String(128))
-    status: Mapped[str] = mapped_column(String(32))  # queued/running/cancel_requested/succeeded/failed/canceled
+    status: Mapped[str] = mapped_column(
+        String(32)
+    )  # queued/running/cancel_requested/succeeded/failed/canceled
     progress_phase: Mapped[str] = mapped_column(String(128))
     progress_message: Mapped[str] = mapped_column(Text, default="")
     completed_units: Mapped[int] = mapped_column(Integer, default=0)
