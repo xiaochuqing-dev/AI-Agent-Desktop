@@ -1,18 +1,19 @@
 PUBLIC_FILE_MANIFEST
 
-Generated: 2026-07-30
-Public file count: 113
+Generated: 2026-08-04
+Public file count: 159
 
 Scope
-This inventory contains every tracked file and every untracked, non-ignored file intended for this stage.
-It excludes .git metadata and files matched by .gitignore.
+This inventory contains every tracked file on final main.
+It excludes .git metadata and ignored local artifacts.
 SHA256SUMS.txt covers every listed file except SHA256SUMS.txt itself, avoiding self-reference.
-For byte-for-byte verification, use a clean clone with core.autocrlf=false before checking hashes.
+For byte-for-byte verification, hashes are computed from staged Git blob bytes.
 
 Excluded artifact classes
 Executable installers, archives, bundles, logs, PID files, databases, sessions, transcripts, and local secrets are not public repository artifacts.
 
 File list
+.github/workflows/control-plane-ci.yml
 .gitignore
 00_START_HERE.md
 01_CURRENT_STATE.md
@@ -20,8 +21,19 @@ File list
 03_LATEST_PRODUCT_DECISIONS.md
 04_REFERENCE_BASELINE.md
 05_NEXT_PHASE.md
+CURRENT_RUNTIME_SOURCE_MAP.md
+LICENSE
+PUBLIC_FILE_MANIFEST.txt
+PUBLIC_HANDOFF_READY.md
+README.md
+SECURITY_REVIEW.md
+SHA256SUMS.txt
 architecture/CHANNEL_MODEL_REQUIREMENTS.md
 architecture/CONTROL_PLANE_REQUIREMENTS.md
+architecture/CREDENTIAL_PROVIDER_REQUIREMENTS.md
+architecture/HUMAN_CONTROL_REQUIREMENTS.md
+architecture/MODEL_CONFIGURATION_PROVIDER_REQUIREMENTS.md
+architecture/PROVIDER_CONTRACT_REQUIREMENTS.md
 architecture/control-plane-v1/01_USER_JOURNEY_AND_ONBOARDING.md
 architecture/control-plane-v1/02_CONTROL_PLANE_BOUNDARIES.md
 architecture/control-plane-v1/03_PROVIDER_ADAPTER_CONTRACTS.md
@@ -35,50 +47,84 @@ architecture/control-plane-v1/10_RISKS_OPEN_DECISIONS_AND_NON_GOALS.md
 architecture/control-plane-v1/11_OPEN_SOURCE_DESIGN_REFERENCES.md
 architecture/control-plane-v1/ACCEPTANCE_CHECKLIST.md
 architecture/control-plane-v1/README.md
-architecture/CREDENTIAL_PROVIDER_REQUIREMENTS.md
-architecture/HUMAN_CONTROL_REQUIREMENTS.md
-architecture/MODEL_CONFIGURATION_PROVIDER_REQUIREMENTS.md
-architecture/PROVIDER_CONTRACT_REQUIREMENTS.md
+architecture/control-plane-v1/adr/ADR-001-implementation-language-and-api-framework.md
+architecture/control-plane-v1/adr/ADR-002-operation-state-and-event-persistence.md
+architecture/control-plane-v1/adr/ADR-003-windows-background-host-and-lifecycle-ownership.md
+architecture/control-plane-v1/adr/ADR-004-credential-backend-and-secret-boundary.md
+architecture/control-plane-v1/adr/README.md
 config-examples/config.example.toml
 config-examples/multiagent.yaml.example
 config-examples/relay_bindings.example.json
 contracts/control-plane-v1/control-plane.openapi.yaml
 contracts/control-plane-v1/core-models.schema.json
 contracts/control-plane-v1/event-envelope.schema.json
-CURRENT_RUNTIME_SOURCE_MAP.md
+control-plane/README.md
+control-plane/control_plane/__init__.py
+control-plane/control_plane/adapters/__init__.py
+control-plane/control_plane/adapters/discovery.py
+control-plane/control_plane/api/__init__.py
+control-plane/control_plane/api/app.py
+control-plane/control_plane/api/errors.py
+control-plane/control_plane/application/__init__.py
+control-plane/control_plane/application/discovery_service.py
+control-plane/control_plane/application/event_log.py
+control-plane/control_plane/application/operation_store.py
+control-plane/control_plane/domain/__init__.py
+control-plane/control_plane/domain/models.py
+control-plane/control_plane/domain/ports.py
+control-plane/control_plane/infrastructure/__init__.py
+control-plane/control_plane/infrastructure/config.py
+control-plane/control_plane/main.py
+control-plane/control_plane/persistence/__init__.py
+control-plane/control_plane/persistence/models.py
+control-plane/control_plane/persistence/session.py
+control-plane/control_plane/security/__init__.py
+control-plane/control_plane/security/redaction.py
+control-plane/pyproject.toml
+control-plane/scripts/validate_contracts.py
+control-plane/tests/__init__.py
+control-plane/tests/conftest.py
+control-plane/tests/fakes.py
+control-plane/tests/test_adapters.py
+control-plane/tests/test_api.py
+control-plane/tests/test_contract.py
+control-plane/tests/test_discovery_service.py
+control-plane/tests/test_domain_models.py
+control-plane/tests/test_event_log.py
+control-plane/tests/test_redaction.py
+control-plane/tests/test_security.py
 history-minimal/HISTORY_INDEX.md
-integrations/cc-connect/manifests/build-manifest.txt
+integrations/cc-connect/README.md
 integrations/cc-connect/manifests/SHA256_MANIFEST.txt
 integrations/cc-connect/manifests/VERSIONS.lock
+integrations/cc-connect/manifests/build-manifest.txt
 integrations/cc-connect/patches/001-telegram-directed-routing.patch
 integrations/cc-connect/patches/002-hook-config-headers.patch
 integrations/cc-connect/patches/003-relay-response-prefix.patch
 integrations/cc-connect/patches/004-message-delivery-hooks.patch
 integrations/cc-connect/patches/005-windows-build-compat.patch
 integrations/cc-connect/patches/README.md
-integrations/cc-connect/README.md
 integrations/cc-connect/scripts/apply-cc-connect-patches.ps1
 integrations/cc-connect/scripts/build-cc-connect.ps1
 integrations/cc-connect/scripts/check-cc-connect-patches.ps1
-LICENSE
 next-agent/NEXT_AGENT_PROMPT.txt
 product/ARCHITECTURE_NON_GOALS.md
 product/COMPONENT_POSITIONING.md
 product/GUI_STATUS_EXPERIENCE.md
+product/INTEGRATION_FIRST_POLICY.md
 product/MODEL_CONFIGURATION_OWNERSHIP.md
 product/PRODUCT_CONSTITUTION.md
+product/TELEGRAM_AI_CODING_TEAM_SCOPE.md
+product/TELEGRAM_KNOWN_LIMITATIONS.md
 product/TEN_MINUTE_ONBOARDING.md
-PUBLIC_FILE_MANIFEST.txt
-PUBLIC_HANDOFF_READY.md
-README.md
 reference-baseline/E2E_VALIDATION.md
 reference-baseline/KNOWN_ISSUES.md
 reference-baseline/SOURCE_OF_TRUTH.md
 reference-baseline/UPSTREAM_REVISIONS.md
 reference-baseline/VERSION_MATRIX.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
-SECURITY_REVIEW.md
-SHA256SUMS.txt
+reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md
+reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md
 src/dual-agent-fallback/__init__.py
 src/dual-agent-fallback/aggregate.py
 src/dual-agent-fallback/delegator.py
@@ -104,17 +150,17 @@ src/hermes-adapter/tests/test_policy.py
 src/hermes-adapter/tests/test_relay_client.py
 src/hermes-adapter/tests/test_store.py
 src/hermes-adapter/webhook_receiver.py
-src/lifecycle/cc-connect/apply-cc-connect-patches.ps1
-src/lifecycle/cc-connect/build-cc-connect.ps1
-src/lifecycle/cc-connect/cc_connect_autostart.py
-src/lifecycle/cc-connect/CcConnect_Autostart.cmd
-src/lifecycle/cc-connect/CcConnect_Autostart.vbs
-src/lifecycle/cc-connect/check-cc-connect-patches.ps1
-src/lifecycle/create-junction.ps1
-src/lifecycle/health-check.ps1
 src/lifecycle/Hermes_Gateway.cmd
 src/lifecycle/Hermes_Gateway.vbs
 src/lifecycle/Hermes_Gateway_Watchdog.vbs
+src/lifecycle/cc-connect/CcConnect_Autostart.cmd
+src/lifecycle/cc-connect/CcConnect_Autostart.vbs
+src/lifecycle/cc-connect/apply-cc-connect-patches.ps1
+src/lifecycle/cc-connect/build-cc-connect.ps1
+src/lifecycle/cc-connect/cc_connect_autostart.py
+src/lifecycle/cc-connect/check-cc-connect-patches.ps1
+src/lifecycle/create-junction.ps1
+src/lifecycle/health-check.ps1
 src/lifecycle/remove-junction.ps1
 tests/e2e-summaries/TEST_RESULTS_SUMMARY.md
 tests/unit/__init__.py

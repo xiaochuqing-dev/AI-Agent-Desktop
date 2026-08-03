@@ -6,6 +6,8 @@ PUBLIC HANDOFF READY
 Reference Baseline Tag：v0.1-reference-baseline
 Baseline HEAD：cd3493b191fdc19114e0ae037746ab3d23a58a79
 cc-connect 参考版本：v1.4.1-patchset0.1-fc315d2
+PR #1 最终 Head：5b47f430cd7c003c00ab6c3a3ad006e8df336b46
+PR #1 合并提交：0952c74e95fa8557b78352f8c30d19de0e021fb0
 
 当前交付
 
@@ -24,3 +26,7 @@ Control Plane v1 契约与 ADR 已冻结，control-plane/ 基础运行代码已�
 cc-connect 单组件真实安装纵向切片。入口与门禁见 05_NEXT_PHASE.md 和 next-agent/NEXT_AGENT_PROMPT.txt。
 
 最终 Git、CI、合并、分支清理、文件清单与 SHA256 结果见 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md。
+
+最终分支
+
+远端和本地均只保留 main 作为开发主线。main 合并提交的 GitHub Actions Run 30846863553 已全绿。

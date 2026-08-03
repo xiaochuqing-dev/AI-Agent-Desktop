@@ -1,12 +1,12 @@
 PR #1 Readiness、产品范围对齐与主线合并报告
 ===========================================
 
-报告状态：合并前收口版，合并和分支清理字段将在 main 上回写最终事实。
+报告状态：COMPLETE。PR 合并、main CI、远端与本地分支清理均已完成。
 
 一、Executive Summary
 ---------------------
 
-PR #1 基于既有 Control Plane Runtime 收口，没有重做 ADR 或骨架。已修复 OpenAPI 外部引用 CI、状态过度报绿和空 Diagnostic 聚合，新增 CC Switch 只读发现，完成 Windows + Telegram 三 Agent 产品范围、Integration First、Telegram 已知限制和下一阶段事实源对齐。当前仍未实现真实安装、配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收或 GUI。
+PR #1 基于既有 Control Plane Runtime 收口，没有重做 ADR 或骨架。OpenAPI 外部引用 CI、状态过度报绿和空 Diagnostic 聚合已修复，CC Switch 只读发现已加入，Windows + Telegram 三 Agent 产品范围、Integration First、Telegram 已知限制和下一阶段事实源已对齐。PR 已全绿并以 Merge Commit 合入 main，阶段分支已删除。真实安装、配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 仍未实现。
 
 二、实际起点
 ------------
@@ -97,48 +97,52 @@ ReadinessReport 现在返回真实结构化 blockers 与 warnings。稳定 code 
 - Secret 扫描：pytest 安全门禁通过；仓库额外扫描仅命中合成脱敏测试，非预期 Secret 文件 0
 - 文档内部链接：56 个 Markdown 文件，断链 0
 - Git diff：src/ 与 integrations/cc-connect/patches/ 变更 0；Control Plane 新增 Telegram 网络调用 0；git diff --check 通过
+- 公开清单：PUBLIC_FILE_MANIFEST.txt 共 159 个 tracked 文件；SHA256SUMS.txt 共 158 条 staged Git blob 哈希，逐项复算一致
 
 十四、GitHub Actions
 -------------------
 
 - 修复前：Run 30607505672、30607482854；Windows 失败，Ubuntu 成功
 - OpenAPI 修复验证：Run 30845203367、30845203103；Windows、Ubuntu、pytest、OpenAPI lint 全部成功
-- PR 最终 Run ID、URL 与状态：待最终推送后回写
+- PR 最终 Run 30846686017：https://github.com/xiaochuqing-dev/AI-Agent-Desktop/actions/runs/30846686017，SUCCESS
+- 分支 push Run 30846683350：https://github.com/xiaochuqing-dev/AI-Agent-Desktop/actions/runs/30846683350，SUCCESS
+- main 合并提交 Run 30846863553：https://github.com/xiaochuqing-dev/AI-Agent-Desktop/actions/runs/30846863553，SUCCESS
+- 三次最终 Run 的 Windows-first、Ubuntu、pytest 与 OpenAPI lint 均成功
 
 十五、PR 最终状态
 ----------------
 
-待全量 CI 通过后回写最终 Head、mergeable 与 merged 状态。
+PR #1 最终 Head 为 5b47f430cd7c003c00ab6c3a3ad006e8df336b46。合并前状态为 MERGEABLE/CLEAN，2026-08-04 03:41:23+08:00 合并后状态为 MERGED。PR URL：https://github.com/xiaochuqing-dev/AI-Agent-Desktop/pull/1。
 
 十六、合并方式
 --------------
 
-待合并后回写。使用仓库允许的正常 Merge 或 Squash Merge，不改写历史，不 force push。
+使用正常 Merge Commit，保留 11 个语义清晰的阶段提交。合并提交标题为“Merge PR #1: close readiness scope alignment into main”。没有 rebase、历史改写或 force push。
 
 十七、main 最终 SHA
 ------------------
 
-待合并后回写。
+PR 合并后的 main 代码 SHA 为 0952c74e95fa8557b78352f8c30d19de0e021fb0。其 main CI 已全绿。本报告与公开清单在该 SHA 后以仅文档提交追加；该自引用提交的 SHA 以 origin/main Git 历史为权威。
 
 十八、远端阶段分支删除
 --------------------
 
-待 PR 合并后删除 origin/phase/control-plane-readiness-slice 并回写结果。
+已执行正常远端删除，origin/phase/control-plane-readiness-slice 不再存在。git ls-remote --heads origin 最终只返回 main。
 
 十九、本地阶段分支删除
 --------------------
 
-待切换 main 后删除 phase/control-plane-readiness-slice；旧本地阶段引用也一并清理，最终只保留 main。
+phase/control-plane-readiness-slice 在确认 main..branch 独有提交为 0 后使用 git branch -d 删除。旧 phase/control-plane-contract-v1 同样无独有提交并已删除。
 
 二十、最终分支列表
 ------------------
 
-待清理后回写。
+远端分支：main。 本地分支：main。Tag 未删除，GitHub PR 引用保留。
 
 二十一、最终 git status
 ----------------------
 
-待 main 最终报告提交并推送后回写。
+最终工作区位于 main，跟踪 origin/main。最终报告提交和推送后 git status 为 clean；无 staged、unstaged 或 untracked 文件。
 
 二十二、未解决问题
 ------------------
