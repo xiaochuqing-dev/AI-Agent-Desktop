@@ -43,7 +43,7 @@ jobs:
         run: pytest -q
 
       - name: OpenAPI lint
-        run: python -c "from openapi_spec_validator import validate; import yaml; validate(yaml.safe_load(open('../contracts/control-plane-v1/control-plane.openapi.yaml', encoding='utf-8')))"
+        run: python scripts/validate_contracts.py
 
   ubuntu-compat:
     name: Core logic compatibility (Ubuntu)

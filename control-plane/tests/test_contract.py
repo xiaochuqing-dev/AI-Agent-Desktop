@@ -1,8 +1,12 @@
 import json
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CONTRACTS = os.path.join(REPO_ROOT, "contracts", "control-plane-v1")
+VALIDATION_SCRIPT = Path(REPO_ROOT) / "control-plane" / "scripts" / "validate_contracts.py"
 
 
 def test_core_models_has_new_models():
@@ -42,3 +46,18 @@ def test_event_envelope_pattern_allows_new_types():
 
     assert re.match(pat, "com.aiagentdesktop.scan.progress.v1")
     assert re.match(pat, "com.aiagentdesktop.plan.generated.v1")
+
+
+def test_contract_validation_resolves_external_refs_from_any_working_directory(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(VALIDATION_SCRIPT)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "control-plane.openapi.yaml" in result.stdout
+    assert "core-models.schema.json" in result.stdout
+    assert "event-envelope.schema.json" in result.stdout

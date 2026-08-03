@@ -30,7 +30,10 @@ pyproject.toml        依赖与工具配置
    mypy control_plane
 
 4. 校验契约(测试内含契约校验):
+   python scripts/validate_contracts.py
    pytest tests/test_contract.py
+
+   校验脚本使用 OpenAPI 文件 URI 作为相对外部引用的解析基准，因此可从任意工作目录执行。
 
 三、安全与无副作用
 
