@@ -1,4 +1,4 @@
-# 6 个只读发现 Adapter。把外部真实状态映射为通用 Component。
+# 7 个只读发现 Adapter。把外部真实状态映射为通用 Component。
 # 全部无副作用:不安装、不登录、不启停、不发消息、不改配置、不读 Secret 明文。
 # 发现不到时返回 not_installed/unknown,不抛底层异常。
 from __future__ import annotations
@@ -138,6 +138,44 @@ def _cc_connect_tokens_env_exists() -> bool:
     return os.path.isfile(str(home / "bot-tokens.env"))
 
 
+def _command_executable(command: str) -> str | None:
+    command = command.strip()
+    if not command:
+        return None
+    if command.startswith('"'):
+        closing_quote = command.find('"', 1)
+        if closing_quote > 1:
+            return os.path.expandvars(command[1:closing_quote])
+    return os.path.expandvars(command.split(maxsplit=1)[0])
+
+
+def _cc_switch_exe_candidate() -> tuple[str | None, bool]:
+    """Return (candidate, probe_reliable) without reading provider configuration."""
+    candidate = shutil.which("CC-Switch.exe")
+    if candidate:
+        return candidate, True
+
+    if sys.platform != "win32":
+        return None, False
+
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_CLASSES_ROOT, r"ccswitch\shell\open\command"
+        ) as protocol_key:
+            command, _value_type = winreg.QueryValueEx(protocol_key, "")
+    except FileNotFoundError:
+        # 官方安装器会注册 ccswitch://；未注册且 PATH 未命中时可报告未发现。
+        return None, True
+    except (ImportError, OSError):
+        return None, False
+
+    if not isinstance(command, str):
+        return None, False
+    return _command_executable(command), True
+
+
 def _version_condition(version: str | None, reliable: bool) -> list[Condition]:
     return [
         Condition(
@@ -189,6 +227,35 @@ def _configuration_artifact_condition(display_name: str, exists: bool) -> Condit
         absent_reason="CONFIGURATION_ARTIFACT_NOT_FOUND",
         present_message=f"发现 {display_name} 配置文件，但未读取或验证其内容",
         absent_message=f"未发现 {display_name} 配置文件",
+    )
+
+
+def _cc_switch_discovery_condition(installation: InstallationState) -> Condition:
+    if installation == InstallationState.INSTALLED:
+        return _presence_condition(
+            condition_type="ExecutableDetected",
+            present=True,
+            present_reason="EXECUTABLE_FOUND",
+            absent_reason="EXECUTABLE_NOT_FOUND",
+            present_message="通过 PATH 或官方 ccswitch 协议注册发现 CC Switch 可执行文件",
+            absent_message="",
+        )
+    if installation == InstallationState.NOT_INSTALLED:
+        return _presence_condition(
+            condition_type="ExecutableDetected",
+            present=False,
+            present_reason="EXECUTABLE_FOUND",
+            absent_reason="EXECUTABLE_NOT_FOUND",
+            present_message="",
+            absent_message="PATH 与官方 ccswitch 协议注册均未发现 CC Switch",
+        )
+    return Condition(
+        type="ExecutableDetected",
+        status=ConditionStatus.UNKNOWN,
+        reason="DISCOVERY_INCONCLUSIVE",
+        message="当前平台或标准探测入口不足以确认 CC Switch 安装状态",
+        observed_generation=1,
+        last_transition_time=utcnow(),
     )
 
 
@@ -403,6 +470,52 @@ class CodexDiscoveryAdapter(DiscoveryAdapter):
         return [_read_only_capability("lifecycle.discover.v1")]
 
 
+class CcSwitchDiscoveryAdapter(DiscoveryAdapter):
+    adapter_id = "cc-switch-discovery"
+    component_kinds = ["provider_configuration"]
+
+    def discover(self) -> list[Component]:
+        candidate, probe_reliable = _cc_switch_exe_candidate()
+        installed = candidate is not None and os.path.isfile(candidate)
+        if installed:
+            installation = InstallationState.INSTALLED
+        elif candidate is None and probe_reliable:
+            installation = InstallationState.NOT_INSTALLED
+        else:
+            # 包括注册表陈旧路径、非 Windows 平台和探测入口不可访问。
+            installation = InstallationState.UNKNOWN
+
+        return [
+            Component(
+                component_id="cc-switch",
+                kind="provider_configuration",
+                display_name="CC Switch",
+                version=None,
+                state=_snapshot(
+                    installation=installation,
+                    configuration=ConfigurationState.UNKNOWN,
+                    authentication=AuthenticationState.UNKNOWN,
+                    runtime=RuntimeState.UNKNOWN,
+                    health=HealthState.UNKNOWN,
+                    update=UpdateState.UNKNOWN,
+                    user_status=(
+                        UserStatus.NOT_INSTALLED
+                        if installation == InstallationState.NOT_INSTALLED
+                        else UserStatus.UNKNOWN
+                    ),
+                    conditions=[
+                        _cc_switch_discovery_condition(installation),
+                        *_version_condition(None, False),
+                    ],
+                ),
+                provider_refs=[],
+            )
+        ]
+
+    def capabilities(self) -> list[Capability]:
+        return [_read_only_capability("model-configuration.discover.v1")]
+
+
 class TelegramConfigDiscoveryAdapter(DiscoveryAdapter):
     adapter_id = "telegram-config-discovery"
     component_kinds = ["channel"]
@@ -455,12 +568,13 @@ class TelegramConfigDiscoveryAdapter(DiscoveryAdapter):
 
 
 def default_adapters() -> AdapterRegistry:
-    # 装载 6 个内置只读发现 Adapter
+    # 装载 7 个内置只读发现 Adapter
     reg = AdapterRegistry()
     reg.register(WindowsSystemDiscoveryAdapter())
     reg.register(HermesDiscoveryAdapter())
     reg.register(CcConnectDiscoveryAdapter())
     reg.register(ClaudeCodeDiscoveryAdapter())
     reg.register(CodexDiscoveryAdapter())
+    reg.register(CcSwitchDiscoveryAdapter())
     reg.register(TelegramConfigDiscoveryAdapter())
     return reg
