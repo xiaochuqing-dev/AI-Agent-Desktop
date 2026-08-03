@@ -2,11 +2,12 @@
 
 ## 文档状态
 
-- 设计版本：`1.0.0-rc.1`
-- 契约状态：已形成并冻结供正式评审；标记为 `experimental` 或 `draft` 的条目除外
+- 设计版本：`1.0.0`
+- 契约状态：已正式冻结；标记为 `experimental` 或 `draft` 的条目除外
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
-- 实现状态：仅设计契约；没有 Control Plane 运行时代码，也没有正式 GUI
+- 实现决策：ADR-001..004 已冻结（见 `adr/`）
+- 实现状态：Control Plane 基础运行代码已实现于 `control-plane/`；当前仅支持只读发现、Readiness、Dry-run、Operation/SSE 和无副作用诊断；没有真实安装、配置写入、生命周期接管或正式 GUI
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
 
@@ -65,23 +66,23 @@
 9. 每个配置作用域同一时刻仅有一个 `ManagementOwner`；切换使用备份、版本比较和两阶段交接，禁止双写窗口。
 10. 凭据与业务配置分离；GUI 不读取明文 Secret，Secret 不出现在 URL、普通日志、事件或错误详情中。
 11. 人类指令优先级最高；取消是可确认的异步请求，不虚假承诺瞬时终止外部进程。
-12. 第一个纵向切片只包装现有体系，完成发现、状态、只读校验、生命周期、健康、日志与可理解错误。
+12. 第一个纵向切片只包装现有体系；只读发现、状态、Readiness、Dry-run 与可理解诊断已经实现，生命周期变更仍返回 unsupported。
 
 ## 未冻结项
 
-以下条目不阻塞契约评审，必须在实现前作出记录并保持接口兼容：
+以下条目不阻塞契约评审。前四项已由 ADR-001..004 冻结（见 `adr/`），其余为开放实现参数，须在首片原型中测量并记录：
 
-- Control Plane 实现语言与框架
-- 元数据存储引擎的最终选择；v1 推荐单用户事务型本地存储
-- Windows 后台宿主采用登录启动项、计划任务还是用户服务
+- Control Plane 实现语言与框架 — 已由 ADR-001 冻结
+- 元数据存储引擎的最终选择 — 已由 ADR-002 冻结（SQLite WAL + SQLAlchemy 2 + Alembic）
+- Windows 后台宿主采用登录启动项、计划任务还是用户服务 — 已由 ADR-003 冻结（本阶段前台进程，不接管生命周期）
+- Windows Credential Manager 与 DPAPI 封装的最终实现组合 — 已由 ADR-004 冻结（keyring + DPAPI 策略，本阶段只读）
 - loopback 端口分配与事件保留窗口的具体默认值
-- Windows Credential Manager 与 DPAPI 封装的最终实现组合
 - Provider 是否在后续版本支持进程外插件；v1 不实现通用插件装载器
 - 讨论模式与外部 Runtime 能否提供强暂停、强取消的能力等级
 
-## 明确非目标
+## 当前实现的明确非目标
 
-- 不实现 Control Plane、正式 PySide6 GUI 或安装器
+- 不在当前切片实现真实安装、配置或凭据写入、生命周期接管、正式 PySide6 GUI 或安装器
 - 不新增 Channel 或 Runtime
 - 不重写 Hermes、Claude Code、Codex 或 cc-connect
 - 不扩大 dual_agent 或 5 个 cc-connect Patch

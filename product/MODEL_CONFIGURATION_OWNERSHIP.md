@@ -1,60 +1,26 @@
 模型配置管理权归属 MODEL_CONFIGURATION_OWNERSHIP
+================================================
 
-本文档规定每个工具的模型与账号配置由谁写入和保管，避免多入口同时写同一份配置导致互相覆盖。
-核心原则：每个工具的同一份配置，在同一时刻只能有一个管理权所有者。
-所有真实 Token、API Key、Bearer 在文档中用占位符表示，真实值放本地受控 Secret 存储，不入仓库。
+一、唯一管理权
+--------------
 
---------------------------------
+每个配置作用域同一时刻只能有一个 ManagementOwner。非所有者只读；切换所有者必须经过用户确认、备份、revision 比较、一致性校验和两阶段交接，不得存在双写窗口。
 
-一、管理权原则
+二、职责
+--------
 
-1. 单一所有者：每个工具的每一份配置文件或配置项，在任一时刻只有一个所有者负责写入。
-2. 其余只读：非所有者只能读取，不得写入或就地修改，需要变更时请求所有者执行。
-3. 显式声明：所有者关系必须显式声明，不靠文件位置或惯例隐含。
-4. 切换需交接：管理权从一个所有者切换到另一个时，必须走显式交接流程，并校验配置一致性，禁止双写过渡。
+本产品未来管理 Hermes、cc-connect 与 Telegram 绑定所需的受控配置；Claude Code 和 Codex 的官方登录材料仍由官方流程管理。本产品只读取脱敏状态，不截取密码、OAuth Token 或 Session。
 
---------------------------------
+Secret 与业务配置分离。Bot Token、API Key 和 Bearer 进入 CredentialProvider，业务配置只保存 SecretRef。当前 Control Plane 尚未实现真实凭据写入。
 
-二、各工具配置管理权归属
+三、CC Switch
+-------------
 
-Hermes 模型配置：所有者为本应用。本应用负责写入 Hermes 所用模型 API Key 与模型选择。
-Hermes 的 multiagent.yaml：所有者为本应用。本应用在安装与配置阶段代写，含 agents、群 Chat ID、admin、receiver 等。
-cc-connect 的 config.toml：所有者为本应用。本应用代写 projects、platforms、hooks、relay 等全部结构。
-Claude Code 账号与模型配置：默认所有者为 Claude Code 自身。本应用不替其写模型配置，只把所需账号凭证交付给它。
-Codex 账号与模型配置：默认所有者为 Codex 自身，同 Claude Code。
-Telegram Bot Token 与 Chat ID：所有者为本应用，集中保管，下发给 cc-connect 与 Hermes 使用。
+CC Switch 是推荐但非强制的供应商配置入口。新手无需安装 CC Switch。若用户选择由 CC Switch 管理某个供应商作用域，该作用域的 ManagementOwner 为 cc_switch，本产品立即转为只读；本产品与 CC Switch 不得同时写同一作用域。
 
---------------------------------
+本阶段 CC Switch Adapter 只报告 installed、not_installed 或 unknown；版本仅在有可靠证据时报告；configuration、authentication、runtime 和 health 无直接证据时均为 unknown。它不读取、导入、导出或写入 Provider 与 Secret。
 
-三、CC Switch 的定位
+四、用户输入边界
+----------------
 
-CC Switch 是 Claude Code 模型切换的可选高级入口，面向需要频繁切换模型或供应商的高级用户。
-CC Switch 不是新手强制依赖。十分钟安装引导不要求用户安装或理解 CC Switch。
-新手路径：由本应用统一保管并交付 Claude Code 所需凭证，用户无需接触 CC Switch。
-高级路径：用户可启用 CC Switch 接管 Claude Code 的模型配置，但启用后管理权随之转移，见下条。
-
---------------------------------
-
-四、本应用与 CC Switch 不得同时写同一份配置
-
-本应用与 CC Switch 不得在同一时段对同一份 Claude Code 模型配置拥有写权限。
-规则：
-当本应用持有 Claude Code 模型配置管理权时，CC Switch 处于只读或不介入状态。
-当用户启用 CC Switch 接管时，本应用对该部分配置转为只读，并在 GUI 标注"当前由 CC Switch 管理"。
-两边不得同时写，不得交叉写，不得在对方不知情时覆写。
-切换方向时，由本应用发起一次一致性校验：比对两边意图，发现冲突时提示用户选择，不自动合并。
-
---------------------------------
-
-五、冲突与诊断
-
-检测到同一份配置被两个所有者修改 -> GUI 标红该配置项，显示最近修改时间与来源，要求用户指定唯一所有者。
-本应用写入失败 -> 不静默退化为让用户手编，而是标红并给出失败原因和重试入口。
-CC Switch 写入与本应用预期不一致 -> 标黄提示，列出差异，不擅自回写，由用户决定以谁为准。
-
---------------------------------
-
-六、边界总结
-
-本应用管的是安装、代写、集中保管和一致性校验，不是替每个上游工具做模型决策。
-模型与账号的最终有效性由对应工具自身校验，本应用只负责把凭证安全送达和把状态可见化。
+目标体验中，用户只输入正确的模型账号或 API 凭据，以及三个 Telegram Bot Token。User ID、Group/Chat ID、配置文件、端口、Hook、Session 和后台启动由产品未来自动处理。该自动化当前尚未实现。

@@ -1,18 +1,33 @@
 openapi: 3.1.0
 info:
   title: AI Agent Desktop Local Control Plane API
-  version: 1.0.0-rc.1
+  version: 1.0.0
   summary: Stable local management contract for the desktop GUI and trusted clients.
   description: |
-    Design contract only. No Control Plane runtime or GUI implementation is claimed.
-    The service binds to loopback, requires a high-entropy bearer token, and never
-    accepts credentials in URL query parameters. Long-running mutations return an
-    Operation. Provider-specific structures remain behind Adapter boundaries.
+    The read-only Control Plane foundation is implemented: loopback service,
+    discovery, readiness, dry-run planning, operations, diagnostics, and SSE.
+    Mutation endpoints remain contract-only or return unsupported; real install,
+    configuration writes, credential writes, lifecycle takeover, and GUI are not
+    implemented. Provider-specific structures remain behind Adapter boundaries.
   license:
     name: See repository LICENSE
     identifier: Apache-2.0
-  x-contract-status: frozen-for-review
-  x-implementation-status: not-implemented
+  x-contract-status: frozen
+  x-implementation-status: partial-read-only
+  x-event-types:
+    - com.aiagentdesktop.component.state.changed.v1
+    - com.aiagentdesktop.component.discovered.v1
+    - com.aiagentdesktop.provider.state.changed.v1
+    - com.aiagentdesktop.registry.changed.v1
+    - com.aiagentdesktop.operation.started.v1
+    - com.aiagentdesktop.operation.progress.v1
+    - com.aiagentdesktop.operation.completed.v1
+    - com.aiagentdesktop.operation.failed.v1
+    - com.aiagentdesktop.scan.progress.v1
+    - com.aiagentdesktop.plan.generated.v1
+    - com.aiagentdesktop.diagnostic.created.v1
+    - com.aiagentdesktop.task.state.changed.v1
+    - com.aiagentdesktop.log.appended.v1
 servers:
   - url: http://127.0.0.1:{port}/api/v1
     description: Endpoint discovered from the current-user protected service record.
@@ -104,6 +119,31 @@ paths:
       responses:
         "202":
           $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /readiness:
+    get:
+      tags: [Discovery]
+      operationId: getReadinessReport
+      summary: Read the latest readiness report and dry-run plan from the most recent scan.
+      description: The report aggregates system, component, diagnostic, and dry-run plan data. It never contains secrets and asserts that the scan did not modify the system.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Latest readiness report.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            X-Resource-Version:
+              $ref: "#/components/headers/ResourceVersion"
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/ReadinessReport"
+        "404":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /components:

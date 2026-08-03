@@ -1,0 +1,64 @@
+name: control-plane-ci
+
+on:
+  push:
+    branches: [main, "phase/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Windows-first quality gates
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: control-plane
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: control-plane/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Mypy type check
+        run: mypy control_plane
+
+      - name: Tests (unit + contract + integration + secret scan)
+        run: pytest -q
+
+      - name: OpenAPI lint
+        run: python scripts/validate_contracts.py
+
+  ubuntu-compat:
+    name: Core logic compatibility (Ubuntu)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: control-plane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Non-Windows adapter tests (skipped) + domain/contract/redaction
+        # WindowsSystemDiscoveryAdapter 在非 Windows 仍可运行(psutil 跨平台);
+        # 此 job 验证核心逻辑不依赖 Windows 专属 API
+        run: pytest tests/test_redaction.py tests/test_domain_models.py tests/test_contract.py tests/test_discovery_service.py tests/test_event_log.py -q

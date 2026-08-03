@@ -1,82 +1,55 @@
 产品宪法 PRODUCT_CONSTITUTION
+============================
 
-本文档是本产品的最高约束。任何路线、设计、组件取舍与本宪法冲突时，以本宪法为准。
-所有占位符为示意，真实值放受控的本地 Secret 存储，不入仓库。
-
-————————————————————————————————
+本文档是本产品的最高约束。任何路线、设计或组件取舍与本宪法冲突时，以本宪法为准。
 
 一、产品定位
+------------
 
-面向个人 AI 开发团队的桌面端安装、配置、管理与协作产品。
-本产品不重新开发 Hermes、Claude Code、Codex，也不开发完整 Runtime；
-而是把上述成熟能力组合成一套普通用户十分钟内可完成的完整体验：
-安装、配置、启动、诊断、升级、回滚和迁移。
-本产品的价值不在"再造轮子"，而在"把轮子装好、调好、管好"。
+面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心。
 
-————————————————————————————————
+产品价值在于把成熟上游装好、调好、管好：减少配置和首次使用摩擦，降低失败率，统一安装、状态、诊断、更新、回滚与恢复，让用户无需查找配置文件和日志。
 
-二、十分钟目标
+二、固定首发范围
+----------------
 
-在基本干净的 Windows 电脑上，普通用户应能在十分钟左右完成：
-环境检测、必要组件安装、模型或账号授权、Telegram 配置、首次成功测试。
-全程不手工编辑任何配置文件。
-用户不需要理解 AppData 目录、npm 全局目录、环境变量、监听端口、计划任务这些底层概念。
-所有底层细节由本应用封装和代管，用户只面对 GUI 表单与状态。
+首发平台为 Windows 10/11，首发 Channel 为 Telegram。首发 Agent 为 Hermes、Claude Code、Codex；cc-connect 是 Claude Code/Codex 与 Telegram 的 V1 核心桥梁；CC Switch 是推荐但非强制的供应商配置入口；PySide6 是未来 GUI 首选。
 
-————————————————————————————————
+用户可见三个 Bot：Hermes Bot、Claude Code Bot、Codex Bot。产品目标固定为 Hermes、Claude Code、Codex 各自私聊与群聊共六条链路。
 
-三、默认组件定位
+三、Integration First
+---------------------
 
-Hermes：默认智能中枢和 Orchestration Provider，群聊治理与委派的核心。
-cc-connect：当前辅助 Runtime 和 Telegram 连接层，可被替换，不是永久核心。
-Claude Code：一等代码 Agent，由 cc-connect 接入 Telegram。
-Codex：一等代码 Agent，由 cc-connect 接入 Telegram。
-Telegram：首发 Channel，不是唯一 Channel，渠道层必须可扩展。
-dual_agent：当前 Fallback 编排层，不是永久核心，Hermes 原生支持后可退场。
-cc-connect Patch：当前兼容层，用于补齐上游缺失能力，不得无限扩大。
+不重新开发 Hermes、Claude Code、Codex 或 cc-connect，不开发替代 cc-connect 的通用 Telegram Bridge，不重复开发完整 Provider 管理器。优先通过 Adapter、受控调用、只读发现、配置所有权、深链接和生命周期管理集成熟上游。
 
-————————————————————————————————
+上游不具备的能力不得由 Adapter 虚报为 available。每个配置作用域同一时刻只能有一个 ManagementOwner，本产品与 CC Switch 不得同时写同一作用域。
 
-四、当前真实 Telegram 拓扑
+四、组件职责
+------------
 
-本产品当前实际运行的消息拓扑如下，文档与代码以此为准：
-Hermes Bot 自己直连 Telegram（gateway 与 telegram_platform adapter）。
-Claude Code Bot 通过 cc-connect 连接 Telegram（cc-connect 的 claude-expert project）。
-Codex Bot 通过 cc-connect 连接 Telegram（cc-connect 的 codex-expert project）。
-治理规则在 Hermes 的 multiagent.yaml 中定义，cc-connect 通过本地 Hook 把消息事件回传给 Hermes。
-任何新设计不得破坏这三条链路的现有职责边界。
+- Hermes：编排中枢与 Hermes Bot 运行主体。
+- Claude Code：独立编码 Agent。
+- Codex：独立编码 Agent。
+- cc-connect：Claude Code/Codex 与 Telegram 的核心桥接和 Project/Session 承载。
+- CC Switch：推荐的供应商、模型和 API 配置入口，非新手强制依赖。
+- Control Plane：安装、发现、配置权、状态、生命周期、诊断、更新、回滚与统一操作。
+- GUI：未来只通过 Control Plane 契约工作，不直接写上游私有配置。
 
-————————————————————————————————
+五、未来用户职责与自动化
+----------------------
 
-五、产品架构方向
+用户未来只需提供模型账号或 API 凭据，创建三个 Bot 并粘贴 Token，创建群聊并加入三个 Bot，完成 Telegram 官方必须由用户执行的少量操作，例如首次 /start 与权限设置，然后点击 GUI 的配置或验证按钮。
 
-Desktop GUI -> Local Control Plane -> Provider/Adapter -> Hermes/cc-connect/Claude Code/Codex/Telegram。
-GUI 不直接调用上游组件，只与 Local Control Plane 的 API 交互。
-Control Plane 之下是 Provider/Adapter 层，负责对接具体组件。
-Hermes、cc-connect、Claude Code、Codex、Telegram 均作为可替换的 Provider 或 Channel 存在。
-GUI 与 Control Plane 必须独立运行；关闭 GUI 不能停止 Control Plane 或已运行的 Agent/Channel 服务。
-正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但该选择不得绑定 Control Plane 实现语言，也不得让领域模型、Provider 契约或业务核心依赖 QWidget。
-未来可以更换 GUI 技术栈，而不改变 Control Plane 的稳定 API。
-这一分层是本产品所有后续设计的前提。
+产品未来自动识别 Bot、验证 Token、获取 User ID 与 Group/Chat ID、建立绑定和白名单、生成 Hermes 与 cc-connect 配置、创建 cc-connect Project、处理端口/Hook/Session/后台启动、检测六条链路并提供修复。
 
-————————————————————————————————
+六、当前实现边界
+----------------
 
-六、长期竞争力
-
-十分钟安装、统一配置、Secret 安全管理、状态可见、错误可诊断、
-一键启停重启、更新备份回滚、新电脑迁移、多 Agent 多 Channel 组合体验、
-人类暂停取消介入改派、美观现代 GUI。
-上述能力是本产品区别于"裸用上游组件"的核心护城河，优先级高于任何单一新功能。
-
-————————————————————————————————
+Control Plane 基础运行代码已存在，但当前只实现只读发现、Readiness、Dry-run、Operation/SSE 和无副作用脱敏诊断。真实安装、配置写入、凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。第五节全部是产品目标，不得写成已交付能力。
 
 七、不得走偏
+------------
 
-不重写 Hermes、Claude Code、Codex。
-不开发第二套完整 Runtime。
-不开发第二套消息总线。
-不把 Control Plane 变成通用 DAG 编排引擎。
-不继续无限扩大 dual_agent 和 cc-connect Patch。
-可以确定当前 GUI 首选实现，但核心架构不得依赖或绑定该技术栈。
-不让 GUI 直接依赖上游组件的内部目录结构。
-任何提案若落入上述任一条，视为偏离产品方向，需退回重新设计。
+不重写上游，不新增其他 Channel 或 Agent Runtime，不开发通用 DAG、工作流市场、插件市场或第二套消息总线，不无限扩大 dual_agent 和 cc-connect Patch，不让 GUI 直接依赖上游内部目录。
+
+范围细节见 TELEGRAM_AI_CODING_TEAM_SCOPE.md，集成规则见 INTEGRATION_FIRST_POLICY.md，运行边界见 TELEGRAM_KNOWN_LIMITATIONS.md。

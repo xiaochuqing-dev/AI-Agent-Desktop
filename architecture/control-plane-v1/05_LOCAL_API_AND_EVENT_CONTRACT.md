@@ -47,6 +47,7 @@ v1 默认且唯一必需传输是 loopback HTTP/1.1 + JSON；事件使用同一�
 | GET `/system` | Control Plane 实例、版本、启动时间 | SystemInfo |
 | GET `/system/capabilities` | API 与 Provider 能力协商 | Capability[] |
 | POST `/discovery:run` | 只读发现本机组件与依赖 | 202 Operation |
+| GET `/readiness` | 最近一次扫描的就绪报告与 dry-run 计划 | ReadinessReport |
 | GET `/components` | 组件快照与聚合状态 | Component[] |
 | GET `/components/{componentId}` | 单组件详情、版本、Condition | Component |
 
@@ -165,13 +166,20 @@ data: {CloudEvents JSON object}
 稳定事件类型至少包括：
 
 - `com.aiagentdesktop.component.state.changed.v1`
+- `com.aiagentdesktop.component.discovered.v1`
 - `com.aiagentdesktop.provider.state.changed.v1`
 - `com.aiagentdesktop.registry.changed.v1`
+- `com.aiagentdesktop.operation.started.v1`
 - `com.aiagentdesktop.operation.progress.v1`
 - `com.aiagentdesktop.operation.completed.v1`
-- `com.aiagentdesktop.task.state.changed.v1`
+- `com.aiagentdesktop.operation.failed.v1`
+- `com.aiagentdesktop.scan.progress.v1`
+- `com.aiagentdesktop.plan.generated.v1`
 - `com.aiagentdesktop.diagnostic.created.v1`
+- `com.aiagentdesktop.task.state.changed.v1`
 - `com.aiagentdesktop.log.appended.v1`
+
+新增事件类型属 v1 向后兼容增量（见“API 版本策略”第 2 条），客户端必须忽略未知事件。`diagnostic.recorded` 语义由既有的 `diagnostic.created.v1` 承载，不另立类型。机器可读清单见 OpenAPI 顶层 `x-event-types`。
 
 日志事件只携带脱敏摘要和 log entry ref，不嵌入无限长度原始日志。
 

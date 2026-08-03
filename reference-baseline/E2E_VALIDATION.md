@@ -26,4 +26,7 @@ Hermes 私聊通过（3 项）
   修复后全部通过。
 
 尚未验证或未实现
-  讨论模式、插话/暂停/取消/改派、Claude<->Codex 互调、飞书等新渠道、GUI、Control Plane、EXECUTION 真实 E2E、Session 6h、@all 广播。
+  讨论模式、插话/暂停/取消/改派、Claude<->Codex 互调、GUI、Control Plane 真实变更能力、EXECUTION 真实 E2E、Session 6h、@all 广播。Telegram 之外的新渠道不在首发范围。
+
+证据边界
+  本文件只证明列出的群聊场景与 Hermes 私聊，不证明 /start 等命令、Topic 或三 Agent 全量 Session 隔离均已验证。Claude Code/Codex 私聊基本可用但仍需正式矩阵。2026-08-04 的 PR #1 收口没有执行真实 Telegram E2E，也没有发送消息。
