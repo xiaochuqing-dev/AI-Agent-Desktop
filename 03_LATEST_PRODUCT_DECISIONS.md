@@ -1,45 +1,22 @@
 03 最新产品决策
 ================
 
-生成时间: 2026-07-30
+更新时间：2026-08-04
 
-1. 产品是桌面端应用，但内部不是单体 GUI。GUI 和本地 Control Plane 分离。
-
-2. GUI 未来只依赖我们的稳定 API，不直接依赖 Hermes 或 cc-connect 内部目录和对象。
-
-3. Hermes 是默认主体系统（Orchestration Provider）。
-
-4. cc-connect 当前非常重要，但长期可由 Hermes 原生能力替代。
-
-5. Hermes 自己直连 Telegram（不经 cc-connect）。
-
-6. Claude Code 和 Codex 当前通过 cc-connect 连 Telegram。
-
-7. Hermes 的基础模型配置必须由本应用原生支持。
-
-8. Claude Code / Codex 必须支持官方登录引导、状态检测和基础 API 配置。
-
-9. CC Switch 只作为可选的高级模型供应商管理入口。
-
-10. CC Switch 不能成为新手首次安装的强制依赖。
-
-11. 每个工具只能有一个配置管理权: 本应用 / 官方登录 / CC Switch / 外部管理。
-
-12. 本应用与 CC Switch 不得同时写同一份配置。
-
-13. GUI 状态不只在线/离线，至少包括:
-    未安装、已安装未配置、需要登录、配置无效、正在启动、运行正常、部分能力异常、更新可用、启动失败、已停止。
-
-14. Control Plane v1 设计包和机器可读契约已经形成；下一阶段先正式审阅并冻结，再实现第一个最小纵向切片，不直接大规模写 GUI。
-
-15. 正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，可使用受控视觉资源、主题和克制动画，但本轮没有实现 GUI。
-
-16. GUI 与 Control Plane 必须是独立进程。关闭 GUI 只断开客户端，不能停止 Control Plane 或后台 Agent/Channel 服务。
-
-17. 选择 PySide6 不代表 Control Plane 必须使用 Python。领域模型、Provider 契约和本地 API 不依赖 QWidget 或任何 GUI 框架。
-
-18. Control Plane v1 默认本地协议为 127.0.0.1 HTTP/JSON，事件使用 SSE；WebSocket 不进入 v1，IPC 仅保留未来等价传输边界。
-
-19. 变更操作采用 Operation、Idempotency-Key 和 revision；取消必须区分请求已接受与外部工作已确认终止。
-
-20. 第一个最小纵向切片只包装当前体系，不实现新 Runtime、新 Channel、通用 DAG、复杂讨论或正式 GUI。
+1. 产品正式定位为“面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心”。
+2. 首发平台固定为 Windows 10/11，首发 Channel 固定为 Telegram，本阶段不扩展其他渠道。
+3. 用户可见三个 Bot：Hermes Bot、Claude Code Bot、Codex Bot；产品目标固定为三者各自私聊和群聊共六条链路。
+4. Hermes 是编排中枢与 Hermes Bot 运行主体；Claude Code 和 Codex 是独立编码 Agent。
+5. cc-connect 是 V1 中 Claude Code/Codex 与 Telegram 的核心桥梁及 Project/Session 承载，不再标记为可随意替换的辅助层。
+6. CC Switch 是推荐但非强制的供应商、模型和 API 配置入口，不进入新手必选条件。
+7. 采用 Integration First：不重写 Hermes、Claude Code、Codex、cc-connect，不自研替代桥梁或完整 Provider 管理器。
+8. 每个配置作用域同一时刻只能有一个 ManagementOwner；本产品与 CC Switch 不得同时写同一作用域。
+9. GUI 与 Control Plane 独立；GUI 未来只调用稳定契约，不直接读写上游私有配置。
+10. 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段不实现 GUI。
+11. Control Plane v1 契约和四项 ADR 已冻结，基础运行代码已经存在。
+12. 当前能力仅为只读发现、Readiness、Dry-run、Operation/SSE 和无副作用脱敏诊断。
+13. 找到可执行文件、配置文件或 Token 引用均不足以证明运行、配置有效、认证有效或健康；没有直接证据时返回 unknown。
+14. CC Switch 本阶段只做 PATH 与官方协议注册的只读发现，不读取或写入供应商配置与 Secret。
+15. 真实安装、配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。
+16. Telegram 命令与 Session 隔离问题登记为非阻断已知限制，后续依靠可观测性和测试矩阵修复，本阶段不重构现有路由。
+17. 下一阶段固定为“cc-connect 单组件真实安装纵向切片”。

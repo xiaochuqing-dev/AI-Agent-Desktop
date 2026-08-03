@@ -1,65 +1,54 @@
 AI Agent Desktop
 ================
 
-面向个人 AI 开发团队的桌面端安装、配置、管理与协作产品。
+面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心。
 
-本仓库是当前公开事实源。它把多个成熟 AI 工具（Hermes、Claude Code、Codex）和消息渠道（Telegram）组合成普通用户十分钟可安装、配置、启动、诊断、升级、回滚和迁移的完整体验，并提供以人类调控为主的多 Agent 协作。
+本仓库是当前公开事实源。产品集成 Hermes、Claude Code、Codex、cc-connect、Telegram，并把 CC Switch 作为推荐但非强制的供应商配置入口。核心价值是减少配置和首次使用摩擦，降低失败率，并统一状态、诊断、更新、回滚与恢复；不重复开发成熟上游。
 
 一、当前状态
 ------------
-reference baseline v0.1 已冻结（Tag v0.1-reference-baseline）。
-当前参考实现通过真实 Telegram 群聊与 Hermes 私聊 E2E。
-当前运行 cc-connect v1.4.1-patchset0.1-fc315d2。
-源码与当前运行体一致（见 CURRENT_RUNTIME_SOURCE_MAP.md）。
-Control Plane v1 正式设计包与机器可读契约已经形成，当前处于正式评审与实施准备阶段。
-当前仍未实现 Control Plane 运行时代码、安装器或正式 GUI。
-正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但核心契约与 Control Plane 不绑定 GUI 技术栈或实现语言。
 
-二、这不是什么
---------------
-- 不是把 Hermes、cc-connect、Claude Code、Codex、Telegram 永久焊死的脚本集合
-- 不是最终产品 v0.1.0
-- 不是最终产品架构
-- 不重写 Hermes、Claude Code、Codex 或完整 Runtime
-- 可以确定当前 GUI 首选实现，但不让核心架构依赖该技术栈
+- reference baseline v0.1 已冻结，Tag 为 v0.1-reference-baseline。
+- 参考实现的 Telegram 群聊主要链路与 Hermes 私聊已经真实验证。
+- Control Plane v1 契约与四项 ADR 已冻结，基础运行代码已实现于 control-plane/。
+- 当前 Control Plane 能力仅包括只读发现、Readiness、Dry-run、Operation/SSE 和无副作用脱敏诊断。
+- 真实安装、配置写入、凭据写入、启停接管、Telegram 自动绑定、六链路自动验收和正式 GUI 尚未实现。
+- 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段没有实现 GUI。
 
-三、快速阅读
+二、首发产品范围
+----------------
+
+首发平台为 Windows 10/11，首发渠道仅为 Telegram，用户可见三个 Bot：Hermes Bot、Claude Code Bot、Codex Bot。
+
+目标验收六条链路：Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 私聊、Codex 群聊。上述自动配置与六链路自动检测是产品目标，不是当前已交付能力。
+
+三、集成优先
 ------------
-1. 00_START_HERE.md（开始）
-2. 01_CURRENT_STATE.md（当前状态）
-3. 02_PRODUCT_VISION.md（产品愿景）
-4. 03_LATEST_PRODUCT_DECISIONS.md（最新产品决策）
-5. 04_REFERENCE_BASELINE.md（参考基线）
-6. CURRENT_RUNTIME_SOURCE_MAP.md（运行源码映射）
-7. reference-baseline/SOURCE_OF_TRUTH.md（事实源优先级）
-8. architecture/control-plane-v1/README.md（正式设计包）
-9. contracts/control-plane-v1/control-plane.openapi.yaml（本地 API 契约）
-10. contracts/control-plane-v1/core-models.schema.json（核心模型契约）
-11. contracts/control-plane-v1/event-envelope.schema.json（事件契约）
-12. 05_NEXT_PHASE.md（下一阶段）
-13. next-agent/NEXT_AGENT_PROMPT.txt（下一 Agent 提示词）
 
-四、目录结构
+本产品不重写 Hermes、Claude Code、Codex 或 cc-connect，不自研替代 cc-connect 的通用 Telegram Bridge，也不重复开发完整 Provider 管理器。GUI 未来只调用 Control Plane 契约；每个配置作用域同一时刻只有一个 ManagementOwner。
+
+四、快速阅读
 ------------
-src/                  当前有效源码（hermes-adapter / dual-agent-fallback / lifecycle）
-integrations/cc-connect/  cc-connect Patch、构建脚本、manifest
-config-examples/      脱敏配置模板
-product/              产品宪法、十分钟安装、组件定位、模型配置权、GUI 状态、非目标
-architecture/         原始需求与 Control Plane v1 正式设计包
-contracts/            OpenAPI 与 JSON Schema 机器可读契约
-reference-baseline/   版本矩阵、E2E 验证、已知问题、上游版本、事实源
-tests/                单元测试与 E2E 摘要
-history-minimal/      历史摘要
-next-agent/           下一 Agent 提示词
-reports/              阶段完成报告
 
-五、第三方组件
---------------
-Hermes、Claude Code、Codex、cc-connect 都是独立上游项目，各自有许可证。
-本仓库只保存我们自己的适配代码、Patch、配置模板和构建脚本，不复制完整上游项目。
-上游获取方式见 reference-baseline/UPSTREAM_REVISIONS.md 和 integrations/cc-connect/README.md。
+1. 00_START_HERE.md
+2. 01_CURRENT_STATE.md
+3. 02_PRODUCT_VISION.md
+4. 03_LATEST_PRODUCT_DECISIONS.md
+5. product/TELEGRAM_AI_CODING_TEAM_SCOPE.md
+6. product/INTEGRATION_FIRST_POLICY.md
+7. product/TELEGRAM_KNOWN_LIMITATIONS.md
+8. reference-baseline/SOURCE_OF_TRUTH.md
+9. architecture/control-plane-v1/README.md
+10. contracts/control-plane-v1/
+11. 05_NEXT_PHASE.md
+12. next-agent/NEXT_AGENT_PROMPT.txt
+
+五、目录结构
+------------
+
+src/ 保存当前参考实现源码；integrations/cc-connect/ 保存 cc-connect Patch 与构建证据；control-plane/ 保存 Local Control Plane；product/、architecture/、contracts/、reference-baseline/ 和 reports/ 分别保存产品、设计、机器契约、运行事实与阶段报告。
 
 六、安全
 --------
-本仓库不含 Token、API Key、密码、数据库、Transcript、日志、PID、个人聊天内容。
-所有配置模板使用占位符。详见 SECURITY_REVIEW.md。
+
+仓库不保存真实 Token、API Key、密码、Transcript、个人聊天内容或私有运行配置。Control Plane 默认 loopback + Bearer，并在 API、Diagnostic 和 ReadinessReport 输出前脱敏。详见 SECURITY_REVIEW.md。

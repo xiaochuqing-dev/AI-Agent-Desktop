@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ai-agent-desktop:control-plane:v1:core-models",
   "title": "AI Agent Desktop Control Plane v1 core models",
-  "description": "Design contract only. It does not claim that a Control Plane runtime is implemented.",
+  "description": "Frozen v1 models used by the implemented read-only Control Plane foundation; mutation capabilities remain planned or unsupported.",
   "oneOf": [
     { "$ref": "#/$defs/Component" },
     { "$ref": "#/$defs/Provider" },

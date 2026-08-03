@@ -3,44 +3,41 @@
 
 一、产品定位
 ------------
-面向个人 AI 开发团队的桌面端安装、配置、管理与协作产品。
-不重新开发 Hermes、Claude Code、Codex 或完整 Runtime，而是把成熟能力组合成普通用户十分钟可安装、配置、启动、诊断、升级、回滚和迁移的完整体验。
 
-二、北极星目标
---------------
-在基本干净的 Windows 电脑上，普通用户应能在十分钟左右完成:
-- 环境检测
-- 必要组件安装
-- 模型或账号授权
-- Telegram 配置
-- 首次成功测试
-不手工编辑配置文件，不需要理解 AppData、npm 全局目录、环境变量、端口和计划任务。
+面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心。
 
-三、当前真实 Telegram 拓扑
----------------------------
-Hermes Bot -> Hermes 自己直连 Telegram
-Claude Code Bot -> cc-connect -> Telegram
-Codex Bot -> cc-connect -> Telegram
+产品把 Hermes、Claude Code、Codex、cc-connect、Telegram 和可选 CC Switch 组合成低摩擦体验，价值在于减少配置、降低失败率、统一状态与恢复，而不是重复开发上游。
 
-四、产品架构方向
-----------------
-Desktop GUI -> Local Control Plane -> Provider/Adapter -> Hermes / cc-connect / Claude Code / Codex / Telegram
-GUI 与 Control Plane 独立运行，关闭 GUI 不停止后台。正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但核心架构和 Control Plane 不依赖该技术栈。
-
-五、默认组件定位
-----------------
-- Hermes: 默认智能中枢和 Orchestration Provider
-- cc-connect: 当前辅助 Runtime/Telegram 连接层，可被替换
-- Claude Code: 一等代码 Agent
-- Codex: 一等代码 Agent
-- Telegram: 首发 Channel，不是唯一 Channel
-- dual_agent: 当前 Fallback，不是永久核心
-- cc-connect Patch: 当前兼容层，不得无限扩大
-
-六、长期竞争力
---------------
-十分钟安装、统一配置、Secret 安全管理、状态可见、错误可诊断、一键启停重启、更新备份回滚、新电脑迁移、多 Agent 多 Channel 组合体验、人类暂停取消介入改派、美观现代 GUI。
-
-七、不得走偏
+二、首发范围
 ------------
-不重写 Hermes/Claude Code/Codex、不开发第二套完整 Runtime、不开发第二套消息总线、不把 Control Plane 变通用 DAG、不无限扩大 dual_agent 和 Patch、不让核心架构绑定 GUI 技术栈、不让 GUI 直接依赖上游内部目录。
+
+- Windows 10/11
+- Telegram
+- Hermes、Claude Code、Codex
+- cc-connect 作为 Claude Code/Codex 与 Telegram 的 V1 核心桥梁
+- CC Switch 作为推荐但非强制的供应商配置入口
+- PySide6 作为未来 GUI 首选，本阶段不实现 GUI
+
+三、三个 Bot 与六条目标链路
+----------------------------
+
+用户可见 Hermes Bot、Claude Code Bot、Codex Bot。
+
+目标链路为 Hermes 私聊与群聊、Claude Code 私聊与群聊、Codex 私聊与群聊。当前只存在部分真实证据；自动配置和六链路自动验收尚未实现。
+
+四、未来用户体验
+----------------
+
+用户未来只需提供模型账号或 API 凭据，创建三个 Telegram Bot 并粘贴三个 Token，创建群聊并加入三个 Bot，完成 Telegram 官方必须由用户执行的少量操作，例如首次 /start 和权限设置，然后在 GUI 点击配置或验证。
+
+产品未来负责识别 Bot、验证 Token、获取 User ID 与 Group/Chat ID、建立绑定和白名单、生成 Hermes 与 cc-connect 配置、创建 cc-connect Project、处理端口/Hook/Session/后台启动、检测六条链路并给出修复。以上均为目标，不是当前已实现能力。
+
+五、架构方向
+------------
+
+Desktop GUI -> Local Control Plane -> Provider/Adapter -> 成熟上游。GUI 不直接写上游私有配置；Control Plane 不充当新 Runtime、通用 DAG 或第二套消息桥梁。
+
+六、核心价值
+------------
+
+减少配置、降低失败率、降低首次使用摩擦，统一安装、状态、诊断、更新、回滚与恢复，让用户无需自行查找配置文件和日志。

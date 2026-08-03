@@ -1,33 +1,26 @@
-PUBLIC_HANDOFF_READY
-====================
+PUBLIC HANDOFF READY
 
-生成时间: 2026-07-30
+更新时间：2026-08-04
 
-公开仓库 URL: https://github.com/xiaochuqing-dev/AI-Agent-Desktop.git
-公开仓库 Commit: 2f4b12d
-当前 Reference Baseline Tag: v0.1-reference-baseline
-已核验 baseline HEAD: cd3493b191fdc19114e0ae037746ab3d23a58a79
-当前 cc-connect 版本: v1.4.1-patchset0.1-fc315d2
-当前 cc-connect SHA256: f7a577bba84bf732519d98cfdf70fa6c089fbc50ae9e14deb775d3c46d0409fb
+仓库：https://github.com/xiaochuqing-dev/AI-Agent-Desktop
+Reference Baseline Tag：v0.1-reference-baseline
+Baseline HEAD：cd3493b191fdc19114e0ae037746ab3d23a58a79
+cc-connect 参考版本：v1.4.1-patchset0.1-fc315d2
 
-当前运行源码核验结论: CURRENT RUNTIME SOURCE VERIFIED
-  当前运行关键代码与公开仓库 src/ 一致
-  当前运行二进制对应 fc315d2 + 5 Patch
+当前交付
 
-公开文件数量: 94
-SHA256SUMS: 根目录 SHA256SUMS.txt（94 项）
-Security Review: 通过（见 SECURITY_REVIEW.md）
+Control Plane v1 契约与 ADR 已冻结，control-plane/ 基础运行代码已实现。当前能力是只读发现、Readiness、结构化 Diagnostic、Dry-run、Operation/SSE 和脱敏。真实安装、配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。
 
-被排除的内部资产类型:
-  exe / zip / 7z / bundle / 数据库 / 日志 / PID / Session / Transcript / Token / API Key / Bearer / 真实 Telegram ID / 真实用户名 / 真实路径
+产品范围
 
-下一阶段名称: 独立 Control Plane 与 Provider/Adapter 契约设计
-下一 Agent 首读文件: 00_START_HERE.md
+首发固定为 Windows 10/11 与 Telegram，Agent 为 Hermes、Claude Code、Codex。用户可见三个 Bot，目标为六条私聊/群聊链路。cc-connect 是 V1 核心桥梁，CC Switch 是推荐但非强制的配置入口。采用 Integration First 和唯一 ManagementOwner。
 
-当前运行环境未被修改:
-  cc-connect PID 13672 运行候选
-  默认 gateway PID 6292 监听 8423
-  Token / config / 数据库 / junction / 计划任务均未修改
+运行环境保护
 
-远程克隆验证通过:
-  公开可访问，分支 main，94 文件，关键目录全在，无 exe/zip/bundle，无 Secret。
+本阶段未修改 src/、dual_agent、5 个 cc-connect Patch、真实配置、凭据、计划任务、Watchdog、junction 或运行中服务，未执行真实 Telegram E2E，未发送消息。
+
+下一阶段
+
+cc-connect 单组件真实安装纵向切片。入口与门禁见 05_NEXT_PHASE.md 和 next-agent/NEXT_AGENT_PROMPT.txt。
+
+最终 Git、CI、合并、分支清理、文件清单与 SHA256 结果见 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md。

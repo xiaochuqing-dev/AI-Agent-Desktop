@@ -3,51 +3,48 @@
 
 一、准确名称
 ------------
-审阅并冻结 Control Plane v1 契约，然后实现第一个最小纵向切片。
 
-二、先完成正式评审
-------------------
-以 architecture/control-plane-v1/README.md 为阅读入口，以 contracts/control-plane-v1/ 下的 OpenAPI 和 JSON Schema 为机器契约。
-评审必须解决文档与机器契约的不一致，并为以下四项形成 ADR：
-- Control Plane 实现语言与框架
-- 事务型元数据与 Operation 存储
-- Windows 后台宿主与生命周期所有权
-- CredentialBackend 组合
+cc-connect 单组件真实安装纵向切片。
 
-稳定字段正式冻结后，只允许向后兼容地增加可选字段。破坏性变化进入新的 API 或 Provider 合约主版本。
+二、目标
+------
 
-三、第一个最小纵向切片
-----------------------
-按 architecture/control-plane-v1/09_MIGRATION_AND_FIRST_VERTICAL_SLICE.md 实施：
-- 发现本机组件和依赖
-- 显示安装、配置、授权、运行、健康和更新状态
-- 显示版本、Agent 和 Capability
-- 脱敏读取并只读校验配置
-- 通过门禁后逐组件接管启动、停止、重启
-- 执行无副作用健康检查
-- 提供统一脱敏日志、Operation 和用户可理解错误
+只把 cc-connect 的 DryRun 安装计划升级为用户显式确认后可执行、可审计、可取消、可验证、失败可回滚的最小真实安装闭环。不得顺带实现其他组件安装、Telegram 自动绑定或 GUI。
 
-先完成只读观测，再进行受控 lifecycle 接管。旧启动所有权与 Control Plane 不得形成双 supervisor。
-
-四、完成门禁
+三、进入条件
 ------------
-- GUI 或验收客户端关闭后后台继续运行
-- 相同幂等请求不重复产生副作用
-- 状态未知时如实返回 unknown，不伪造正常
-- 配置只读校验前后文件哈希不变
-- 一个 Adapter 失败不拖垮其他 Provider
-- 生命周期接管可恢复旧启动所有权
-- src/、5 个 Patch 和 Reference Baseline 回归证据不变
-- 不产生真实 Telegram 消息，不读取或输出真实凭据
+
+- 用户显式确认安装目标、来源、版本和影响
+- 使用持久化 Operation 与 Idempotency-Key
+- 取消语义区分“请求已接受”和“外部工作已停止”
+- 安装前保存可验证快照与现有生命周期所有权
+- 来源、版本与摘要锁定
+- 每个配置作用域只有一个 ManagementOwner
+
+四、最小执行闭环
+----------------
+
+1. 只读发现当前 cc-connect 状态和生命周期所有者。
+2. 生成安装计划、来源、锁定版本、摘要、前置条件与回滚点。
+3. 获取用户显式确认后创建可审计 Operation。
+4. 执行单组件安装，不修改 Hermes、Claude Code、Codex 或 Telegram 真实配置。
+5. 仅在配置所有权明确时写入本阶段批准的最小配置。
+6. 执行无副作用本地健康验证。
+7. 失败时恢复快照与旧生命周期所有权。
+8. 支持卸载或恢复路径，并保留审计结果。
 
 五、仍然禁止
 ------------
-- 直接开发正式 GUI 或大规模 PySide6 工程
-- 新 Channel、新 Runtime、通用 DAG 或第二套消息总线
-- 重写 Hermes 或 cc-connect
-- 扩大 dual_agent 或 5 个 cc-connect Patch
-- 未经门禁接管当前真实生命周期、配置或凭据
-- 重启当前服务或重新执行真实 Telegram E2E
-- 把未验证的人类控制、讨论或迁移能力标成已实现
 
-PySide6 + Qt Widgets + QSS 是正式 GUI 当前首选方向，但不改变上述实施顺序，也不绑定 Control Plane 的实现语言。
+- 提前实现 Telegram 三 Bot 自动绑定或六链路真实 E2E
+- 发送真实 Telegram 消息
+- 同时安装其他组件
+- 开发正式 GUI、通用安装器或 Provider 编辑器
+- 扩大 dual_agent 或 cc-connect Patch
+- 停止或重启现有 Hermes/cc-connect，除非下一阶段的隔离验收环境和用户确认明确授权
+- 读取、输出或提交真实 Secret
+
+六、验收重点
+------------
+
+来源与版本可追溯、重复请求不重复安装、中断后先探测再恢复、取消不虚报、健康验证有直接证据、失败可回滚、Reference Baseline 无回归。

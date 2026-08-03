@@ -3,7 +3,9 @@ Control Plane(本地控制面)
 
 本目录是 AI Agent Desktop 的 Local Control Plane 实现代码区,与 src/ 参考基线物理隔离。
 
-当前阶段交付:一个独立运行、绑定 loopback 的本地服务,对一台 Windows 电脑执行无副作用的"就绪扫描",输出可机器读取、也可被用户理解的就绪报告与 dry-run 安装/修复计划。
+当前阶段交付:一个独立运行、绑定 loopback 的本地服务,对一台 Windows 电脑执行无副作用的"就绪扫描",输出可机器读取、也可被用户理解的就绪报告、结构化 Diagnostic 与 dry-run 安装/修复计划。
+
+内置 7 个只读发现 Adapter:Windows System、Hermes、cc-connect、Claude Code、Codex、CC Switch、Telegram Config。只有直接运行/健康证据才能产生 running/healthy；配置或 Token 引用存在时相关状态保持 unknown，直到有独立验证。
 
 本阶段不实现:真实安装、登录、启停、更新、发送消息、正式 GUI、配置写入、凭据写入。
 

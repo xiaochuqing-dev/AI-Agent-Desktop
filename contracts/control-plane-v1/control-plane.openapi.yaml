@@ -4,15 +4,16 @@ info:
   version: 1.0.0
   summary: Stable local management contract for the desktop GUI and trusted clients.
   description: |
-    Design contract only. No Control Plane runtime or GUI implementation is claimed.
-    The service binds to loopback, requires a high-entropy bearer token, and never
-    accepts credentials in URL query parameters. Long-running mutations return an
-    Operation. Provider-specific structures remain behind Adapter boundaries.
+    The read-only Control Plane foundation is implemented: loopback service,
+    discovery, readiness, dry-run planning, operations, diagnostics, and SSE.
+    Mutation endpoints remain contract-only or return unsupported; real install,
+    configuration writes, credential writes, lifecycle takeover, and GUI are not
+    implemented. Provider-specific structures remain behind Adapter boundaries.
   license:
     name: See repository LICENSE
     identifier: Apache-2.0
   x-contract-status: frozen
-  x-implementation-status: not-implemented
+  x-implementation-status: partial-read-only
   x-event-types:
     - com.aiagentdesktop.component.state.changed.v1
     - com.aiagentdesktop.component.discovered.v1

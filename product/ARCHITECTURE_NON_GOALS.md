@@ -1,46 +1,26 @@
 架构非目标 ARCHITECTURE_NON_GOALS
+================================
 
-本文档明确列出本产品不做的事，以及哪些当前临时产物可在条件满足后安全删除。
-非目标与产品宪法第七条同源，是硬约束，任何路线图不得违反。
-临时产物不是错误，但必须有明确的退场条件，不得无限期保留。
+一、硬约束
+----------
 
---------------------------------
+1. 不重写 Hermes、Claude Code、Codex 或 cc-connect。
+2. 不开发第二套 Agent Runtime、通用 Telegram Bridge 或消息总线。
+3. 不重复开发完整 Provider 管理器；优先集成可选 CC Switch。
+4. 不把 Control Plane 变成通用 DAG、工作流市场或插件市场。
+5. 不让 GUI 直接依赖或写入上游内部目录。
+6. 不新增 Telegram 之外的 Channel，也不新增其他 Agent Runtime。
+7. 不扩大 dual_agent 或现有 5 个 cc-connect Patch。
+8. 不把配置存在、Token 引用或普通消息证据虚报为健康、认证有效、命令可用或 Session 隔离已验证。
+9. 不让两个 ManagementOwner 同时写同一配置作用域。
+10. 不静默升级上游，不在没有快照和回滚点时接管生命周期。
 
-一、非目标清单
+二、Integration First
+---------------------
 
-1. 不重写上游：不重写 Hermes、Claude Code、Codex 的核心能力，本产品只做组合与托管。
-2. 不开发第二套完整 Runtime：本产品的 Control Plane 是控制面，不是新的执行运行时。
-3. 不开发第二套消息总线：消息链路沿用 cc-connect 与 Hermes 既有通道，不另起总线。
-4. 不把 Control Plane 变通用 DAG：编排只做本产品所需的中枢委派，不做通用有向无环图引擎。
-5. 不让核心绑定 GUI 技术栈：正式 GUI 当前首选 PySide6 + Qt Widgets + QSS，但 GUI 通过 Control Plane API 解耦，领域模型、Provider 契约和业务核心不依赖该技术栈。
-6. 不让 GUI 直接依赖上游内部目录：GUI 不读上游组件的内部文件结构，只经 Control Plane。
-7. 不无限扩大 Patch：cc-connect 每个 Patch 对应一个上游缺陷，上游修复即移除，不为便利新增 Patch。
-8. 不无限扩大 dual_agent：dual_agent 只承载当前编排缺口，Hermes 原生支持后即退场。
-9. 本阶段不接入新渠道：飞书等渠道留位置但不实现，本阶段只做 Telegram。
-10. 不擅自升级上游：上游版本与 Patch 基准由专门流程管控，不在日常使用中静默升级。
+Adapter 只声明上游真实具备且有证据的能力。上游不足时返回 unsupported、unavailable 或 unknown，不用本地兼容代码伪造完整能力。
 
---------------------------------
+三、当前非范围
+--------------
 
-二、可安全删除项
-
-dual_agent 包：当 Hermes 原生支持 parallel 和 sequential 编排，且三条链路验证无回归后，可整体移除 dual_agent 源码与对应的 junction 根。
-cc-connect Patch 集：按 Patch 逐个评估。当上游对应能力修复并经本应用验证后，移除该 Patch；五项全部覆盖后可清空整个 Patch 集。
-junction 兼容回退：dual_agent 退场后，其 junction 根与相关路径解析逻辑随之移除，配置解析只保留环境变量与显式字段两条优先级。
-临时启动脚本：当 Control Plane 完全托管生命周期后，Hermes_Gateway.vbs、CcConnect_Autostart.vbs 等临时拉起脚本可移除，由 Control Plane 统一启停。
-身份前缀清理：指 cc-connect 中去 Worker 身份前缀的临时逻辑，当上游采用相同展示策略后，该清理逻辑可移除。
-
---------------------------------
-
-三、删除前置条件
-
-任何可删除项的移除，必须满足三条前置：
-一、替代能力已验证可用，且通过三条链路的端到端测试。
-二、已建立回滚点，失败时可一键回到删除前状态。
-三、移除后 GUI 状态模型与十分钟引导不受影响，用户无感或仅看到版本变化。
-
---------------------------------
-
-四、禁止的延长保留
-
-临时产物的保留必须有期限或条件，不得以"还能用""先留着"为由无限期留存。
-每轮版本评审需复核临时项的退场条件是否已满足，满足即移除，不满足则更新预计退场节点。
+正式 GUI、通用安装器、Telegram 自动绑定、六链路自动验收、Provider 编辑页面、真实凭据迁移与多组件安装均不属于当前 PR #1。

@@ -80,8 +80,8 @@
 | PASS | GUI 状态与十分钟引导和冻结状态/API 一致，未把设计写成已实现 | [GUI 状态](../../product/GUI_STATUS_EXPERIENCE.md)、[十分钟引导](../../product/TEN_MINUTE_ONBOARDING.md) |
 | PASS | Reference Baseline 事实优先级未改变，仅增加架构事实源位置 | [Reference 事实源](../../reference-baseline/SOURCE_OF_TRUTH.md) |
 | PASS | 所有仓库内 Markdown 相对链接有效 | 递归相对链接检查 |
-| PASS | `PUBLIC_FILE_MANIFEST.txt` 与实际公开文件一致 | [公开清单](../../PUBLIC_FILE_MANIFEST.txt)；113 项集合比对 |
-| PASS | `SHA256SUMS.txt` 覆盖全部公开文件且排除自身 | [SHA256 清单](../../SHA256SUMS.txt)；112 项逐文件复算 |
+| PASS | `PUBLIC_FILE_MANIFEST.txt` 与实际公开文件一致 | [公开清单](../../PUBLIC_FILE_MANIFEST.txt)；以最终主线集合比对为准 |
+| PASS | `SHA256SUMS.txt` 覆盖全部公开文件且排除自身 | [SHA256 清单](../../SHA256SUMS.txt)；以最终主线逐文件复算为准 |
 | PASS | 16 项完成报告已进入仓库且不含敏感信息 | [完成报告](../../reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md)；安全扫描 |
 
 ## F Git 安全与远端验证

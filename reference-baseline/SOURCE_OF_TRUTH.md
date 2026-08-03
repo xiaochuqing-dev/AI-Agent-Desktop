@@ -31,4 +31,4 @@ src/ 中的源码与当前运行体一致（见根目录 CURRENT_RUNTIME_SOURCE_
 architecture/control-plane-v1/ 是 Control Plane v1 的正式架构设计事实源。
 contracts/control-plane-v1/ 是本地 API、事件信封与核心模型的机器可读契约。
 设计包与机器契约发生差异时必须在评审中同时修正，不能静默选择一方。
-它们定义未来适配与实施边界，不改变本文件前述运行事实优先级，也不代表 Control Plane 运行时代码或正式 GUI 已实现。
+它们定义适配与实施边界，不改变本文件前述运行事实优先级。Control Plane 只读基础运行代码已实现于 control-plane/；真实变更能力与正式 GUI 尚未实现。
