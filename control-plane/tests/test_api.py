@@ -49,6 +49,12 @@ def test_discovery_and_readiness(client):
     assert report["redaction_applied"] is True
     assert report["dry_run_plan"]["execute"] is False
     assert len(report["components"]) == 2
+    assert len(report["blockers"]) == 1
+    assert report["blockers"][0]["code"] == "COMPONENT_NOT_INSTALLED"
+
+    diagnostics = client.get("/api/v1/diagnostics")
+    assert diagnostics.status_code == 200
+    assert diagnostics.json() == report["blockers"] + report["warnings"]
 
     rc = client.get("/api/v1/components")
     assert rc.status_code == 200

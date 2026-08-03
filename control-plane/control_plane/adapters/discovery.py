@@ -151,6 +151,47 @@ def _version_condition(version: str | None, reliable: bool) -> list[Condition]:
     ]
 
 
+def _presence_condition(
+    *,
+    condition_type: str,
+    present: bool,
+    present_reason: str,
+    absent_reason: str,
+    present_message: str,
+    absent_message: str,
+) -> Condition:
+    return Condition(
+        type=condition_type,
+        status=ConditionStatus.TRUE if present else ConditionStatus.FALSE,
+        reason=present_reason if present else absent_reason,
+        message=present_message if present else absent_message,
+        observed_generation=1,
+        last_transition_time=utcnow(),
+    )
+
+
+def _executable_condition(display_name: str, installed: bool) -> Condition:
+    return _presence_condition(
+        condition_type="ExecutableDetected",
+        present=installed,
+        present_reason="EXECUTABLE_FOUND",
+        absent_reason="EXECUTABLE_NOT_FOUND",
+        present_message=f"已通过只读探测发现 {display_name} 可执行文件",
+        absent_message=f"未通过受支持的只读探测发现 {display_name} 可执行文件",
+    )
+
+
+def _configuration_artifact_condition(display_name: str, exists: bool) -> Condition:
+    return _presence_condition(
+        condition_type="ConfigurationArtifactPresent",
+        present=exists,
+        present_reason="CONFIGURATION_ARTIFACT_FOUND_UNVALIDATED",
+        absent_reason="CONFIGURATION_ARTIFACT_NOT_FOUND",
+        present_message=f"发现 {display_name} 配置文件，但未读取或验证其内容",
+        absent_message=f"未发现 {display_name} 配置文件",
+    )
+
+
 def _read_only_capability(cap_id: str) -> Capability:
     return Capability(
         capability_id=cap_id,
@@ -214,11 +255,10 @@ class HermesDiscoveryAdapter(DiscoveryAdapter):
     def discover(self) -> list[Component]:
         exe: str | None = shutil.which("hermes") or _hermes_exe_candidate()
         version, reliable = None, False
-        config_exists = False
         installed = exe is not None and os.path.isfile(exe)
+        config_exists = _hermes_config_exists()
         if installed and exe is not None:
             version, reliable = _version_of(exe, ["--version"])
-            config_exists = _hermes_config_exists()
         return [
             Component(
                 component_id="hermes",
@@ -229,16 +269,20 @@ class HermesDiscoveryAdapter(DiscoveryAdapter):
                     installation=InstallationState.INSTALLED
                     if installed
                     else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.VALID
+                    configuration=ConfigurationState.UNKNOWN
                     if config_exists
                     else ConfigurationState.MISSING,
                     runtime=RuntimeState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
                         if installed and not config_exists
-                        else (UserStatus.RUNNING_HEALTHY if installed else UserStatus.NOT_INSTALLED)
+                        else (UserStatus.UNKNOWN if installed else UserStatus.NOT_INSTALLED)
                     ),
-                    conditions=_version_condition(version, reliable),
+                    conditions=[
+                        _executable_condition("Hermes", installed),
+                        _configuration_artifact_condition("Hermes", config_exists),
+                        *_version_condition(version, reliable),
+                    ],
                 ),
                 provider_refs=[],
             )
@@ -256,11 +300,10 @@ class CcConnectDiscoveryAdapter(DiscoveryAdapter):
         # 优先用 .exe(npm wrapper 会触发 run.js 覆盖 patch 版)
         exe: str | None = shutil.which("cc-connect") or _cc_connect_exe_candidate()
         version, reliable = None, False
-        config_exists = False
         installed = exe is not None and os.path.isfile(exe)
+        config_exists = _cc_connect_config_exists()
         if installed and exe is not None:
             version, reliable = _version_of(exe, ["--version"])
-            config_exists = _cc_connect_config_exists()
         return [
             Component(
                 component_id="cc-connect",
@@ -271,16 +314,20 @@ class CcConnectDiscoveryAdapter(DiscoveryAdapter):
                     installation=InstallationState.INSTALLED
                     if installed
                     else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.VALID
+                    configuration=ConfigurationState.UNKNOWN
                     if config_exists
                     else ConfigurationState.MISSING,
                     runtime=RuntimeState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
                         if installed and not config_exists
-                        else (UserStatus.RUNNING_HEALTHY if installed else UserStatus.NOT_INSTALLED)
+                        else (UserStatus.UNKNOWN if installed else UserStatus.NOT_INSTALLED)
                     ),
-                    conditions=_version_condition(version, reliable),
+                    conditions=[
+                        _executable_condition("cc-connect", installed),
+                        _configuration_artifact_condition("cc-connect", config_exists),
+                        *_version_condition(version, reliable),
+                    ],
                 ),
                 provider_refs=[],
             )
@@ -310,7 +357,10 @@ class ClaudeCodeDiscoveryAdapter(DiscoveryAdapter):
                     if exe
                     else InstallationState.NOT_INSTALLED,
                     user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
-                    conditions=_version_condition(version, reliable),
+                    conditions=[
+                        _executable_condition("Claude Code", exe is not None),
+                        *_version_condition(version, reliable),
+                    ],
                 ),
                 provider_refs=[],
             )
@@ -340,7 +390,10 @@ class CodexDiscoveryAdapter(DiscoveryAdapter):
                     if exe
                     else InstallationState.NOT_INSTALLED,
                     user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
-                    conditions=_version_condition(version, reliable),
+                    conditions=[
+                        _executable_condition("Codex", exe is not None),
+                        *_version_condition(version, reliable),
+                    ],
                 ),
                 provider_refs=[],
             )
@@ -359,7 +412,7 @@ class TelegramConfigDiscoveryAdapter(DiscoveryAdapter):
         multiagent = _hermes_config_exists()
         tokens_env = _cc_connect_tokens_env_exists()
         installed = multiagent or tokens_env
-        valid = multiagent and tokens_env
+        artifacts_complete = multiagent and tokens_env
         return [
             Component(
                 component_id="telegram-channel",
@@ -370,15 +423,28 @@ class TelegramConfigDiscoveryAdapter(DiscoveryAdapter):
                     installation=InstallationState.INSTALLED
                     if installed
                     else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.VALID if valid else ConfigurationState.MISSING,
+                    configuration=ConfigurationState.UNKNOWN
+                    if artifacts_complete
+                    else ConfigurationState.MISSING,
                     authentication=AuthenticationState.REQUIRED
-                    if not valid
+                    if not tokens_env
                     else AuthenticationState.UNKNOWN,
                     user_status=(
                         UserStatus.INSTALLED_UNCONFIGURED
-                        if installed and not valid
-                        else (UserStatus.RUNNING_HEALTHY if installed else UserStatus.NOT_INSTALLED)
+                        if installed and not artifacts_complete
+                        else (UserStatus.UNKNOWN if installed else UserStatus.NOT_INSTALLED)
                     ),
+                    conditions=[
+                        _configuration_artifact_condition("Hermes Telegram", multiagent),
+                        _presence_condition(
+                            condition_type="TokenReferenceArtifactPresent",
+                            present=tokens_env,
+                            present_reason="TOKEN_REFERENCE_ARTIFACT_FOUND_UNVALIDATED",
+                            absent_reason="TOKEN_REFERENCE_ARTIFACT_NOT_FOUND",
+                            present_message="发现 Telegram Token 引用文件，但未读取或验证 Token",
+                            absent_message="未发现 Telegram Token 引用文件",
+                        ),
+                    ],
                 ),
                 provider_refs=[],
             )

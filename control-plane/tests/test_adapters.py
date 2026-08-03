@@ -49,7 +49,33 @@ def test_installed_when_found(monkeypatch, tmp_path):
     c = a.discover()[0]
     assert c.state.installation.value == "installed"
     assert c.version == "v1.2.3"
-    assert c.state.configuration.value == "valid"
+    assert c.state.configuration.value == "unknown"
+    assert c.state.runtime.value == "unknown"
+    assert c.state.health.value == "unknown"
+    assert c.state.user_status.value == "unknown"
+    assert any(x.reason == "CONFIGURATION_ARTIFACT_FOUND_UNVALIDATED" for x in c.state.conditions)
+
+
+def test_config_artifacts_never_claim_running_or_healthy(monkeypatch, tmp_path):
+    fake_exe = str(tmp_path / "fake.exe")
+    monkeypatch.setattr(disc.shutil, "which", lambda name: fake_exe)
+    monkeypatch.setattr(disc.os.path, "isfile", lambda p: True)
+    monkeypatch.setattr(disc, "_version_of", lambda *a, **k: ("v1.2.3", True))
+    monkeypatch.setattr(disc, "_hermes_config_exists", lambda: True)
+    monkeypatch.setattr(disc, "_cc_connect_config_exists", lambda: True)
+    monkeypatch.setattr(disc, "_cc_connect_tokens_env_exists", lambda: True)
+
+    adapters = [
+        disc.HermesDiscoveryAdapter(),
+        disc.CcConnectDiscoveryAdapter(),
+        disc.TelegramConfigDiscoveryAdapter(),
+    ]
+    for adapter in adapters:
+        state = adapter.discover()[0].state
+        assert state.configuration.value == "unknown"
+        assert state.runtime.value == "unknown"
+        assert state.health.value == "unknown"
+        assert state.user_status.value == "unknown"
 
 
 def test_windows_system_adapter(monkeypatch):

@@ -103,5 +103,42 @@ class FakeMissingAdapter(DiscoveryAdapter):
         return []
 
 
+class FakeUnknownAdapter(DiscoveryAdapter):
+    adapter_id = "fake-unknown"
+    component_kinds = ["agent"]
+
+    def discover(self) -> list[Component]:
+        return [
+            Component(
+                component_id="fake-unknown",
+                kind="agent",
+                display_name="Fake Unknown",
+                version=None,
+                state=_snap(
+                    InstallationState.INSTALLED,
+                    configuration=ConfigurationState.UNKNOWN,
+                    runtime=RuntimeState.UNKNOWN,
+                    health=HealthState.UNKNOWN,
+                    user_status=UserStatus.UNKNOWN,
+                ),
+                provider_refs=[],
+            )
+        ]
+
+    def capabilities(self) -> list[Capability]:
+        return []
+
+
+class FakeFailingAdapter(DiscoveryAdapter):
+    adapter_id = "fake-failing"
+    component_kinds = ["agent"]
+
+    def discover(self) -> list[Component]:
+        raise RuntimeError("private-path\\must-not-leak")
+
+    def capabilities(self) -> list[Capability]:
+        return []
+
+
 def make_fake_adapters() -> list[DiscoveryAdapter]:
     return [FakeHealthyAdapter(), FakeMissingAdapter()]

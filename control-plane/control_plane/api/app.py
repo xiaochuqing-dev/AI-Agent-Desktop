@@ -384,7 +384,14 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
 
     @api.get("/api/v1/diagnostics", response_model=list[Diagnostic], tags=["Diagnostics"])
     def list_diagnostics(_token: str = Depends(_bearer_auth)):
-        # 切片:诊断来自发现失败的探针;首片返回空列表(无失败探针时)
+        st = get_state()
+        with st.db.session() as s:
+            store = OperationStore(s)
+            ops = store.list_operations(kind="discovery", limit=20)
+        for op in ops:
+            if op.status == OperationStatus.SUCCEEDED and op.result:
+                report = ReadinessReport.model_validate(op.result)
+                return redact_value([*report.blockers, *report.warnings])
         return []
 
     @api.get("/api/v1/events", tags=["Events"])
