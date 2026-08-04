@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-04）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 cc-connect 锁定 Windows 产物的隔离安装、原子最小配置和产品自有生命周期；无 Secret 真实持续运行是 PARTIAL，Telegram 自动绑定和 GUI 仍未实现。
+实施状态更新（2026-08-05）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 Windows Credential Manager、三 Bot 合成绑定、managed/native 分离、合法 Claude/Codex 原生配置和产品自有生命周期；真实 Telegram 与 Windows 10 尚待验证，整体为 PARTIAL。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
@@ -74,7 +74,7 @@
 
 | 状态 | 验收项 | 证据 |
 |---|---|---|
-| PASS | 正式设计目录包含 README、01 至 11 和本清单 | [设计包入口](README.md) |
+| PASS | 正式设计目录包含 README、01 至 13 和本清单 | [设计包入口](README.md) |
 | PASS | OpenAPI 3.1 可由标准解析器读取并覆盖首片/核心端点 | [OpenAPI](../../contracts/control-plane-v1/control-plane.openapi.yaml)；Redocly 验证 |
 | PASS | 事件信封 JSON Schema 可解析并通过正反样例验证 | [事件 schema](../../contracts/control-plane-v1/event-envelope.schema.json)；Draft 2020-12 验证 |
 | PASS | 核心模型 JSON Schema 可解析并覆盖 Operation、Component、Agent、状态、Diagnostic | [核心 schema](../../contracts/control-plane-v1/core-models.schema.json)；Draft 2020-12 验证 |
@@ -98,6 +98,21 @@
 | PASS | 推送后重新 fetch 并在全新浅克隆验证文件、链接、规范与报告 | 全新 `core.autocrlf=false` 浅克隆验证 |
 | PASS | 最终工作区干净 | 最终 `git status` |
 
+## G Telegram 三 Bot 与原生配置切片
+
+| 状态 | 验收项 | 证据 |
+|---|---|---|
+| PASS | Windows Credential Manager 普通用户 put/replace/status/resolve/delete/metadata/revision，且无明文文件回退 | Windows credential acceptance；[架构切片](13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md) |
+| PASS | managed state 与 fc315d2 原生 TOML 分离，Renderer 不泄漏产品元数据或 Secret | Renderer 测试；[受管边界](12_CC_CONNECT_MANAGED_RUNTIME_BOUNDARIES.md) |
+| PASS | 三 Fake getMe 身份唯一、一次性绑定防重放、同一 User/Group 3/3 completed | windows_native_runtime_acceptance.py |
+| PASS | 合法 cc-connect 真实进程 start/stop/restart/reconcile、PID/SHA/config/port 和 management Bearer 通过 | windows_native_runtime_acceptance.py |
+| PASS | PATH 仅安装不阻塞，目标端口/配置/Supervisor 冲突阻塞，外部状态未修改 | external detector 测试与 Windows 验收 |
+| PASS | Hermes 缺失准确 pending_component_install，不阻塞 Claude/Codex | Hermes planner 测试与 Windows 验收 |
+| PENDING | 三个真实 Token 的 getMe、三私聊/三同群 live 绑定 | PENDING USER LIVE VALIDATION |
+| PENDING | Windows 10 x64 普通用户打包实机验证 | PENDING WINDOWS 10 VALIDATION |
+| N/A | 六链路真实消息 E2E 与正式 GUI | DEFERRED 到下一切片 |
+| N/A | 原生 Group Chat 过滤与 deep health | 锁定上游 unsupported；未增加 Patch |
+
 ## 当前结论
 
-设计、机器契约、事实源同步、本地安全验证、Manifest、SHA256 与 Git 发布验收全部通过。
+设计、机器契约、代码、Fake 与 Windows 11 合成安全验证通过。阶段整体为 PARTIAL，不得在真实 Telegram 和 Windows 10 证据完成前标为 COMPLETE。

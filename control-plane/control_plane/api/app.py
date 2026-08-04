@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -22,7 +23,14 @@ from ..application.operation_store import (
     OperationStore,
     body_digest,
 )
+from ..cc_connect import (
+    CcConnectExternalDetector,
+    CcConnectNativeConfigurationService,
+    RuntimeSecretInjector,
+)
 from ..configuration.service import CcConnectConfigurationService
+from ..credentials.service import CredentialService
+from ..credentials.windows_backend import CredentialBackendError, SecretBackend
 from ..domain.models import (
     Capability,
     Component,
@@ -35,6 +43,7 @@ from ..domain.models import (
     SystemInfo,
 )
 from ..external_tools.cc_switch import CcSwitchExternalToolProvider
+from ..hermes import HermesConfigurationPlanner
 from ..infrastructure.config import Settings
 from ..installer.artifacts import InstallerError
 from ..installer.models import (
@@ -51,16 +60,28 @@ from ..installer.version_store import ManagedVersionStore
 from ..lifecycle.managed_process import ManagedProcessService
 from ..lifecycle.models import LifecycleActionRequest
 from ..lifecycle.port_ownership import PortOwnershipInspector
-from ..operations import ExecutionContext, OperationExecutor, RecoveryDecision
+from ..operations import (
+    ExecutionContext,
+    OperationExecutionError,
+    OperationExecutor,
+    RecoveryDecision,
+)
 from ..persistence.models import DiagnosticRecord, IdempotencyRecord
 from ..persistence.session import Database
 from ..security.redaction import redact_value
+from ..telegram.api_client import TelegramBotApiClient
+from ..telegram.binding_service import TelegramBindingService
+from ..telegram.bot_identity import TelegramBotIdentityService
+from ..telegram.update_lease import TelegramUpdateLeaseService
 from ..updates.providers import CcConnectArtifactProvider, HermesUpdateProvider
 from .errors import ControlPlaneError, Problem, capability_unsupported
 from .routers import (
     build_configuration_router,
+    build_credentials_router,
     build_integrations_router,
     build_lifecycle_router,
+    build_native_configuration_router,
+    build_telegram_router,
 )
 
 
@@ -75,6 +96,9 @@ class AppState:
         settings: Settings,
         adapters: list | None = None,
         installer_fault_injector=None,
+        credential_backend: SecretBackend | None = None,
+        telegram_client: TelegramBotApiClient | None = None,
+        hermes_path_lookup=None,
     ) -> None:
         self.settings = settings
         self.db = Database(settings)
@@ -103,18 +127,57 @@ class AppState:
             version_store=self.version_store,
             port_inspector=self.port_inspector,
         )
+        self.credentials = CredentialService(self.db, credential_backend)
+        self.telegram_client = telegram_client or TelegramBotApiClient()
+        self.telegram_identities = TelegramBotIdentityService(
+            self.db,
+            self.credentials,
+            self.telegram_client,
+        )
+        self.telegram_leases = TelegramUpdateLeaseService(self.db)
+        self.telegram_binding = TelegramBindingService(
+            self.db,
+            self.credentials,
+            self.telegram_identities,
+            self.telegram_leases,
+            self.telegram_client,
+        )
+        self.native_configuration = CcConnectNativeConfigurationService(
+            self.db,
+            self.installer.layout,
+            self.credentials,
+            self.telegram_identities,
+            self.telegram_binding,
+            self.configuration,
+            version_store=self.version_store,
+        )
+        self.runtime_secrets = RuntimeSecretInjector(self.db, self.credentials)
+        self.cc_connect_external = CcConnectExternalDetector(
+            self.installer.layout.root,
+            port_inspector=self.port_inspector,
+        )
         self.lifecycle = ManagedProcessService(
             self.db,
             self.installer.layout,
             self.configuration,
             version_store=self.version_store,
             port_inspector=self.port_inspector,
+            native_configuration_service=self.native_configuration,
+            runtime_secret_injector=self.runtime_secrets,
+            telegram_identities=self.telegram_identities,
+            telegram_leases=self.telegram_leases,
+            external_state_detector=self.cc_connect_external,
             startup_timeout_seconds=settings.lifecycle_startup_timeout_seconds,
             stop_timeout_seconds=settings.lifecycle_stop_timeout_seconds,
             stable_window_seconds=settings.lifecycle_stable_window_seconds,
         )
         self.cc_connect_updates = CcConnectArtifactProvider(self.db, self.version_store)
         self.hermes_updates = HermesUpdateProvider()
+        self.hermes_configuration = HermesConfigurationPlanner(
+            self.db,
+            self.telegram_binding,
+            path_lookup=hermes_path_lookup,
+        )
         self.cc_switch = CcSwitchExternalToolProvider(self.db)
         self.executor = OperationExecutor(
             self.db,
@@ -170,6 +233,28 @@ class AppState:
             recovery_probe=self.configuration.recovery_probe,
         )
         self.executor.register(
+            "cc_connect_native_configuration_apply",
+            self._execute_native_configuration,
+            recovery_probe=self.native_configuration.recovery_probe,
+        )
+        self.executor.register(
+            "telegram_bot_verify",
+            self._execute_telegram_bot_verify,
+            recovery_probe=lambda _operation_id, _payload: RecoveryDecision.requeue(),
+        )
+        self.executor.register(
+            "telegram_webhook_delete",
+            self._execute_telegram_webhook_delete,
+            recovery_probe=lambda _operation_id, _payload: RecoveryDecision.fail(
+                code="TELEGRAM_WEBHOOK_DELETE_RECOVERY_REQUIRES_RECONFIRMATION"
+            ),
+        )
+        self.executor.register(
+            "telegram_binding_poll",
+            self.telegram_binding.poll,
+            recovery_probe=self.telegram_binding.recovery_probe,
+        )
+        self.executor.register(
             "cc_connect_ownership_handoff",
             self._execute_ownership_handoff,
             recovery_probe=self.lifecycle.recovery_probe,
@@ -215,6 +300,33 @@ class AppState:
             context.operation_id, str(context.payload["plan_id"])
         )
 
+    def _execute_native_configuration(self, context: ExecutionContext) -> dict | None:
+        context.safe_checkpoint()
+        return self.native_configuration.execute_plan(
+            context.operation_id, str(context.payload["plan_id"])
+        )
+
+    def _execute_telegram_bot_verify(self, context: ExecutionContext) -> dict:
+        context.safe_checkpoint()
+        slot = str(context.payload["slot"])
+        if slot not in {"hermes", "claude", "codex"}:
+            raise OperationExecutionError("TELEGRAM_SLOT_INVALID", "Telegram bot slot is invalid.")
+        identity = self.telegram_identities.verify(slot)  # type: ignore[arg-type]
+        context.safe_checkpoint()
+        return identity.model_dump(mode="json")
+
+    def _execute_telegram_webhook_delete(self, context: ExecutionContext) -> dict:
+        context.safe_checkpoint()
+        slot = str(context.payload["slot"])
+        if slot not in {"hermes", "claude", "codex"}:
+            raise OperationExecutionError("TELEGRAM_SLOT_INVALID", "Telegram bot slot is invalid.")
+        deleted = self.telegram_identities.delete_webhook(
+            slot,  # type: ignore[arg-type]
+            explicit_confirmation=bool(context.payload["explicit_confirmation"]),
+            drop_pending_updates=bool(context.payload.get("drop_pending_updates", False)),
+        )
+        return {"slot": slot, "webhook_deleted": deleted}
+
     def _execute_ownership_handoff(self, context: ExecutionContext) -> dict | None:
         return self.lifecycle.execute_ownership_handoff(
             context.operation_id, str(context.payload["plan_id"])
@@ -254,10 +366,22 @@ def get_state() -> AppState:
 
 
 def init_state(
-    settings: Settings, adapters: list | None = None, installer_fault_injector=None
+    settings: Settings,
+    adapters: list | None = None,
+    installer_fault_injector=None,
+    credential_backend: SecretBackend | None = None,
+    telegram_client: TelegramBotApiClient | None = None,
+    hermes_path_lookup=None,
 ) -> None:
     global _STATE
-    _STATE = AppState(settings, adapters, installer_fault_injector)
+    _STATE = AppState(
+        settings,
+        adapters,
+        installer_fault_injector,
+        credential_backend,
+        telegram_client,
+        hermes_path_lookup,
+    )
 
 
 def _bearer_auth(authorization: str | None = Header(default=None)) -> str:
@@ -311,9 +435,19 @@ def create_app(
     settings: Settings | None = None,
     adapters: list | None = None,
     installer_fault_injector=None,
+    credential_backend: SecretBackend | None = None,
+    telegram_client: TelegramBotApiClient | None = None,
+    hermes_path_lookup=None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
-    init_state(settings, adapters, installer_fault_injector)
+    init_state(
+        settings,
+        adapters,
+        installer_fault_injector,
+        credential_backend,
+        telegram_client,
+        hermes_path_lookup,
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -391,6 +525,89 @@ def create_app(
         return JSONResponse(
             status_code=status_code,
             content=redact_value(problem.model_dump(mode="json")),
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(OperationExecutionError)
+    async def _operation_execution_error_handler(_request: Request, exc: OperationExecutionError):
+        error = exc.error
+        status_code = 409
+        if error.code.endswith("NOT_FOUND"):
+            status_code = 404
+        elif error.code in {
+            "TELEGRAM_TIMEOUT",
+            "TELEGRAM_DNS_ERROR",
+            "TELEGRAM_TLS_ERROR",
+            "TELEGRAM_NETWORK_ERROR",
+            "TELEGRAM_RATE_LIMITED",
+        }:
+            status_code = 503
+        elif error.code in {
+            "TELEGRAM_SLOT_INVALID",
+            "TELEGRAM_UNAUTHORIZED",
+            "TELEGRAM_FORBIDDEN",
+            "TELEGRAM_IDENTITY_INVALID",
+        }:
+            status_code = 422
+        problem = Problem(
+            code=error.code,
+            title=error.code.replace("_", " ").title(),
+            status=status_code,
+            detail=error.message,
+            user_message=error.message,
+            retryable=error.retryable,
+            recovery_actions=error.recovery_actions,
+            correlation_id="operation",
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content=redact_value(problem.model_dump(mode="json")),
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(CredentialBackendError)
+    async def _credential_error_handler(_request: Request, exc: CredentialBackendError):
+        status_code = 409
+        if exc.status.value == "backend_unavailable":
+            status_code = 503
+        elif exc.status.value == "inaccessible":
+            status_code = 403
+        problem = Problem(
+            code=exc.code,
+            title=exc.code.replace("_", " ").title(),
+            status=status_code,
+            detail=exc.message,
+            user_message=exc.message,
+            retryable=exc.status.value in {"unknown", "backend_unavailable"},
+            recovery_actions=["inspect_credential_backend", "retry_explicitly"],
+            correlation_id="credential",
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content=redact_value(problem.model_dump(mode="json")),
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error_handler(_request: Request, exc: RequestValidationError):
+        errors = []
+        for item in exc.errors():
+            errors.append(
+                {key: value for key, value in item.items() if key not in {"input", "url", "ctx"}}
+            )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "REQUEST_VALIDATION_FAILED",
+                "title": "Request validation failed",
+                "status": 422,
+                "detail": "The request did not match the API schema.",
+                "user_message": "The request contains invalid or missing fields.",
+                "retryable": False,
+                "recovery_actions": ["review_request_schema"],
+                "correlation_id": "validation",
+                "errors": errors,
+            },
             media_type="application/problem+json",
         )
 
@@ -885,5 +1102,8 @@ def create_app(
     app.include_router(build_configuration_router(get_state, _bearer_auth))
     app.include_router(build_lifecycle_router(get_state, _bearer_auth))
     app.include_router(build_integrations_router(get_state, _bearer_auth))
+    app.include_router(build_credentials_router(get_state, _bearer_auth))
+    app.include_router(build_telegram_router(get_state, _bearer_auth))
+    app.include_router(build_native_configuration_router(get_state, _bearer_auth))
 
     return app

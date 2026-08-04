@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ai-agent-desktop.local/contracts/control-plane-v1/managed-runtime.schema.json",
   "title": "AI Agent Desktop cc-connect managed runtime models",
-  "description": "Non-secret configuration plans, explicit lifecycle ownership, process identity, port ownership, health, update assessment, and external-tool boundaries.",
+  "description": "Non-secret configuration plans, native cc-connect rendering, Windows credential metadata, Telegram identity and binding state, explicit lifecycle ownership, process identity, health, and external-tool boundaries.",
   "oneOf": [
     { "$ref": "#/$defs/ManagedConfiguration" },
     { "$ref": "#/$defs/ConfigurationPlan" },
@@ -12,7 +12,20 @@
     { "$ref": "#/$defs/PortOwnershipEvidence" },
     { "$ref": "#/$defs/LifecycleRuntimeStatus" },
     { "$ref": "#/$defs/UpdateAssessment" },
-    { "$ref": "#/$defs/ExternalToolStatus" }
+    { "$ref": "#/$defs/ExternalToolStatus" },
+    { "$ref": "#/$defs/CredentialMetadata" },
+    { "$ref": "#/$defs/CredentialBackendCapability" },
+    { "$ref": "#/$defs/TelegramBotIdentity" },
+    { "$ref": "#/$defs/TelegramWebhookInfo" },
+    { "$ref": "#/$defs/TelegramUpdateLease" },
+    { "$ref": "#/$defs/BindingSession" },
+    { "$ref": "#/$defs/BindingSessionCreated" },
+    { "$ref": "#/$defs/NativeRendererCapability" },
+    { "$ref": "#/$defs/NativeConfigurationPlan" },
+    { "$ref": "#/$defs/NativeConfigurationState" },
+    { "$ref": "#/$defs/HermesConfigurationPlan" },
+    { "$ref": "#/$defs/HermesConfigurationState" },
+    { "$ref": "#/$defs/ExternalCcConnectState" }
   ],
   "$defs": {
     "Digest": {
@@ -32,9 +45,9 @@
       "additionalProperties": false,
       "required": ["reference_id", "backend", "purpose", "required"],
       "properties": {
-        "reference_id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{2,63}$" },
+        "reference_id": { "type": "string", "pattern": "^[a-z][a-z0-9._/-]{2,127}$" },
         "backend": { "type": "string", "enum": ["windows_credential_manager", "memory"] },
-        "purpose": { "type": "string", "enum": ["telegram_bot_token", "agent_api_key"] },
+        "purpose": { "type": "string", "enum": ["telegram_bot_token", "agent_api_key", "cc_connect_management_token", "binding_hmac_key", "acceptance_test"] },
         "required": { "type": "boolean" }
       }
     },
@@ -213,7 +226,8 @@
         "overall", "process_identity_verified", "artifact_integrity_verified",
         "configuration_revision_verified", "port_owned_by_process",
         "startup_stable_for_window", "local_endpoint_verified", "local_endpoint_status",
-        "deep_health", "fatal_log_detected"
+        "deep_health", "fatal_log_detected", "management_api_verified",
+        "management_api_status", "management_api_bind_scope"
       ],
       "properties": {
         "overall": { "type": "string", "enum": ["stopped", "starting", "partial", "unhealthy", "unknown"] },
@@ -225,7 +239,10 @@
         "local_endpoint_verified": { "const": false },
         "local_endpoint_status": { "const": "unsupported" },
         "deep_health": { "const": "unsupported" },
-        "fatal_log_detected": { "type": "boolean" }
+        "fatal_log_detected": { "type": "boolean" },
+        "management_api_verified": { "type": "boolean" },
+        "management_api_status": { "type": "string", "enum": ["not_checked", "verified", "auth_failed", "unreachable", "unsupported"] },
+        "management_api_bind_scope": { "type": "string", "enum": ["upstream_all_interfaces", "unknown"] }
       }
     },
     "LifecycleRuntimeStatus": {
@@ -297,6 +314,408 @@
         "lifecycle_owner": { "const": "external" },
         "management_owner": { "const": "external" },
         "last_verified_at": { "type": "string", "format": "date-time" },
+        "evidence": { "type": "object" }
+      }
+    },
+    "CredentialStatus": {
+      "type": "string",
+      "enum": ["missing", "available", "inaccessible", "backend_unavailable", "corrupt", "unknown"]
+    },
+    "CredentialPurpose": {
+      "type": "string",
+      "enum": ["telegram_bot_token", "cc_connect_management_token", "binding_hmac_key", "acceptance_test"]
+    },
+    "CredentialMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_id", "purpose", "backend", "revision", "status"],
+      "properties": {
+        "reference_id": { "type": "string", "pattern": "^[a-z][a-z0-9._/-]{2,127}$" },
+        "purpose": { "$ref": "#/$defs/CredentialPurpose" },
+        "backend": { "type": "string", "enum": ["windows_credential_manager", "memory"] },
+        "revision": { "type": "integer", "minimum": 0 },
+        "status": { "$ref": "#/$defs/CredentialStatus" },
+        "verified_at": { "type": ["string", "null"], "format": "date-time" },
+        "created_at": { "type": ["string", "null"], "format": "date-time" },
+        "updated_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "CredentialBackendCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_id", "status", "native_windows_backend", "supports_put",
+        "supports_replace", "supports_status", "supports_resolve_for_operation",
+        "supports_delete", "supports_list_metadata", "physical_memory_zeroing_guaranteed",
+        "evidence"
+      ],
+      "properties": {
+        "backend_id": { "type": "string", "enum": ["windows_credential_manager", "memory"] },
+        "status": { "$ref": "#/$defs/CredentialStatus" },
+        "native_windows_backend": { "type": "boolean" },
+        "supports_put": { "type": "boolean" },
+        "supports_replace": { "type": "boolean" },
+        "supports_status": { "type": "boolean" },
+        "supports_resolve_for_operation": { "type": "boolean" },
+        "supports_delete": { "type": "boolean" },
+        "supports_list_metadata": { "type": "boolean" },
+        "physical_memory_zeroing_guaranteed": { "const": false },
+        "evidence": { "type": "object", "additionalProperties": { "type": ["string", "boolean"] } }
+      }
+    },
+    "TelegramBotSlot": {
+      "type": "string",
+      "enum": ["hermes", "claude", "codex"]
+    },
+    "TelegramBotIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot", "bot_id", "username", "first_name", "can_join_groups",
+        "can_read_all_group_messages", "credential_reference_id",
+        "credential_revision", "verified_at", "verification_status"
+      ],
+      "properties": {
+        "slot": { "$ref": "#/$defs/TelegramBotSlot" },
+        "bot_id": { "type": "integer", "minimum": 1 },
+        "username": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "first_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "can_join_groups": { "type": "boolean" },
+        "can_read_all_group_messages": { "type": "boolean" },
+        "credential_reference_id": { "type": "string", "pattern": "^telegram/(hermes|claude|codex)-bot-token$" },
+        "credential_revision": { "type": "integer", "minimum": 1 },
+        "verified_at": { "type": "string", "format": "date-time" },
+        "verification_status": { "type": "string", "enum": ["verified", "invalid", "unknown"] }
+      }
+    },
+    "TelegramWebhookInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url_present", "has_custom_certificate", "pending_update_count",
+        "last_error_message_present", "allowed_updates"
+      ],
+      "properties": {
+        "url_present": { "type": "boolean" },
+        "has_custom_certificate": { "type": "boolean" },
+        "pending_update_count": { "type": "integer", "minimum": 0 },
+        "last_error_date": { "type": ["integer", "null"] },
+        "last_error_message_present": { "type": "boolean" },
+        "max_connections": { "type": ["integer", "null"] },
+        "allowed_updates": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "UpdateOwner": {
+      "type": "string",
+      "enum": ["none", "control_plane_binding", "hermes_runtime", "cc_connect_runtime", "external", "conflict", "unknown"]
+    },
+    "TelegramUpdateLease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bot_slot", "owner", "credential_revision", "offset", "revision"],
+      "properties": {
+        "bot_slot": { "$ref": "#/$defs/TelegramBotSlot" },
+        "owner": { "$ref": "#/$defs/UpdateOwner" },
+        "operation_id": { "type": ["string", "null"] },
+        "credential_revision": { "type": "integer", "minimum": 0 },
+        "acquired_at": { "type": ["string", "null"], "format": "date-time" },
+        "expires_at": { "type": ["string", "null"], "format": "date-time" },
+        "heartbeat_at": { "type": ["string", "null"], "format": "date-time" },
+        "offset": { "type": "integer", "minimum": 0 },
+        "release_reason": { "type": ["string", "null"] },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "BindingState": {
+      "type": "string",
+      "enum": [
+        "created", "credentials_verified", "waiting_private", "private_verified",
+        "waiting_group", "partially_bound", "group_consistency_pending", "completed",
+        "canceled", "expired", "conflict", "failed"
+      ]
+    },
+    "BindingSlotProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "bot_id", "username", "private_status", "group_status"],
+      "properties": {
+        "slot": { "$ref": "#/$defs/TelegramBotSlot" },
+        "bot_id": { "type": "integer", "minimum": 1 },
+        "username": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "private_status": { "type": "string", "enum": ["pending", "bound", "rejected"] },
+        "group_status": { "type": "string", "enum": ["pending", "bound", "rejected"] },
+        "private_user_id": { "type": ["integer", "null"] },
+        "group_chat_id": { "type": ["integer", "null"] },
+        "group_title": { "type": ["string", "null"] },
+        "group_type": { "type": ["string", "null"], "enum": ["group", "supergroup", null] },
+        "last_update_id": { "type": ["integer", "null"] }
+      }
+    },
+    "BindingSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id", "state", "expires_at", "slots", "bound_private_count",
+        "bound_group_count", "revision", "created_at", "updated_at"
+      ],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "state": { "$ref": "#/$defs/BindingState" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "operator_user_id": { "type": ["integer", "null"] },
+        "group_chat_id": { "type": ["integer", "null"] },
+        "group_title": { "type": ["string", "null"] },
+        "group_type": { "type": ["string", "null"], "enum": ["group", "supergroup", null] },
+        "slots": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/BindingSlotProgress" } },
+        "bound_private_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "bound_group_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "BindingSessionCreated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id", "state", "expires_at", "slots", "bound_private_count",
+        "bound_group_count", "revision", "created_at", "updated_at", "bind_code",
+        "private_deep_links", "private_commands", "group_commands"
+      ],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "state": { "$ref": "#/$defs/BindingState" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "operator_user_id": { "type": ["integer", "null"] },
+        "group_chat_id": { "type": ["integer", "null"] },
+        "group_title": { "type": ["string", "null"] },
+        "group_type": { "type": ["string", "null"], "enum": ["group", "supergroup", null] },
+        "slots": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/BindingSlotProgress" } },
+        "bound_private_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "bound_group_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" },
+        "bind_code": { "type": "string", "minLength": 8, "maxLength": 64, "writeOnly": true, "x-display-once": true },
+        "private_deep_links": { "type": "object", "additionalProperties": { "type": "string" } },
+        "private_commands": { "type": "object", "additionalProperties": { "type": "string" } },
+        "group_commands": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "NativeTelegramPlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["credential_reference_id", "environment_variable", "allow_from", "group_reply_all", "share_session_in_channel", "progress_style"],
+      "properties": {
+        "credential_reference_id": { "type": "string", "pattern": "^telegram/(claude|codex)-bot-token$" },
+        "environment_variable": { "type": "string", "pattern": "^AIAD_[A-Z0-9_]+$" },
+        "allow_from": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "group_reply_all": { "const": false },
+        "share_session_in_channel": { "const": false },
+        "progress_style": { "const": "compact" }
+      }
+    },
+    "NativeProject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id", "display_name", "slot", "agent_type", "workspace_root",
+        "admin_from", "operator_user_id", "group_chat_id", "binding_revision", "telegram"
+      ],
+      "properties": {
+        "project_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "slot": { "type": "string", "enum": ["claude", "codex"] },
+        "agent_type": { "type": "string", "enum": ["claudecode", "codex"] },
+        "workspace_root": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "admin_from": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "operator_user_id": { "type": "integer", "minimum": 1 },
+        "group_chat_id": { "type": "integer" },
+        "binding_revision": { "type": "integer", "minimum": 1 },
+        "telegram": { "$ref": "#/$defs/NativeTelegramPlatform" }
+      },
+      "allOf": [
+        { "if": { "properties": { "slot": { "const": "claude" } } }, "then": { "properties": { "agent_type": { "const": "claudecode" } } } },
+        { "if": { "properties": { "slot": { "const": "codex" } } }, "then": { "properties": { "agent_type": { "const": "codex" } } } }
+      ]
+    },
+    "NativeRuntimeConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "renderer_version", "source_commit", "data_dir", "log_dir",
+        "management_port", "management_credential_reference_id",
+        "management_environment_variable", "projects"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "data_dir": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "log_dir": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "management_port": { "type": "integer", "minimum": 59000, "maximum": 59999 },
+        "management_credential_reference_id": { "const": "internal/cc-connect-management-token" },
+        "management_environment_variable": { "const": "AIAD_CC_CONNECT_MANAGEMENT_TOKEN" },
+        "projects": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "$ref": "#/$defs/NativeProject" } }
+      }
+    },
+    "ManagedCcConnectState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "product_instance_id", "artifact_id", "management_owner",
+        "lifecycle_owner", "configuration_revision", "runtime_config_revision",
+        "renderer_version", "source_commit", "binding_session_id", "binding_revision",
+        "operator_user_id", "group_chat_id", "credential_references", "bot_identities",
+        "runtime_config_relative_path", "native_group_chat_filter_status",
+        "agent_authentication_status", "backup_references", "audit_references",
+        "created_at", "updated_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "product_instance_id": { "type": "string" },
+        "artifact_id": { "type": "string" },
+        "management_owner": { "const": "product" },
+        "lifecycle_owner": { "const": "product" },
+        "configuration_revision": { "type": "integer", "minimum": 1 },
+        "runtime_config_revision": { "type": "integer", "minimum": 1 },
+        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "binding_session_id": { "type": "string" },
+        "binding_revision": { "type": "integer", "minimum": 1 },
+        "operator_user_id": { "type": "integer", "minimum": 1 },
+        "group_chat_id": { "type": "integer" },
+        "credential_references": { "type": "array", "items": { "type": "string" } },
+        "bot_identities": { "type": "object", "additionalProperties": { "type": "object" } },
+        "runtime_config_relative_path": { "const": "state/runtime-config/cc-connect.toml" },
+        "native_group_chat_filter_status": { "const": "unsupported" },
+        "agent_authentication_status": { "const": "unknown" },
+        "process_identity_reference": { "type": ["string", "null"] },
+        "health_evidence_reference": { "type": ["string", "null"] },
+        "backup_references": { "type": "array", "items": { "type": "string" } },
+        "audit_references": { "type": "array", "items": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "NativeRendererCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "renderer_version", "source_commit", "environment_placeholders_supported",
+        "project_types", "telegram_platform_supported", "allow_from_supported",
+        "admin_from_supported", "group_chat_filter_supported", "management_api_bind_host",
+        "management_api_bearer_required", "config_must_remain_present", "startup_argument"
+      ],
+      "properties": {
+        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "environment_placeholders_supported": { "const": true },
+        "project_types": { "type": "array", "items": { "type": "string", "enum": ["claudecode", "codex"] } },
+        "telegram_platform_supported": { "const": true },
+        "allow_from_supported": { "const": true },
+        "admin_from_supported": { "const": true },
+        "group_chat_filter_supported": { "const": false },
+        "management_api_bind_host": { "const": "all_interfaces_upstream_limit" },
+        "management_api_bearer_required": { "const": true },
+        "config_must_remain_present": { "const": true },
+        "startup_argument": { "const": "-config" }
+      }
+    },
+    "NativeConfigurationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id", "plan_digest", "context_digest", "current_revision", "target_revision",
+        "artifact_id", "renderer_version", "managed_state_relative_path",
+        "runtime_config_relative_path", "expected_changes", "secret_environment_variables",
+        "created_at", "expires_at", "user_confirmation_required"
+      ],
+      "properties": {
+        "plan_id": { "type": "string" },
+        "plan_digest": { "$ref": "#/$defs/Digest" },
+        "context_digest": { "$ref": "#/$defs/Digest" },
+        "current_revision": { "type": "integer", "minimum": 0 },
+        "target_revision": { "type": "integer", "minimum": 1 },
+        "artifact_id": { "type": "string" },
+        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+        "managed_state_relative_path": { "const": "state/managed/cc-connect-state.json" },
+        "runtime_config_relative_path": { "const": "state/runtime-config/cc-connect.toml" },
+        "expected_changes": { "type": "array", "items": { "type": "string" } },
+        "secret_environment_variables": { "type": "array", "items": { "type": "string", "pattern": "^AIAD_[A-Z0-9_]+$" } },
+        "rollback_to_revision": { "type": ["integer", "null"], "minimum": 1 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "user_confirmation_required": { "const": true }
+      }
+    },
+    "NativeConfigurationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "revision"],
+      "properties": {
+        "status": { "type": "string", "enum": ["missing", "valid", "drifted", "invalid", "pending_repair"] },
+        "revision": { "type": "integer", "minimum": 0 },
+        "runtime_config_digest": { "type": ["string", "null"] },
+        "managed_state_digest": { "type": ["string", "null"] },
+        "runtime_config": { "oneOf": [{ "$ref": "#/$defs/NativeRuntimeConfig" }, { "type": "null" }] },
+        "managed_state": { "oneOf": [{ "$ref": "#/$defs/ManagedCcConnectState" }, { "type": "null" }] },
+        "diagnostic_code": { "type": ["string", "null"] }
+      }
+    },
+    "HermesConfigurationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id", "plan_digest", "binding_session_id", "status", "installed",
+        "management_owner", "credential_reference_id", "token_environment_variable",
+        "non_secret_environment", "writes_external_configuration", "apply_supported",
+        "reason", "created_at"
+      ],
+      "properties": {
+        "plan_id": { "type": "string" },
+        "plan_digest": { "$ref": "#/$defs/Digest" },
+        "binding_session_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["plan_ready_external_owner", "pending_component_install"] },
+        "installed": { "type": "boolean" },
+        "management_owner": { "type": "string", "enum": ["external", "unknown"] },
+        "credential_reference_id": { "const": "telegram/hermes-bot-token" },
+        "token_environment_variable": { "const": "TELEGRAM_BOT_TOKEN" },
+        "non_secret_environment": { "type": "object", "additionalProperties": { "type": "string" } },
+        "writes_external_configuration": { "const": false },
+        "apply_supported": { "const": false },
+        "reason": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "HermesConfigurationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["missing_plan", "plan_ready_external_owner", "pending_component_install"] },
+        "latest_plan": { "oneOf": [{ "$ref": "#/$defs/HermesConfigurationPlan" }, { "type": "null" }] }
+      }
+    },
+    "ExternalCcConnectState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "external_installed", "external_process_running", "external_port_active",
+        "external_supervisor_detected", "external_configuration_detected",
+        "external_owner_known", "conflict", "unknown", "evidence"
+      ],
+      "properties": {
+        "external_installed": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "external_process_running": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "external_port_active": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "external_supervisor_detected": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "external_configuration_detected": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "external_owner_known": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] },
+        "conflict": { "type": "boolean" },
+        "unknown": { "type": "boolean" },
         "evidence": { "type": "object" }
       }
     }

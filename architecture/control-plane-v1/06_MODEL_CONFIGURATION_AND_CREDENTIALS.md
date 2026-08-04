@@ -127,7 +127,7 @@ Secret 类型至少包括 API key、OAuth material、Bearer、Channel token 与 
 4. Control Plane 与提权 helper 分离；管理员 helper 不继承不需要的用户 Secret。
 5. 后端不可用时状态为 degraded/failed，不退化到明文文件。
 
-实现评审必须在 Credential Manager 与 DPAPI vault 的容量、备份、企业策略和可测试性之间做最终选择；该选择不改变 CredentialProvider 接口。
+当前三个 Bot Token、cc-connect management Token 和绑定 HMAC Key 均为小型独立 Secret，已选择 keyring.backends.Windows.WinVaultKeyring，并在 Windows 11 普通用户下验证 put、replace、status、resolve_for_operation、delete、metadata 与 revision。后端类型不匹配或不可用时 fail closed，禁止明文文件回退。DPAPI vault 仅保留给未来结构化大凭据，不是当前依赖。
 
 ## 跨平台抽象
 
@@ -159,4 +159,4 @@ CredentialBackend 的最小操作为 store、metadata、use/lease、delete、hea
 
 ## 当前与目标的区别
 
-当前 Reference Baseline 仍存在分散的配置文件、环境注入和上游登录存储。本设计不声称它们已经迁移到 CredentialProvider，也不在本轮读取或改写任何真实配置与凭据。第一个纵向切片只做脱敏只读验证；正式写入与 Owner 切换在后续阶段实施。
+Reference Baseline 仍存在分散的配置文件、环境注入和上游登录存储，本阶段没有读取或迁移这些 Secret。Control Plane 只管理三个固定 Telegram Bot CredentialRef 与两个内部运行 CredentialRef；API 只返回 metadata。cc-connect 原生 TOML 只保存环境变量占位符，启动时向目标子进程注入，Operation 完成后释放父进程引用。Python/keyring 无法保证物理内存完全清零，该限制必须持续公开。

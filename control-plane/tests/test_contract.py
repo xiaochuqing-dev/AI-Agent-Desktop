@@ -62,8 +62,31 @@ def test_openapi_frozen_with_readiness_and_events():
         "/external-tools/cc-switch",
         "/components/cc-connect/update-assessment",
         "/operations/{operationId}/events",
+        "/credentials/capability",
+        "/credentials/telegram",
+        "/credentials/telegram/{slot}",
+        "/credentials/telegram/{slot}:replace",
+        "/telegram/bots",
+        "/telegram/bots/{slot}:verify",
+        "/telegram/bots/{slot}/webhook",
+        "/telegram/bots/{slot}/webhook:delete",
+        "/telegram/update-leases",
+        "/telegram/bindings",
+        "/telegram/bindings/{sessionId}",
+        "/telegram/bindings/{sessionId}:cancel",
+        "/telegram/bindings/{sessionId}/slots/{slot}:poll",
+        "/components/{componentId}/native-configuration/renderer",
+        "/components/{componentId}/native-configuration-plans",
+        "/components/{componentId}/native-configuration:apply",
+        "/components/{componentId}/native-configuration",
+        "/components/{componentId}/external-cc-connect",
+        "/components/hermes/telegram-configuration-plans",
+        "/components/hermes/telegram-configuration",
     ]:
         assert path in doc["paths"]
+    problem = doc["components"]["schemas"]["Problem"]
+    assert "errors" in problem["properties"]
+    assert "secret" not in problem["properties"]
     event_types = doc["info"]["x-event-types"]
     for t in [
         "com.aiagentdesktop.operation.started.v1",
@@ -97,11 +120,36 @@ def test_managed_runtime_schema_has_non_secret_lifecycle_models():
         "LifecycleRuntimeStatus",
         "UpdateAssessment",
         "ExternalToolStatus",
+        "CredentialMetadata",
+        "CredentialBackendCapability",
+        "TelegramBotIdentity",
+        "TelegramWebhookInfo",
+        "TelegramUpdateLease",
+        "BindingSession",
+        "BindingSessionCreated",
+        "NativeRendererCapability",
+        "NativeRuntimeConfig",
+        "ManagedCcConnectState",
+        "NativeConfigurationPlan",
+        "NativeConfigurationState",
+        "HermesConfigurationPlan",
+        "HermesConfigurationState",
+        "ExternalCcConnectState",
     ]:
         assert name in models["$defs"]
     configuration = models["$defs"]["ManagedConfiguration"]
     assert "token" not in configuration["properties"]
     assert "api_key" not in configuration["properties"]
+    native_runtime = models["$defs"]["NativeRuntimeConfig"]
+    assert "token" not in native_runtime["properties"]
+    assert "secret" not in native_runtime["properties"]
+    health = models["$defs"]["RuntimeHealth"]
+    for field in [
+        "management_api_verified",
+        "management_api_status",
+        "management_api_bind_scope",
+    ]:
+        assert field in health["properties"]
 
 
 def test_contract_validation_resolves_external_refs_from_any_working_directory(tmp_path):

@@ -346,3 +346,192 @@ class UpdateAssessmentRecord(Base):
     status: Mapped[str] = mapped_column(String(32), index=True)
     assessment_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class CredentialReferenceRecord(Base):
+    __tablename__ = "credential_references"
+    reference_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    purpose: Mapped[str] = mapped_column(String(64), index=True)
+    backend: Mapped[str] = mapped_column(String(64), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class CredentialRevisionRecord(Base):
+    __tablename__ = "credential_revisions"
+    reference_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class TelegramBotIdentityRecord(Base):
+    __tablename__ = "telegram_bot_identities"
+    slot: Mapped[str] = mapped_column(String(32), primary_key=True)
+    bot_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    username: Mapped[str] = mapped_column(String(128))
+    first_name: Mapped[str] = mapped_column(String(256))
+    can_join_groups: Mapped[int] = mapped_column(Integer, default=0)
+    can_read_all_group_messages: Mapped[int] = mapped_column(Integer, default=0)
+    credential_reference_id: Mapped[str] = mapped_column(String(128), index=True)
+    credential_revision: Mapped[int] = mapped_column(Integer)
+    verified_at: Mapped[datetime] = mapped_column(DateTime)
+    verification_status: Mapped[str] = mapped_column(String(32), index=True)
+
+
+class TelegramUpdateLeaseRecord(Base):
+    __tablename__ = "telegram_update_leases"
+    bot_slot: Mapped[str] = mapped_column(String(32), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    operation_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    credential_revision: Mapped[int] = mapped_column(Integer, default=0)
+    acquired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    offset: Mapped[int] = mapped_column(Integer, default=0)
+    release_reason: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TelegramBindingSessionRecord(Base):
+    __tablename__ = "telegram_binding_sessions"
+    session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    code_digest: Mapped[str] = mapped_column(String(128))
+    state: Mapped[str] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    operator_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    group_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    group_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    group_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+
+class TelegramBindingSlotRecord(Base):
+    __tablename__ = "telegram_binding_slots"
+    session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    slot: Mapped[str] = mapped_column(String(32), primary_key=True)
+    bot_id: Mapped[int] = mapped_column(Integer, index=True)
+    username: Mapped[str] = mapped_column(String(128))
+    credential_revision: Mapped[int] = mapped_column(Integer)
+    private_status: Mapped[str] = mapped_column(String(32), index=True)
+    group_status: Mapped[str] = mapped_column(String(32), index=True)
+    private_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    group_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    group_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    group_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    private_update_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    group_update_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_update_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class TelegramGroupBindingRecord(Base):
+    __tablename__ = "telegram_group_bindings"
+    session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    slot: Mapped[str] = mapped_column(String(32), primary_key=True)
+    operator_user_id: Mapped[int] = mapped_column(Integer, index=True)
+    group_chat_id: Mapped[int] = mapped_column(Integer, index=True)
+    group_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    group_type: Mapped[str] = mapped_column(String(32))
+    binding_revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class TelegramBindingAuditRecord(Base):
+    __tablename__ = "telegram_binding_audits"
+    event_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    slot: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(128), index=True)
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class NativeConfigurationPlanRecord(Base):
+    __tablename__ = "native_configuration_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    context_digest: Mapped[str] = mapped_column(String(71))
+    plan_json: Mapped[str] = mapped_column(Text)
+    runtime_payload_json: Mapped[str] = mapped_column(Text)
+    managed_payload_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    current_revision: Mapped[int] = mapped_column(Integer)
+    target_revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class NativeConfigurationRevisionRecord(Base):
+    __tablename__ = "native_configuration_revisions"
+    component_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_id: Mapped[str] = mapped_column(String(128), index=True)
+    runtime_payload_json: Mapped[str] = mapped_column(Text)
+    managed_payload_json: Mapped[str] = mapped_column(Text)
+    runtime_config_digest: Mapped[str] = mapped_column(String(71))
+    managed_state_digest: Mapped[str] = mapped_column(String(71))
+    runtime_config_relative_path: Mapped[str] = mapped_column(String(512))
+    managed_state_relative_path: Mapped[str] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class NativeConfigurationBackupRecord(Base):
+    __tablename__ = "native_configuration_backups"
+    backup_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    source_revision: Mapped[int] = mapped_column(Integer)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    runtime_relative_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    managed_relative_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    runtime_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    managed_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ComponentConfigRendererRecord(Base):
+    __tablename__ = "component_config_renderers"
+    renderer_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    renderer_version: Mapped[str] = mapped_column(String(128), index=True)
+    source_commit: Mapped[str] = mapped_column(String(64))
+    capability_json: Mapped[str] = mapped_column(Text)
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class RuntimeSecretInjectionAuditRecord(Base):
+    __tablename__ = "runtime_secret_injection_audits"
+    audit_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    environment_variables_json: Mapped[str] = mapped_column(Text)
+    credential_references_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class HermesConfigurationPlanRecord(Base):
+    __tablename__ = "hermes_configuration_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    binding_session_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    plan_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime)

@@ -93,6 +93,11 @@ class RuntimeHealth(StrictModel):
     local_endpoint_status: Literal["unsupported"] = "unsupported"
     deep_health: Literal["unsupported"] = "unsupported"
     fatal_log_detected: bool = False
+    management_api_verified: bool = False
+    management_api_status: Literal[
+        "not_checked", "verified", "auth_failed", "unreachable", "unsupported"
+    ] = "not_checked"
+    management_api_bind_scope: Literal["upstream_all_interfaces", "unknown"] = "unknown"
 
 
 class LifecycleRuntimeStatus(StrictModel):

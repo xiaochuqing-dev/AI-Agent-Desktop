@@ -157,7 +157,7 @@ install/update/rollback/migrate 的不可逆阶段必须在 Operation 中标记 
 
 ### 可替换性与映射
 
-当前 Adapter 映射：VBS/CMD/Python 启动链、计划任务、junction 工具和 Reference Baseline 健康脚本仍只读。另有仅限产品自有 cc-connect 的隔离安装、配置、所有权计划、start/stop/restart/status/reconcile、回滚与恢复实现。自动更新、真实凭据迁移和外部生命周期接管仍不存在。
+当前 Adapter 映射：VBS/CMD/Python 启动链、计划任务、junction 工具和 Reference Baseline 健康脚本仍只读。另有仅限产品自有 cc-connect 的锁定产物隔离安装、managed/native 配置分离、运行时 Secret 子进程注入、所有权计划、start/stop/restart/status/reconcile、回滚与恢复实现。自动更新、跨机迁移和外部生命周期接管仍不存在。
 
 未来替代：由用户级后台宿主和受限提权 helper 接管；旧脚本在回归通过和回滚点建立后逐项退场，不要求外部组件改变内部实现。
 
@@ -187,7 +187,7 @@ install/update/rollback/migrate 的不可逆阶段必须在 Operation 中标记 
 
 ### 可替换性与映射
 
-当前 Adapter 映射：Hermes 与 cc-connect 的配置文件、官方 CLI 登录状态以及可选 CC Switch 的只读检测；正式 Owner 标记与事务切换未实现。
+当前 Adapter 映射：Reference Baseline、官方 CLI 登录状态和可选 CC Switch 继续只读；产品自有 cc-connect 路径已经实现正式 Owner 标记、绑定锁定上游 `fc315d2` 的 Native Config Renderer、Claude/Codex 配置计划、revision、备份、原子应用、漂移检测与回滚。Hermes 在组件未安装时准确保持 `pending_component_install`，通用 Provider 配置接管仍未实现。
 
 未来替代：上游若提供稳定配置 API，Adapter 从文件写入切换到 API，schema、Owner 和 revision 语义保持不变。
 
@@ -216,9 +216,9 @@ install/update/rollback/migrate 的不可逆阶段必须在 Operation 中标记 
 
 ### 可替换性与映射
 
-当前 Adapter 映射：本地环境文件、上游官方登录存储和 HTTP Bearer 注入分散存在；没有统一 CredentialProvider，不能宣称满足完整契约。
+当前 Adapter 映射：产品已实现统一的 Telegram CredentialProvider；Windows 使用系统 Credential Manager 后端，测试使用显式 Fake 后端。固定 CredentialRef 支持 put、replace、status、仅元数据列表、受限 operation resolve、delete 与 revision，并只向目标 cc-connect 子进程注入 Secret。完整契约仍为 partial：加密导出/导入、跨机迁移、通用 Provider Secret 和物理内存完全清零保证尚未实现。
 
-未来替代：Windows 首版可用系统原生安全存储或 DPAPI 封装，未来映射 macOS Keychain、Secret Service 等；`credential_ref` 与 GUI API 不变。
+未来替代：Windows 后端可在保持 `credential_ref` 与 API 不变的前提下替换为直接 Win32/DPAPI 实现；其他平台可映射 macOS Keychain、Secret Service 等。
 
 ## CapabilityRegistry
 

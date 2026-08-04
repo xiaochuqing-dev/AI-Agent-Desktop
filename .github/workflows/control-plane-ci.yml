@@ -164,6 +164,12 @@ jobs:
         shell: pwsh
         run: python -m pip install -e "./control-plane[dev]"
 
+      - name: Verify Windows Credential Manager backend
+        shell: pwsh
+        run: >-
+          python ./control-plane/scripts/windows_credential_manager_acceptance.py
+          --output "$env:CC_CONNECT_ARTIFACT/windows-credential-manager-acceptance.json"
+
       - name: Run real isolated Windows acceptance
         shell: pwsh
         run: >-
@@ -177,6 +183,13 @@ jobs:
           python ./control-plane/scripts/windows_managed_runtime_acceptance.py
           --bundle "$env:CC_CONNECT_ARTIFACT"
           --output "$env:CC_CONNECT_ARTIFACT/windows-managed-runtime-acceptance.json"
+
+      - name: Run Telegram binding and native runtime acceptance
+        shell: pwsh
+        run: >-
+          python ./control-plane/scripts/windows_native_runtime_acceptance.py
+          --bundle "$env:CC_CONNECT_ARTIFACT"
+          --output "$env:CC_CONNECT_ARTIFACT/windows-native-runtime-acceptance.json"
 
       - name: Validate Windows 10 no-development-runtime wrapper with PowerShell 5.1
         shell: powershell
@@ -193,6 +206,8 @@ jobs:
             ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect.sha256
             ${{ runner.temp }}/cc-connect artifact one (ci)/windows-isolated-acceptance.json
             ${{ runner.temp }}/cc-connect artifact one (ci)/windows-managed-runtime-acceptance.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/windows-credential-manager-acceptance.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/windows-native-runtime-acceptance.json
             ${{ runner.temp }}/cc-connect artifact one (ci)/windows10-user-acceptance-wrapper.json
           if-no-files-found: error
           compression-level: 0

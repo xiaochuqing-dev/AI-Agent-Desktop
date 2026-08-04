@@ -34,11 +34,11 @@ patches/005-windows-build-compat.patch         proc_windows.go 删 unused import
 五、产品管理运行边界
 --------------------------
 
-Control Plane 仅为自有安装版本生成 state/config/cc-connect.managed.toml。配置限定 127.0.0.1 与受控端口段，仅保存 SecretRef，不包含 Token、API Key、User ID 或 Group ID。写入使用显式确认、revision、备份、原子替换、重解析和回滚。
+Control Plane 保留 state/config/cc-connect.managed.toml 作为旧兼容状态，并为合法运行分离生成 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。managed state 保存 Owner、revision、CredentialRef、Bot/binding 与证据引用；原生 TOML 只包含锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。写入使用显式确认、revision、备份、原子替换、重解析和回滚。
 
 启停只操作经产品所有权交接且身份可证明的进程。身份绑定 artifact、exe 规范路径/SHA256、PID/创建时间、命令摘要、configuration revision 和 loopback 端口。不匹配或端口被外部 PID 占用时拒绝操作，不终止外部进程。
 
-锁定上游版本要求至少一个 Project 和 Platform；本阶段的 Telegram-disabled、无 Secret 合成配置无法满足受支持运行前提，并且上游没有稳定的本地 health endpoint。因此真实持续运行与 deep health 不得标为 COMPLETE：前者为 PARTIAL，后者为 unsupported。本阶段没有升级上游或增加 Patch。
+锁定源码的 Config.Load 已由源码与 Go 探针证明支持 `${NAME}` 展开；合法 Claude/Codex Project 的真实进程已通过持续运行、stop、restart、reconcile、PID/SHA/config/port 和 management Bearer 验收。整体仍不得标 COMPLETE：真实 Telegram 与 Windows 10 待验证，deep health 和原生 Group Chat 过滤为 unsupported，management API 因上游无 bind host 只能监听所有网卡。本阶段没有升级上游或增加 Patch。
 
 六、可升级边界
 --------------------

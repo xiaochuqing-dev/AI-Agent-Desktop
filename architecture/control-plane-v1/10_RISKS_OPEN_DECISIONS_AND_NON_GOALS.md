@@ -2,7 +2,7 @@
 
 ## 使用规则
 
-“已冻结”表示下一阶段可以直接依赖其语义；“开放”表示实现方式仍需 Architecture Decision Record，但不得改变已冻结 API、状态、安全和替换边界。ADR-001..004 已解决语言框架、事务存储、当前后台宿主和凭据边界。cc-connect 隔离安装、产品自有配置与生命周期已落地；外部接管和真实凭据仍受后续门禁约束。
+“已冻结”表示下一阶段可以直接依赖其语义；“开放”表示实现方式仍需 Architecture Decision Record，但不得改变已冻结 API、状态、安全和替换边界。ADR-001..004 已解决语言框架、事务存储、当前后台宿主和凭据边界。cc-connect 隔离安装、原生配置、产品自有生命周期与固定 Telegram Credential 已落地；外部接管、真实 Telegram live 和 Windows 10 仍受后续门禁约束。
 
 ## 已冻结、不再重复讨论
 
@@ -35,6 +35,9 @@
 | Windows 提权 helper 扩大攻击面 | 中/高 | helper 接收任意路径/命令或继承 Secret | 固定动作 allowlist、短生命期、签名请求、最小权限；与主进程分离 | 安装器/系统写入前 |
 | 新手十分钟路径受网络和官方登录波动影响 | 高/中 | 步骤超时、重复输入、丢失进度 | 断点 journal、独立 timeout、可跳过非核心项、明确恢复动作 | 安装引导验收前 |
 | 私有 Reference Baseline SHA 与公开仓库历史被误当冲突 | 中/中 | Agent 试图从公开远端找私有 tag/object | 明确两套历史关系；公开仓库以当前 Git 和文档为事实源，不覆盖 `src/` | 每次交接阅读时 |
+| 锁定版 cc-connect management API 暴露到所有网卡 | 中/高 | 端口在非 loopback 地址监听 | 随机高熵 Bearer、受控端口、本机防火墙、健康标 partial；升级前不伪报 loopback-only | 上游 Renderer 升级评审 |
+| 原生 Telegram Schema 无 Group Chat 白名单 | 中/中 | operator 可在其他群触发 Bot | 只允许绑定 operator、公开 unsupported、六链路验收限定目标群；不增加私有 Patch | 真实消息 E2E 前 |
+| 合成 3/3 被误当真实 Telegram 已通过 | 中/高 | 报告缺少真实 getMe/Update 时间与证据 | 强制 PENDING USER LIVE VALIDATION，真实操作只能用户显式启动 | 下一阶段进入门禁 |
 
 ## 实现前开放决策
 
@@ -58,7 +61,7 @@
 
 ### CredentialBackend 组合
 
-选项：Windows Credential Manager 保存小型 Secret；DPAPI 当前用户范围 vault 保存结构化材料；或两者按类型组合。推荐先实测容量、企业策略、备份恢复和自动化测试，再定组合。
+小型固定 Bot/内部 Token 已选用 Windows Credential Manager，并在普通用户下实测 keyring WinVault 后端。DPAPI 当前用户范围 vault 只保留给未来结构化大凭据；没有需求和迁移设计前不引入。
 
 后端不可用时必须报错，不允许回退明文。此决策不改变 `credential_ref` 或 CredentialProvider 操作。
 
@@ -84,7 +87,7 @@
 
 - named pipe 等等价本地传输
 - 其他组件安装、自动更新、签名分发与跨机迁移
-- ManagementOwner 写入接管和凭据迁移
+- 其他组件的 ManagementOwner 写入接管和凭据迁移
 - 完整人类插话、暂停、取消、改派与 Agent 隔离
 - 讨论模式产品化
 - 新 Channel 与附件能力
@@ -102,8 +105,8 @@
 - 不让 GUI、测试客户端或未来 Channel 绕过 Control Plane 读写上游私有文件。
 - 不为通用模型增加 Telegram 或其他平台专属“可选扩展字段”。
 - 不承诺瞬时强取消、零停机升级、跨平台首发或无人确认的高风险自动修复。
-- 不在首片实现正式 GUI、新 Channel、新 Runtime、复杂讨论或配置/凭据写入。
+- 不在当前阶段实现正式 GUI、新 Channel、新 Runtime、复杂讨论、通用配置平台或通用凭据平台。
 
 ## 需要正式评审确认的优先事项
 
-下一阶段优先确认产品管理进程的生命周期所有权、端口所有权、最小配置 revision/回滚和 SecretRef 后端边界。其余开放参数必须通过 ADR 或实现证据记录，并保持冻结契约兼容。
+下一阶段优先完成用户显式真实三 Bot 绑定、Windows 10 实机门禁和六链路脱敏可观测性；随后才执行真实消息 E2E 与 Session 隔离修复。其余开放参数必须通过 ADR 或实现证据记录，并保持冻结契约兼容。

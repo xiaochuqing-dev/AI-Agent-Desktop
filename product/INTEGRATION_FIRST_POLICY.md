@@ -27,9 +27,13 @@ Hermes 负责编排和 Hermes Bot；Claude Code、Codex 是独立编码 Agent；
 
 真实写入前必须确定 ManagementOwner、备份与 revision。所有者切换经用户确认和两阶段交接；冲突时保持只读并生成 Diagnostic，不自动合并或覆盖。
 
+产品管理元数据与上游原生配置分开保存。cc-connect 原生 TOML 只由绑定锁定 commit 的 Renderer 生成，不能把 Owner、Operation、审计或 CredentialRef 字段塞进上游 Schema。Secret 只以锁定环境变量占位符进入 TOML，并在启动时从 CredentialBackend 注入目标子进程。
+
 五、当前可升级边界
 ------------------------
 
 cc-connect 的已安装版本只从 artifact lock、manifest、current 指针和持久化记录获取，不使用 latest。ArtifactProvider、UpdateSource、CompatibilityRule 与 MigrationPlan 已形成稳定内部边界，但本阶段不执行自动更新。Hermes 无实现的更新源准确返回 unsupported。
 
 CC Switch 作为 ExternalToolProvider，只基于公开可执行入口做检测和普通打开。其安装、更新、配置和所有权能力无稳定证据时为 unknown，不读私有数据库、不读 Secret、不自动点击 GUI。
+
+external cc-connect 检测区分 installed、process、port、supervisor、configuration 和 owner。PATH 中仅发现外部可执行文件不阻塞产品实例；相同目标端口、相同配置作用域或外部 Supervisor 才构成硬冲突，且产品不停止或修改外部对象。

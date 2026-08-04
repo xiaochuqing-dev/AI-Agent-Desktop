@@ -40,6 +40,20 @@ RUNTIME_TABLES = {
     "lifecycle_events",
     "external_tool_capabilities",
     "update_assessments",
+    "credential_references",
+    "credential_revisions",
+    "telegram_bot_identities",
+    "telegram_update_leases",
+    "telegram_binding_sessions",
+    "telegram_binding_slots",
+    "telegram_group_bindings",
+    "telegram_binding_audits",
+    "native_configuration_plans",
+    "native_configuration_revisions",
+    "native_configuration_backups",
+    "component_config_renderers",
+    "runtime_secret_injection_audits",
+    "hermes_configuration_plans",
 }
 
 
@@ -50,7 +64,7 @@ def test_empty_database_migrates_to_head(tmp_path):
     assert RUNTIME_TABLES.issubset(tables)
     with database.engine.connect() as connection:
         assert connection.scalar(text("select version_num from alembic_version")) == (
-            "0003_cc_connect_managed_runtime"
+            "0004_telegram_native_config"
         )
 
 
@@ -78,7 +92,7 @@ def test_repeated_migration_is_idempotent(tmp_path):
     second = Database(settings)
     with second.engine.connect() as connection:
         rows = connection.execute(text("select version_num from alembic_version")).all()
-    assert rows == [("0003_cc_connect_managed_runtime",)]
+    assert rows == [("0004_telegram_native_config",)]
 
 
 def test_current_0002_database_upgrades_without_losing_installer_tables(tmp_path):

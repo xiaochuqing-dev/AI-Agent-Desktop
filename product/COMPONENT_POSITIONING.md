@@ -34,7 +34,7 @@ CC Switch
 Control Plane
 -------------
 
-统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前只对产品自有 cc-connect 实现安装、最小配置和生命周期变更；其他组件保持只读或 unsupported。锁定版无 Secret 持续运行证据为 PARTIAL。
+统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前已对产品自有 cc-connect 实现安装、合法 Claude/Codex 原生配置、Secret 注入和生命周期；对 Telegram 实现安全凭据、身份与绑定；Hermes 只生成不接管外部所有权的计划或准确 pending。整体因真实 Telegram 与 Windows 10 未验证仍为 PARTIAL。
 
 GUI
 ---

@@ -9,6 +9,8 @@ import sys
 import time
 import uuid
 from collections.abc import Callable
+from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -24,7 +26,7 @@ from ..domain.models import Operation, OperationStatus, ResourceRef, UserFacingE
 from ..installer.artifacts import InstallerError
 from ..installer.paths import ComponentLayout
 from ..installer.version_store import ManagedVersionStore
-from ..operations import RecoveryDecision
+from ..operations import OperationExecutionError, RecoveryDecision
 from ..persistence.models import (
     DiagnosticRecord,
     IdempotencyRecord,
@@ -80,6 +82,21 @@ Launcher = Callable[..., Any]
 ProcessFactory = Callable[[int], Any]
 
 
+@dataclass(frozen=True)
+class RuntimeLaunchConfiguration:
+    artifact_id: str
+    product_instance_id: str
+    configuration_revision: int
+    listen_host: Literal["127.0.0.1"]
+    listen_port: int
+    data_dir: str
+    log_dir: str
+    project_roots: tuple[str, ...]
+    config_path: Path
+    legacy_configuration: Any | None = None
+    native_runtime: Any | None = None
+
+
 class ManagedProcessService:
     def __init__(
         self,
@@ -93,6 +110,11 @@ class ManagedProcessService:
         launcher: Launcher | None = None,
         process_factory: ProcessFactory | None = None,
         external_detector: Callable[[], bool] | None = None,
+        native_configuration_service=None,
+        runtime_secret_injector=None,
+        telegram_identities=None,
+        telegram_leases=None,
+        external_state_detector=None,
         startup_timeout_seconds: float = 10.0,
         stop_timeout_seconds: float = 5.0,
         stable_window_seconds: float = 3.0,
@@ -106,7 +128,23 @@ class ManagedProcessService:
         self.port_inspector = port_inspector or configuration_service.port_inspector
         self.launcher = launcher or subprocess.Popen
         self.process_factory = process_factory or psutil.Process
-        self.external_detector = external_detector or self._external_detected
+        self.native_configuration_service = native_configuration_service
+        self.runtime_secret_injector = runtime_secret_injector
+        self.telegram_identities = telegram_identities
+        self.telegram_leases = telegram_leases
+        if external_detector is not None:
+            self.external_detector = external_detector
+            self.external_state_detector = None
+        else:
+            if external_state_detector is None:
+                from ..cc_connect.external_detection import CcConnectExternalDetector
+
+                external_state_detector = CcConnectExternalDetector(
+                    layout.root,
+                    port_inspector=self.port_inspector,
+                )
+            self.external_state_detector = external_state_detector
+            self.external_detector = self._external_conflict
         self.startup_timeout_seconds = startup_timeout_seconds
         self.stop_timeout_seconds = stop_timeout_seconds
         self.stable_window_seconds = stable_window_seconds
@@ -438,6 +476,8 @@ class ManagedProcessService:
                 observed = "stopped"
                 health = self._stopped_health()
             self._update_observation(record, observed, health, pid=None)
+            if observed in {"stopped", "crashed", "unconfigured"}:
+                self._release_runtime_leases(f"reconcile_{observed}")
             return self._status_from_record(record, health=health)
         identity = ProcessIdentity.model_validate_json(record.identity_json)
         verification = self.identity_inspector.verify(identity)
@@ -459,6 +499,7 @@ class ManagedProcessService:
                 pid=None,
                 last_exit_code=exit_code,
             )
+            self._release_runtime_leases("process_missing")
             return self._status_from_record(
                 record,
                 verification=verification,
@@ -488,7 +529,42 @@ class ManagedProcessService:
         )
         port_verified = port.status == "owned"
         stable = self._stable_since(identity.process_create_time)
-        healthy_partial = artifact_verified and configuration_verified and port_verified and stable
+        management_api_verified = False
+        management_api_status: Literal[
+            "not_checked", "verified", "auth_failed", "unreachable", "unsupported"
+        ] = "not_checked"
+        update_owner_verified = True
+        native_runtime = None
+        if self.native_configuration_service is not None:
+            native_state = self.native_configuration_service.state()
+            if (
+                native_state.status == "valid"
+                and native_state.revision == identity.configuration_revision
+                and native_state.runtime_config is not None
+            ):
+                native_runtime = native_state.runtime_config
+                if self.runtime_secret_injector is not None:
+                    management_api_status = self.runtime_secret_injector.probe_management_status(
+                        native_runtime
+                    )
+                    management_api_verified = management_api_status == "verified"
+                if self.telegram_leases is not None and self.telegram_identities is not None:
+                    revisions = self._runtime_credential_revisions()
+                    try:
+                        self.telegram_leases.acquire_runtime(
+                            ["claude", "codex"],
+                            identity.operation_id,
+                            credential_revisions=revisions,
+                        )
+                    except OperationExecutionError:
+                        update_owner_verified = False
+        healthy_partial = (
+            artifact_verified
+            and configuration_verified
+            and port_verified
+            and stable
+            and update_owner_verified
+        )
         health = RuntimeHealth(
             overall="partial" if healthy_partial else "unhealthy",
             process_identity_verified=True,
@@ -497,6 +573,11 @@ class ManagedProcessService:
             port_owned_by_process=port_verified,
             startup_stable_for_window=stable,
             fatal_log_detected=self._fatal_log_detected(),
+            management_api_verified=management_api_verified,
+            management_api_status=management_api_status,
+            management_api_bind_scope=(
+                "upstream_all_interfaces" if native_runtime is not None else "unknown"
+            ),
         )
         observed = (
             "running_partial" if healthy_partial and not health.fatal_log_detected else "conflict"
@@ -573,20 +654,7 @@ class ManagedProcessService:
             operation_id, "start_preflight", "Verifying artifact, configuration, owners, and port"
         )
         artifact = self.version_store.current()
-        state = self.configuration_service.state()
-        if state.status != "valid" or state.configuration is None:
-            raise InstallerError(
-                "MANAGED_CONFIGURATION_NOT_VALID",
-                "A valid confirmed product configuration is required before start.",
-                recovery_actions=["create_configuration_plan", "apply_configuration_plan"],
-            )
-        configuration = state.configuration
-        if state.revision != expected_revision:
-            raise InstallerError(
-                "CONFIGURATION_REVISION_CONFLICT",
-                "Requested lifecycle revision is not the active configuration revision.",
-                recovery_actions=["read_configuration_state", "retry_with_active_revision"],
-            )
+        configuration = self._resolve_launch_configuration(expected_revision)
         if (
             configuration.artifact_id != artifact.artifact_id
             or configuration.product_instance_id != self.configuration_service.product_instance_id
@@ -638,12 +706,23 @@ class ManagedProcessService:
                 recovery_actions=["stop_port_owner_or_create_new_configuration_plan"],
                 technical_details={"listen_port": configuration.listen_port},
             )
-        self.configuration_service.validate_runtime_prerequisites(configuration)
-        for directory in (
-            configuration.data_dir,
-            configuration.log_dir,
-            configuration.project_root,
-        ):
+        if configuration.native_runtime is not None:
+            assert self.native_configuration_service is not None
+            native_state = self.native_configuration_service.state()
+            assert native_state.managed_state is not None
+            self.native_configuration_service.validate_runtime_prerequisites(
+                configuration.native_runtime,
+                native_state.managed_state,
+            )
+        else:
+            assert configuration.legacy_configuration is not None
+            self.configuration_service.validate_runtime_prerequisites(
+                configuration.legacy_configuration
+            )
+        managed_directories = [configuration.data_dir, configuration.log_dir]
+        if configuration.legacy_configuration is not None:
+            managed_directories.extend(configuration.project_roots)
+        for directory in managed_directories:
             target = Path(directory)
             if not target.resolve(strict=False).is_relative_to(self.layout.root.resolve(False)):
                 raise InstallerError(
@@ -656,9 +735,36 @@ class ManagedProcessService:
         arguments = [
             str(artifact.executable),
             "-config",
-            str(self.configuration_service.store.path),
+            str(configuration.config_path),
         ]
-        environment = self._safe_environment(configuration.listen_port)
+        runtime_leases_acquired = False
+        if configuration.native_runtime is not None:
+            if (
+                self.telegram_identities is None
+                or self.telegram_leases is None
+                or self.runtime_secret_injector is None
+            ):
+                raise InstallerError(
+                    "TELEGRAM_RUNTIME_GUARD_UNAVAILABLE",
+                    "Telegram identity, secret injection, or update-owner guards are unavailable.",
+                    recovery_actions=["restart_control_plane"],
+                )
+            self.telegram_identities.assert_no_webhook(["claude", "codex"])
+            self.telegram_leases.acquire_runtime(
+                ["claude", "codex"],
+                operation_id,
+                credential_revisions=self._runtime_credential_revisions(),
+            )
+            runtime_leases_acquired = True
+        environment_context = (
+            self.runtime_secret_injector.environment(
+                configuration.native_runtime,
+                operation_id=operation_id,
+                product_instance_id=configuration.product_instance_id,
+            )
+            if configuration.native_runtime is not None and self.runtime_secret_injector is not None
+            else nullcontext(self._safe_environment(configuration.listen_port))
+        )
         log_path = self._rotate_log(Path(configuration.log_dir) / "cc-connect-runtime.log")
         creationflags = (
             WINDOWS_CREATE_NO_WINDOW | WINDOWS_CREATE_NEW_PROCESS_GROUP
@@ -672,19 +778,22 @@ class ManagedProcessService:
             point_of_no_return=True,
         )
         try:
-            with log_path.open("ab", buffering=0) as log_handle:
-                process = self.launcher(
-                    arguments,
-                    cwd=str(artifact.executable.parent),
-                    env=environment,
-                    stdin=subprocess.DEVNULL,
-                    stdout=log_handle,
-                    stderr=subprocess.STDOUT,
-                    shell=False,
-                    creationflags=creationflags,
-                    close_fds=True,
-                )
+            with environment_context as environment:
+                with log_path.open("ab", buffering=0) as log_handle:
+                    process = self.launcher(
+                        arguments,
+                        cwd=str(artifact.executable.parent),
+                        env=environment,
+                        stdin=subprocess.DEVNULL,
+                        stdout=log_handle,
+                        stderr=subprocess.STDOUT,
+                        shell=False,
+                        creationflags=creationflags,
+                        close_fds=True,
+                    )
         except OSError as exc:
+            if runtime_leases_acquired:
+                self._release_runtime_leases("launch_failed")
             raise InstallerError(
                 "MANAGED_PROCESS_LAUNCH_FAILED",
                 "Product-managed cc-connect could not be launched.",
@@ -717,7 +826,13 @@ class ManagedProcessService:
                 configuration.configuration_revision,
                 exit_code,
             )
-            if exit_code is not None and configuration.telegram.enabled is False:
+            if runtime_leases_acquired:
+                self._release_runtime_leases("identity_capture_failed")
+            if (
+                exit_code is not None
+                and configuration.legacy_configuration is not None
+                and configuration.legacy_configuration.telegram.enabled is False
+            ):
                 raise InstallerError(
                     "CC_CONNECT_SECRETLESS_RUNTIME_UNSUPPORTED",
                     "Locked cc-connect exited because its upstream runtime has no sustained secretless Telegram-disabled mode.",
@@ -740,6 +855,8 @@ class ManagedProcessService:
             exit_code = self._poll_exit_code(pid)
             if exit_code is not None:
                 self._persist_crash(identity, exit_code)
+                if runtime_leases_acquired:
+                    self._release_runtime_leases("startup_exit")
                 raise InstallerError(
                     "MANAGED_PROCESS_EXITED_DURING_STARTUP",
                     "cc-connect exited before local runtime evidence became stable.",
@@ -752,6 +869,8 @@ class ManagedProcessService:
             )
             if last_port.status == "conflict":
                 self._stop_verified_identity(identity)
+                if runtime_leases_acquired:
+                    self._release_runtime_leases("startup_port_conflict")
                 self._record_port(operation_id, last_port)
                 raise InstallerError(
                     "MANAGED_PORT_OWNED_BY_OTHER_PID",
@@ -767,6 +886,8 @@ class ManagedProcessService:
             time.sleep(self.poll_interval_seconds)
         else:
             self._stop_verified_identity(identity)
+            if runtime_leases_acquired:
+                self._release_runtime_leases("startup_timeout")
             self._record_port(operation_id, last_port)
             raise InstallerError(
                 "MANAGED_PROCESS_STARTUP_TIMEOUT",
@@ -774,6 +895,15 @@ class ManagedProcessService:
                 retryable=True,
                 recovery_actions=["inspect_startup_log", "review_upstream_runtime_capability"],
             )
+        management_api_verified = False
+        management_api_status: Literal[
+            "not_checked", "verified", "auth_failed", "unreachable", "unsupported"
+        ] = "not_checked"
+        if configuration.native_runtime is not None and self.runtime_secret_injector is not None:
+            management_api_status = self.runtime_secret_injector.probe_management_status(
+                configuration.native_runtime
+            )
+            management_api_verified = management_api_status == "verified"
         health = RuntimeHealth(
             overall="partial",
             process_identity_verified=True,
@@ -782,9 +912,16 @@ class ManagedProcessService:
             port_owned_by_process=True,
             startup_stable_for_window=True,
             fatal_log_detected=self._fatal_log_detected(),
+            management_api_verified=management_api_verified,
+            management_api_status=management_api_status,
+            management_api_bind_scope=(
+                "upstream_all_interfaces" if configuration.native_runtime is not None else "unknown"
+            ),
         )
         if health.fatal_log_detected:
             self._stop_verified_identity(identity)
+            if runtime_leases_acquired:
+                self._release_runtime_leases("fatal_startup_log")
             raise InstallerError(
                 "MANAGED_PROCESS_FATAL_STARTUP_LOG",
                 "Startup log contains a fatal marker; running state was not reported.",
@@ -802,6 +939,8 @@ class ManagedProcessService:
             "listen_port": identity.listen_port,
             "health": "partial",
             "deep_health": "unsupported",
+            "management_api_verified": management_api_verified,
+            "management_api_bind_scope": health.management_api_bind_scope,
             "restart": for_restart,
         }
 
@@ -821,6 +960,7 @@ class ManagedProcessService:
             if record is not None:
                 health = self._stopped_health()
                 self._update_observation(record, "stopped", health, pid=None)
+            self._release_runtime_leases("already_stopped")
             return {"component_id": COMPONENT_ID, "already_stopped": True, "restart": for_restart}
         if record.lifecycle_owner != LifecycleOwner.PRODUCT.value:
             raise InstallerError(
@@ -838,6 +978,7 @@ class ManagedProcessService:
         verification = self.identity_inspector.verify(identity)
         if verification.status == "missing":
             self._persist_crash(identity, self._poll_exit_code(identity.pid))
+            self._release_runtime_leases("process_missing_during_stop")
             return {
                 "component_id": COMPONENT_ID,
                 "already_stopped": True,
@@ -889,6 +1030,7 @@ class ManagedProcessService:
             managed.last_exit_code = self._poll_exit_code(identity.pid)
             managed.updated_at = utcnow()
         self._launched.pop(identity.pid, None)
+        self._release_runtime_leases("managed_runtime_stopped")
         return {
             "component_id": COMPONENT_ID,
             "stopped": True,
@@ -1160,6 +1302,86 @@ class ManagedProcessService:
             startup_stable_for_window=False,
         )
 
+    def _resolve_launch_configuration(self, expected_revision: int) -> RuntimeLaunchConfiguration:
+        if self.native_configuration_service is not None:
+            native_state = self.native_configuration_service.state()
+            if native_state.status != "missing":
+                runtime, managed = self.native_configuration_service.runtime_for_start(
+                    expected_revision
+                )
+                return RuntimeLaunchConfiguration(
+                    artifact_id=managed.artifact_id,
+                    product_instance_id=managed.product_instance_id,
+                    configuration_revision=managed.configuration_revision,
+                    listen_host="127.0.0.1",
+                    listen_port=runtime.management_port,
+                    data_dir=runtime.data_dir,
+                    log_dir=runtime.log_dir,
+                    project_roots=tuple(project.workspace_root for project in runtime.projects),
+                    config_path=self.native_configuration_service.store.runtime_path,
+                    native_runtime=runtime,
+                )
+        state = self.configuration_service.state()
+        if state.status != "valid" or state.configuration is None:
+            raise InstallerError(
+                "MANAGED_CONFIGURATION_NOT_VALID",
+                "A valid confirmed product configuration is required before start.",
+                recovery_actions=["create_configuration_plan", "apply_configuration_plan"],
+            )
+        if state.revision != expected_revision:
+            raise InstallerError(
+                "CONFIGURATION_REVISION_CONFLICT",
+                "Requested lifecycle revision is not the active configuration revision.",
+                recovery_actions=["read_configuration_state", "retry_with_active_revision"],
+            )
+        configuration = state.configuration
+        return RuntimeLaunchConfiguration(
+            artifact_id=configuration.artifact_id,
+            product_instance_id=configuration.product_instance_id,
+            configuration_revision=configuration.configuration_revision,
+            listen_host=configuration.listen_host,
+            listen_port=configuration.listen_port,
+            data_dir=configuration.data_dir,
+            log_dir=configuration.log_dir,
+            project_roots=(configuration.project_root,),
+            config_path=self.configuration_service.store.path,
+            legacy_configuration=configuration,
+        )
+
+    def _external_conflict(self) -> bool:
+        if self.external_state_detector is None:
+            return self._external_detected()
+        target_port: int | None = None
+        target_path: Path | None = None
+        if self.native_configuration_service is not None:
+            native = self.native_configuration_service.state()
+            if native.runtime_config is not None:
+                target_port = native.runtime_config.management_port
+            target_path = self.native_configuration_service.store.runtime_path
+        if target_port is None:
+            legacy = self.configuration_service.state()
+            if legacy.configuration is not None:
+                target_port = legacy.configuration.listen_port
+                target_path = self.configuration_service.store.path
+        return self.external_state_detector.conflict(
+            target_port=target_port,
+            target_config_path=target_path,
+        )
+
+    def _release_runtime_leases(self, reason: str) -> None:
+        if self.telegram_leases is not None:
+            self.telegram_leases.release_runtime(["claude", "codex"], reason)
+
+    def _runtime_credential_revisions(self) -> dict[str, int]:
+        if self.telegram_identities is None:
+            return {}
+        revisions: dict[str, int] = {}
+        for slot in ("claude", "codex"):
+            identity = self.telegram_identities.get(slot)
+            if identity is not None:
+                revisions[slot] = identity.credential_revision
+        return revisions
+
     def _ownership_context(self) -> str:
         management, lifecycle = self.configuration_service.owners()
         return canonical_digest(
@@ -1246,6 +1468,18 @@ class ManagedProcessService:
         )
 
     def _configuration_matches(self, identity: ProcessIdentity) -> bool:
+        if self.native_configuration_service is not None:
+            native = self.native_configuration_service.state()
+            if native.status != "missing":
+                return bool(
+                    native.status == "valid"
+                    and native.runtime_config is not None
+                    and native.managed_state is not None
+                    and native.revision == identity.configuration_revision
+                    and native.runtime_config.management_port == identity.listen_port
+                    and native.managed_state.artifact_id == identity.artifact_id
+                    and native.managed_state.product_instance_id == identity.product_instance_id
+                )
         state = self.configuration_service.state()
         return bool(
             state.status == "valid"

@@ -70,3 +70,10 @@ D. 本阶段不定义 SecretRef、推迟到阶段 2:提示词 §十一明确要�
 2. 引入 OAuth token 等结构化凭据,需评估 DPAPI vault 是否必要。
 3. 凭据迁移(阶段 3)需评估加密导出/导入边界。
 4. keyring 上游主版本破坏性变更或 Windows 凭据管理 API 变化。
+
+实施记录（2026-08-05）
+----------------------
+
+阶段 2 已在不改变既有 SecretRef 边界的前提下落地固定 Telegram CredentialRef。Windows 后端经普通用户验收确认使用 `keyring.backends.Windows.WinVaultKeyring`，支持 put、replace、status、operation-scoped resolve、delete、仅元数据列表、revision 与 capability probe；后端不可用时不允许明文文件回退。
+
+Secret 只在明确 Operation 内短暂解析，并仅注入目标 cc-connect 子进程；API 响应、SQLite、原生配置、日志和 argv 均不保存或回显值。Fake 后端只用于自动化。加密导出/导入、跨机迁移、通用 Provider Secret 与 Python 物理内存完全清零保证仍未实现，因此本 ADR 的迁移重审触发器继续有效。

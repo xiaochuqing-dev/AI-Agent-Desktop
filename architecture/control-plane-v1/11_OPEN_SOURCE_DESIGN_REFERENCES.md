@@ -47,6 +47,10 @@ Docker 与 Dapr 的接口表明凭据后端应可替换。Windows 首版优先�
 | [Process Creation Flags](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags) | 使用 CREATE_NO_WINDOW 与 CREATE_NEW_PROCESS_GROUP，不起可见黑窗，不通过 shell 拼接命令 |
 | [MoveFileEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexa) 与 [ReplaceFile](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilea) | 不自行封装 Win32 替换 API；在同卷同目录使用 Python `os.replace`、fsync、备份与回滚 |
 | [Python os.replace](https://docs.python.org/3/library/os.html#os.replace) 与 [subprocess](https://docs.python.org/3/library/subprocess.html) | 标准库已满足原子替换和参数数组/shell=False 启动，不新增依赖 |
-| [CredRead](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw) 与 [CredWrite](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew) | 先冻结 CredentialBackend 边界；本切片不需真实 Secret，所以 Windows 适配器只做不读写骨架 |
-| [cc-connect 锁定源码](https://github.com/chenhg5/cc-connect/tree/fc315d213b49d62e9d90ea4a510189d4115e636f) | 官方 CLI 支持 `-config`，但要求至少一个 Project 和 Platform，且无稳定本地 health endpoint；Telegram-disabled、无 Secret 合成配置无法满足运行前提，因此证据标 PARTIAL |
+| [CredRead](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw)、[CredWrite](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew) 与 Python keyring Windows backend | 小型 Secret 使用当前用户 Windows Credential Manager；运行时必须确认 backend_class 为 keyring.backends.Windows.WinVaultKeyring，禁止明文文件回退 |
+| [cc-connect 锁定源码](https://github.com/chenhg5/cc-connect/tree/fc315d213b49d62e9d90ea4a510189d4115e636f) | 官方 CLI 支持 `-config`，Config.Load 支持 `${NAME}` 环境变量替换，合法 Schema 要求 Project/Agent/Platform；management API 使用 Bearer 但无 bind host，Telegram options 无 Group Chat 白名单，deep health 无官方端点 |
 | [CC Switch](https://github.com/farion1231/cc-switch) | 只采用公开可执行文件检测和普通打开；深链导入仍需 UI 确认，不把私有存储或 GUI 自动化当成稳定 API |
+
+## 2026-08-05 Telegram 与 Secret 窄调研结论
+
+未引入完整 Telegram Bot Framework、Vault、Redis、Celery 或工作流引擎。Telegram Bot API 只实现 getMe、getWebhookInfo、getUpdates 和显式 deleteWebhook；重试仅处理有界 429，长轮询可取消，Token 不进入结构化错误。一次性绑定采用标准库 secrets、HMAC 与 SQLite revision/offset，不复制第三方认证系统。锁定 cc-connect 的环境变量替换由精确 commit 源码、上游测试与外部 Go 探针共同证明，构建仍使用既有 patchset 0.1，没有新增 Patch 或依赖。

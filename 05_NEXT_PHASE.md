@@ -4,26 +4,26 @@
 一、准确名称
 ------------
 
-Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片。
+六链路可观测性、真实消息 E2E 与会话隔离修复切片。
 
 二、目标
 ------
 
-在已实现的 cc-connect 配置、SecretRef、所有权、进程身份和端口门禁上，安全录入三个 Bot Token，通过 Telegram getMe 验证身份，使用一次性绑定码发现 User ID 与 Group ID，并生成 Hermes 与 cc-connect 的可回滚配置。
+在安全凭据、三 Bot 绑定、Update Lease 和 Claude/Codex 原生配置已经完成的基础上，为三个私聊与三个群聊建立脱敏可观测性，并由用户显式启动真实消息 E2E，定位和修复命令、Mention、Reply、Topic 与 Session 隔离问题。
 
 三、进入门禁
 ------------
 
-- 先确认锁定版 cc-connect 在合法 SecretRef 可用后能持续运行；当前无 Secret 验收只是 PARTIAL。
-- 实现可用且不回显明文的 Windows CredentialBackend，并先通过 Fake 和合成凭据测试。
-- 保持配置计划、revision、备份、回滚、LifecycleOwner 和 ManagementOwner 门禁。
-- 真实 Telegram 操作必须由用户显式启动，记录脱敏证据，不在默认 health 中发消息。
-- Windows 10 x64 用户实机验证仍是交付门禁。
+- 用户显式提供三个真实测试 Bot Token，并分别完成 getMe；真实 Token 不进入仓库、日志、报告或命令行。
+- 三个 Bot 由同一用户完成私聊与同一群绑定，真实状态达到 3/3 bound；Fake 合成结果不能代替。
+- Claude/Codex 产品受管进程在真实 Token 下稳定运行，Update Lease 所有权无冲突，原生配置仍可回滚。
+- Hermes 必须有明确状态：已安装且 Schema 可验证，或继续准确 pending_component_install。
+- Windows 10 x64 用户实机验证单独完成；Windows 11 证据不能替代。
 
 四、仍然禁止
 ------------
 
-- 六链路完整 E2E、正式 GUI、Provider 编辑器或通用生命周期平台
+- 默认或无人确认的六链路 E2E、正式 GUI、Provider 编辑器或通用生命周期平台
 - 其他组件安装、Hermes 自动更新或通用更新器
 - 扩大 dual_agent、增加 Patch 或升级 cc-connect 上游
 - 静默接管外部进程、修改系统 PATH、计划任务、Watchdog 或真实运行配置
@@ -32,4 +32,4 @@ Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片。
 五、验收重点
 ------------
 
-三 Bot 身份唯一，一次性绑定防重放，User/Group ID 自动发现可审计，Secret 不落明文且不回显，生成配置可回滚，三 Bot 同群一致性可验证，Reference Baseline 无回归。
+六条链路逐条记录连接、发送、接收、命令、Mention、Reply、Topic、Session 隔离、最近验证时间和脱敏证据；不得用一条链路推断另一条。真实消息只在用户确认的会话中发送一次，失败不自动重复。修复仍需保持 Reference Baseline、凭据、Update Lease、原生配置和外部环境边界。

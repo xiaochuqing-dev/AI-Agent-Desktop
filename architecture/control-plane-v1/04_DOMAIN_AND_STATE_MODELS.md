@@ -1,6 +1,6 @@
 # 04 领域与状态模型
 
-实施状态更新（2026-08-04）：核心契约以向后兼容方式增加 ArtifactManifest、InstallPlan、InstallSnapshot、ManagedVersion 和 OperationAuditEvent。数据库以 Alembic 持久化安装计划、快照、版本、安装记录、租约、清理项和事件；这些模型目前只服务 cc-connect 隔离安装。
+实施状态更新（2026-08-05）：在既有安装与受管运行模型上，契约继续向后兼容增加 CredentialMetadata、TelegramBotIdentity、TelegramUpdateLease、BindingSession、NativeRendererCapability、NativeConfigurationPlan/State、HermesConfigurationPlan/State 与 ExternalCcConnectState。Alembic 0004 持久化凭据元数据/revision、Bot 身份、绑定/审计/offset、原生配置计划/revision/备份、Renderer 和 Secret 注入审计；不保存 Secret 或完整 Telegram Update。
 
 ## 通用规则
 
@@ -39,6 +39,8 @@
 | DryRunAction | action_id、component_id、action_type、reason、prerequisites、requires_admin、requires_user_interaction、secret_required、estimated_risk、reversible、rollback_hint、status | dry-run 计划中的单条动作；首片不执行 |
 | SecretRef | secret_ref_id、credential_ref、purpose、owner、backend、status、exists | 对已存 Secret 的引用；永不承载值；就绪扫描只判断引用是否存在或可访问 |
 | UserFacingError | code、message、retryable、recovery_actions、diagnostic_id、operation_id | 面向用户的错误层，不含堆栈与 Secret |
+
+本阶段新增的 Telegram/原生配置实体保持产品模型与上游字段隔离：CredentialMetadata 只含引用与 revision；TelegramBotIdentity 只含 getMe 非敏感身份；TelegramUpdateLease 表达单一 getUpdates Owner 与 offset；BindingSession 只保存 code HMAC、User/Group ID 和逐 slot 进度；NativeRuntimeConfig 是 Renderer 输入，ManagedCcConnectState 保存产品 Owner、binding 与证据引用，两者分别落盘。
 
 ## 状态对象
 

@@ -11,7 +11,7 @@
 
 本产品未来管理 Hermes、cc-connect 与 Telegram 绑定所需的受控配置；Claude Code 和 Codex 的官方登录材料仍由官方流程管理。本产品只读取脱敏状态，不截取密码、OAuth Token 或 Session。
 
-Secret 与业务配置分离。Bot Token、API Key 和 Bearer 进入 CredentialProvider，业务配置只保存 SecretRef。当前已有 SecretRef 存在性状态和 CredentialBackend 接口；InMemory 后端只用于测试，Windows Credential Manager 后端只有不读写 Secret 的骨架，真实凭据写入仍为 unsupported。
+Secret 与业务配置分离。Bot Token、API Key 和 Bearer 进入 CredentialProvider，业务配置只保存 SecretRef。InMemory 后端只用于测试；Windows Credential Manager 后端已真实实现 put、replace、status、resolve_for_operation、delete、metadata 与 revision，且禁止退化到明文文件。当前只开放三个固定 Telegram Bot Token 引用及产品内部运行凭据，不扩展为通用凭据平台。
 
 三、CC Switch
 -------------
@@ -23,4 +23,4 @@ CC Switch 是推荐但非强制的供应商配置入口。新手无需安装 CC 
 四、用户输入边界
 ----------------
 
-目标体验中，用户只输入正确的模型账号或 API 凭据，以及三个 Telegram Bot Token。User ID、Group/Chat ID、配置文件、端口、Hook、Session 和后台启动由产品未来自动处理。该自动化当前尚未实现。
+目标体验中，用户只输入正确的模型账号或 API 凭据，以及三个 Telegram Bot Token。User ID、Group/Chat ID、Claude/Codex 原生配置、受控端口和后台启动已由 Control Plane 自动处理；模型官方登录、Hermes 安装和六链路真实消息 E2E 仍由后续阶段完成。

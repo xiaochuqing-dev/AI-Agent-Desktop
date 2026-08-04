@@ -1,6 +1,6 @@
 GUI 状态体验模型 GUI_STATUS_EXPERIENCE
 
-本文档是正式 GUI 的目标体验，不表示 GUI 或 Control Plane 已实现。
+本文档是正式 GUI 的目标体验。Control Plane 已实现，正式 GUI 尚未实现。
 GUI 是 Control Plane 状态的视图，不是状态所有者。它只通过稳定本地 API 读取 StateSnapshot 和下发 Operation，不直接读取上游目录、进程或配置。
 关闭 GUI 只断开本地客户端，不能停止 Control Plane 或已经运行的 Agent/Channel 服务。
 

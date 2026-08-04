@@ -1,7 +1,7 @@
 十分钟安装引导 TEN_MINUTE_ONBOARDING
 ====================================
 
-本文档描述正式产品目标，不表示安装器、Telegram 自动绑定或 GUI 已实现。
+本文档描述正式产品目标。安装器和三 Bot 合成绑定能力已实现；真实 Telegram live 验证与 GUI 尚未实现。
 
 一、用户准备
 ------------
@@ -33,4 +33,4 @@ Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 
 五、当前阶段
 ------------
 
-当前只实现只读发现、Readiness、Dry-run、Operation/SSE 和无副作用诊断。上述自动配置、真实安装、真实链路检测和 GUI 均为后续目标。
+当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、Claude/Codex 原生配置和产品自有 cc-connect 运行。真实 Telegram live 绑定、Hermes 安装/受管配置、六链路真实消息检测和 GUI 仍为后续目标；Fake 合成验收不能替代用户现场步骤。

@@ -45,7 +45,7 @@
 六、当前实现边界
 ----------------
 
-Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE 和无副作用脱敏诊断，以及仅限产品自有 cc-connect 的隔离安装、原子最小配置、所有权交接与生命周期。真实凭据写入、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现；锁定版无 Secret 持续运行验收为 PARTIAL。第五节仍是完整产品目标，不得把未交付部分写成已实现。
+Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及合法 cc-connect 受管生命周期。Fake Telegram 和合成 Token 验收已通过；真实 Telegram live 绑定、六链路消息 E2E、Windows 10 实机和 GUI 尚未完成，整体状态为 PARTIAL。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram 已验证。
 
 七、不得走偏
 ------------

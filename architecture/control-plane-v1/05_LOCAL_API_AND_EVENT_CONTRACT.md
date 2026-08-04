@@ -1,6 +1,6 @@
 # 05 本地 API 与事件契约
 
-实施状态更新（2026-08-04）：`cc-connect` 已实现 install-plan、install、uninstall、restore、managed-versions、Operation 查询/取消和持久化事件。确认必须绑定 plan_id、plan_digest、confirmation=true 与 Idempotency-Key。其他组件安装及 start/stop/restart 仍返回 CAPABILITY_UNSUPPORTED。
+实施状态更新（2026-08-05）：产品自有 `cc-connect` 已实现 install-plan、install、uninstall、restore、managed-versions、Native Config plan/apply/state/rollback、Telegram Credential/Bot/Binding/Lease，以及 start/stop/restart/status/reconcile。确认仍绑定 plan_id、plan_digest、confirmation=true 与 Idempotency-Key；Secret 写入不持久化原始请求体。其他组件安装和生命周期写操作仍返回 CAPABILITY_UNSUPPORTED。
 
 ## 传输取舍
 
@@ -222,3 +222,9 @@ data: {CloudEvents JSON object}
 ```
 
 默认层只展示 user_message 和 recovery_actions。Diagnostic 详情必须显式展开、已脱敏并受访问控制；Secret、个人消息正文、Authorization、私有路径和未清理堆栈在两层都禁止出现。
+
+## 2026-08-05 向后兼容增量
+
+OpenAPI v1 已新增固定 Telegram 凭据 put/replace/status/delete/capability、Bot getMe 身份与 webhook、Update Lease、Binding create/get/cancel/poll、cc-connect Native Renderer/plan/apply/state、external cc-connect 状态以及 Hermes Telegram plan/state。Secret 输入字段标记 writeOnly，响应模型没有 Secret 字段；Secret 写入 Operation 只持久化幂等摘要，不保存原始 body。
+
+绑定轮询与 Bot 验证使用 202 Operation 和既有 Operation/SSE 语义；创建/读取绑定会话与配置计划使用同步资源。Webhook 删除必须提交 explicit_confirmation，Control Plane 不静默删除。机器可读路径与 Schema 以 control-plane.openapi.yaml 和 managed-runtime.schema.json 为准。

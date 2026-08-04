@@ -31,9 +31,9 @@ Windows 10/11、Telegram、Hermes、Claude Code、Codex、cc-connect，以及推
 五、当前与目标
 --------------
 
-当前 Reference Baseline 已有群聊主要链路和 Hermes 私聊证据，Claude Code/Codex 私聊仍需补齐正式矩阵。Control Plane 当前只读，不会自动绑定 Bot 或检测六条真实链路。
+当前 Reference Baseline 已有群聊主要链路和 Hermes 私聊证据，Claude Code/Codex 私聊仍需补齐正式矩阵。Control Plane 已实现三个固定 Bot 的安全凭据、getMe、一次性绑定、User ID/Group ID 自动发现和 3/3 同群一致性，但只通过 Fake Telegram 合成验收；真实 Telegram 为 PENDING USER LIVE VALIDATION。
 
-未来用户只提供模型账号或 API 凭据、三个 Bot Token，并完成 Telegram 官方要求的首次 /start 与权限设置。产品未来自动处理 Bot 识别、Token 验证、User ID、Group/Chat ID、白名单、Hermes/cc-connect 配置、Project、端口、Hook、Session、后台启动、六链路检测和修复。
+用户只需提供模型账号或 API 凭据、三个 Bot Token，并完成 Telegram 官方要求的首次 /start 与权限设置。Bot 识别、Token 验证、User ID、Group/Chat ID、Claude/Codex Project 和受管启动已具备；Hermes 仍可能 pending_component_install，六链路真实检测和修复留到下一阶段。
 
 六、验收规则
 ------------

@@ -5,15 +5,16 @@ info:
   summary: Stable local management contract for the desktop GUI and trusted clients.
   description: |
     The read-only foundation, cc-connect Windows AMD64 isolated installation,
-    product-owned non-secret configuration revisions, explicit lifecycle
-    ownership, and managed process lifecycle are implemented. Real credential
-    writes, Telegram binding, other component lifecycle, and GUI remain
-    unsupported. Provider-specific structures remain behind Adapter boundaries.
+    product-owned native configuration revisions, Windows credential references,
+    explicit lifecycle ownership, Telegram three-bot identity and binding flows,
+    and managed process lifecycle are implemented. Real Telegram validation and
+    Windows 10 user-machine validation remain pending. Provider-specific
+    structures remain behind Adapter and Renderer boundaries.
   license:
     name: See repository LICENSE
     identifier: Apache-2.0
   x-contract-status: frozen
-  x-implementation-status: cc-connect-managed-runtime-partially-verified
+  x-implementation-status: telegram-native-config-implemented-live-validation-pending
   x-event-types:
     - com.aiagentdesktop.component.state.changed.v1
     - com.aiagentdesktop.component.discovered.v1
@@ -49,6 +50,10 @@ tags:
     description: Redacted configuration, authentication, and single-writer ownership.
   - name: Credentials
     description: Secret storage boundaries that never return plaintext values.
+  - name: Telegram
+    description: Three fixed bot identities, explicit binding sessions, webhook safety, and update-stream ownership.
+  - name: Native Configuration
+    description: Locked-version cc-connect rendering and non-writing Hermes configuration plans.
   - name: Agents
     description: First-class Agent and Capability Registry queries.
   - name: Channels
@@ -531,6 +536,162 @@ paths:
                   - { $ref: "./managed-runtime.schema.json#/$defs/PortOwnershipEvidence" }
                   - { type: "null" }
         default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/native-configuration/renderer":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Native Configuration]
+      operationId: getNativeConfigurationRendererCapability
+      summary: Read the renderer version and locked cc-connect schema capabilities.
+      x-stability: stable
+      responses:
+        "200":
+          description: Renderer bound to the exact locked upstream commit.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/NativeRendererCapability"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/native-configuration-plans":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Native Configuration]
+      operationId: createNativeConfigurationPlan
+      summary: Plan separated product state and locked-upstream cc-connect TOML.
+      description: A rollback is requested by setting rollback_to_revision; secrets are represented only by credential references and environment variable names.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NativeConfigurationPlanRequest"
+      responses:
+        "201":
+          description: Immutable native configuration plan awaiting explicit confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/NativeConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/native-configuration-plans/{planId}":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+      - name: planId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Id"
+    get:
+      tags: [Native Configuration]
+      operationId: getNativeConfigurationPlan
+      summary: Read one immutable native configuration or rollback plan.
+      x-stability: stable
+      responses:
+        "200":
+          description: Native configuration plan.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/NativeConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/native-configuration:apply":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Native Configuration]
+      operationId: applyNativeConfigurationPlan
+      summary: Confirm and atomically apply or roll back separated native configuration state.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NativeConfigurationConfirmation"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/native-configuration":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Native Configuration]
+      operationId: getNativeConfigurationState
+      summary: Read native TOML and product-state revisions, digests, and drift status without secrets.
+      x-stability: stable
+      responses:
+        "200":
+          description: Current separated native configuration state.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/NativeConfigurationState"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/external-cc-connect":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Native Configuration]
+      operationId: getExternalCcConnectDetection
+      summary: Detect external installation, process, port, configuration, supervisor, owner, conflict, and unknown evidence.
+      description: Installation on PATH alone never creates a conflict and this endpoint never changes external state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Read-only external cc-connect evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/ExternalCcConnectState"
+        default:
+          $ref: "#/components/responses/Problem"
+  /components/hermes/telegram-configuration-plans:
+    post:
+      tags: [Native Configuration]
+      operationId: createHermesTelegramConfigurationPlan
+      summary: Generate a non-writing Hermes Telegram plan or an accurate pending-install status.
+      description: Existing Hermes configuration ownership remains external; this endpoint never installs, upgrades, or rewrites Hermes.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HermesConfigurationPlanRequest"
+      responses:
+        "201":
+          description: External-owner plan or pending_component_install result.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/HermesConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  /components/hermes/telegram-configuration:
+    get:
+      tags: [Native Configuration]
+      operationId: getHermesTelegramConfigurationState
+      summary: Read the latest non-writing Hermes Telegram configuration plan state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Latest plan or missing_plan.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/HermesConfigurationState"
+        default:
+          $ref: "#/components/responses/Problem"
   "/components/{componentId}:start":
     parameters:
       - $ref: "#/components/parameters/ComponentId"
@@ -868,6 +1029,332 @@ paths:
           $ref: "#/components/responses/OperationAccepted"
         "409":
           $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /credentials/capability:
+    get:
+      tags: [Credentials]
+      operationId: getCredentialBackendCapability
+      summary: Probe the active credential backend without reading any secret value.
+      x-stability: stable
+      responses:
+        "200":
+          description: Native backend capability and non-secret evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/CredentialBackendCapability"
+        default:
+          $ref: "#/components/responses/Problem"
+  /credentials/telegram:
+    get:
+      tags: [Credentials]
+      operationId: listTelegramCredentialMetadata
+      summary: List metadata for the three fixed Telegram bot credential references.
+      x-stability: stable
+      responses:
+        "200":
+          description: Metadata only; values and value fragments are never returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 3
+                maxItems: 3
+                items:
+                  $ref: "./managed-runtime.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/credentials/telegram/{slot}":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    get:
+      tags: [Credentials]
+      operationId: getTelegramCredentialMetadata
+      summary: Read one Telegram credential status without resolving its value.
+      x-stability: stable
+      responses:
+        "200":
+          description: Credential metadata only.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      tags: [Credentials]
+      operationId: putTelegramCredential
+      summary: Store one fixed Telegram bot credential without echoing or persisting the request body.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialMutationRequest"
+      responses:
+        "201":
+          description: Updated metadata. X-Operation-ID identifies the durable audit operation.
+          headers:
+            X-Operation-ID:
+              schema:
+                $ref: "#/components/schemas/Id"
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Credentials]
+      operationId: deleteTelegramCredential
+      summary: Explicitly delete one fixed Telegram bot credential.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialDeleteRequest"
+      responses:
+        "200":
+          description: Metadata showing the post-delete state.
+          headers:
+            X-Operation-ID:
+              schema:
+                $ref: "#/components/schemas/Id"
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/credentials/telegram/{slot}:replace":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    post:
+      tags: [Credentials]
+      operationId: replaceTelegramCredential
+      summary: Atomically replace one fixed Telegram bot credential and advance its revision.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialMutationRequest"
+      responses:
+        "200":
+          description: Updated metadata without the secret value.
+          headers:
+            X-Operation-ID:
+              schema:
+                $ref: "#/components/schemas/Id"
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/CredentialMetadata"
+        default:
+          $ref: "#/components/responses/Problem"
+  /telegram/bots:
+    get:
+      tags: [Telegram]
+      operationId: listTelegramBotIdentities
+      summary: List verified non-secret bot identity metadata for the three fixed slots.
+      x-stability: stable
+      responses:
+        "200":
+          description: Verified identities; the list can be incomplete before live validation.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 3
+                items:
+                  $ref: "./managed-runtime.schema.json#/$defs/TelegramBotIdentity"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bots/{slot}":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    get:
+      tags: [Telegram]
+      operationId: getTelegramBotIdentity
+      summary: Read one bot identity, or null when it has not been verified.
+      x-stability: stable
+      responses:
+        "200":
+          description: Non-secret identity metadata or null.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "./managed-runtime.schema.json#/$defs/TelegramBotIdentity"
+                  - type: "null"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bots/{slot}:verify":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    post:
+      tags: [Telegram]
+      operationId: verifyTelegramBotIdentity
+      summary: Call Telegram getMe with the referenced credential and persist only identity metadata.
+      description: This is an explicit network operation. CI uses an injected fake and never contacts Telegram.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bots/{slot}/webhook":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    get:
+      tags: [Telegram]
+      operationId: getTelegramWebhookInfo
+      summary: Read redacted webhook conflict information without exposing the webhook URL.
+      x-stability: stable
+      responses:
+        "200":
+          description: Redacted getWebhookInfo result.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/TelegramWebhookInfo"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bots/{slot}/webhook:delete":
+    parameters:
+      - $ref: "#/components/parameters/TelegramSlot"
+    post:
+      tags: [Telegram]
+      operationId: deleteTelegramWebhook
+      summary: Delete a webhook only after explicit confirmation; never invoked silently.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookDeleteRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  /telegram/update-leases:
+    get:
+      tags: [Telegram]
+      operationId: listTelegramUpdateLeases
+      summary: Read the single-consumer owner, heartbeat, and monotonic offset for each bot slot.
+      x-stability: stable
+      responses:
+        "200":
+          description: Exactly one lease record per fixed bot slot.
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 3
+                maxItems: 3
+                items:
+                  $ref: "./managed-runtime.schema.json#/$defs/TelegramUpdateLease"
+        default:
+          $ref: "#/components/responses/Problem"
+  /telegram/bindings:
+    post:
+      tags: [Telegram]
+      operationId: createTelegramBindingSession
+      summary: Create a short-lived three-bot binding session and display its bind code once.
+      description: Product-managed runtimes must be stopped. The HMAC digest is persisted; the plaintext code is returned only in this response.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindingCreateRequest"
+      responses:
+        "201":
+          description: Binding session with one-time code, deep links, and targeted commands.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/BindingSessionCreated"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bindings/{sessionId}":
+    parameters:
+      - $ref: "#/components/parameters/TelegramBindingSessionId"
+    get:
+      tags: [Telegram]
+      operationId: getTelegramBindingSession
+      summary: Read redacted binding progress, user consistency, group consistency, and revision.
+      x-stability: stable
+      responses:
+        "200":
+          description: Current session progress without the bind code.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/BindingSession"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bindings/{sessionId}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/TelegramBindingSessionId"
+    post:
+      tags: [Telegram]
+      operationId: cancelTelegramBindingSession
+      summary: Cancel a binding session and release all Control Plane update leases.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindingCancelRequest"
+      responses:
+        "200":
+          description: Canceled binding state.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/BindingSession"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/telegram/bindings/{sessionId}/slots/{slot}:poll":
+    parameters:
+      - $ref: "#/components/parameters/TelegramBindingSessionId"
+      - $ref: "#/components/parameters/TelegramSlot"
+    post:
+      tags: [Telegram]
+      operationId: pollTelegramBindingSlot
+      summary: Temporarily acquire one update stream, advance its offset, and process only matching bind commands.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindingPollRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
         default:
           $ref: "#/components/responses/Problem"
   /agents:
@@ -1589,6 +2076,19 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/Id"
+    TelegramSlot:
+      name: slot
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [hermes, claude, codex]
+    TelegramBindingSessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
     AgentId:
       name: agentId
       in: path
@@ -1929,6 +2429,121 @@ components:
         expires_at:
           type: string
           format: date-time
+    CredentialMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          format: password
+          writeOnly: true
+          description: Never logged, echoed, persisted in idempotency request bodies, placed in a URL, or returned to the GUI.
+    CredentialDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation:
+          const: true
+    BindingCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [runtimes_stopped_confirmation]
+      properties:
+        expires_in_seconds:
+          type: integer
+          minimum: 120
+          maximum: 1800
+          default: 900
+        runtimes_stopped_confirmation:
+          const: true
+    BindingPollRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        timeout_seconds:
+          type: integer
+          minimum: 0
+          maximum: 25
+          default: 10
+    BindingCancelRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation:
+          const: true
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 128
+          default: user_canceled
+    WebhookDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [explicit_confirmation]
+      properties:
+        explicit_confirmation:
+          const: true
+        drop_pending_updates:
+          type: boolean
+          default: false
+    NativeConfigurationPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [binding_session_id, claude_workspace_root, codex_workspace_root]
+      properties:
+        binding_session_id:
+          $ref: "#/components/schemas/Id"
+        claude_workspace_root:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        codex_workspace_root:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        management_port:
+          type: integer
+          minimum: 59000
+          maximum: 59999
+          default: 59020
+        expires_in_seconds:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+        rollback_to_revision:
+          type: [integer, "null"]
+          minimum: 1
+    NativeConfigurationConfirmation:
+      type: object
+      additionalProperties: false
+      required: [plan_id, plan_digest, current_revision, target_revision, confirmation]
+      properties:
+        plan_id:
+          $ref: "#/components/schemas/Id"
+        plan_digest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        current_revision:
+          type: integer
+          minimum: 0
+        target_revision:
+          type: integer
+          minimum: 1
+        confirmation:
+          const: true
+    HermesConfigurationPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [binding_session_id]
+      properties:
+        binding_session_id:
+          $ref: "#/components/schemas/Id"
     CredentialValidationRequest:
       type: object
       additionalProperties: false
@@ -2219,3 +2834,24 @@ components:
           $ref: "#/components/schemas/Id"
         correlation_id:
           $ref: "#/components/schemas/Id"
+        errors:
+          type: array
+          maxItems: 128
+          description: Redacted request-validation details. Raw input values, URLs, and validation context are omitted.
+          items:
+            type: object
+            additionalProperties: false
+            required: [loc, msg, type]
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+                maxLength: 1024
+              type:
+                type: string
+                maxLength: 256

@@ -1,6 +1,6 @@
 # 08 当前系统 Adapter 映射
 
-实施状态更新（2026-08-04）：除本文件原有只读 Adapter 映射外，当前已有仅限产品自有 cc-connect 的隔离安装、受管配置和生命周期 Adapter。它不接管下述 Reference Baseline、计划任务、Watchdog、junction 或外部运行服务；`src/` 与 5 个 Patch 内容保持冻结。
+实施状态更新（2026-08-05）：除本文件原有只读 Adapter 映射外，当前已有仅限产品自有 cc-connect 的隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Native Config Renderer、运行时 Secret 注入和受管生命周期 Adapter。它不接管下述 Reference Baseline、计划任务、Watchdog、junction 或外部运行服务；`src/` 与既有 5 个 Patch 内容保持冻结。
 
 ## 映射原则
 
@@ -30,13 +30,13 @@
 | OrchestrationProvider | Hermes multiagent Adapter | 单 Agent、并行、顺序、结果汇总 verified | 讨论未 E2E；控制 ack、改派缺失 | 先只读声明能力与 Task 查询，不改编排路径 |
 | AgentRuntimeProvider | cc-connect relay Adapter | Claude Code/Codex 调用与 Session 连续 partial/verified | 统一 Agent 状态、强取消、稳定 Session API 缺失 | 包装版本/进程/可用性；调用路径保持现状 |
 | ChannelProvider | Hermes Telegram Adapter + cc-connect Telegram Adapter | 提及、Reply、群/私聊隔离、三 Bot 路由 verified | Hook best-effort；通用连接管理缺失 | 从现有事件只读映射通用状态 |
-| LifecycleProvider | 现有 VBS/CMD/Python/计划任务 Adapter | 启动链与部分健康检测 partial | 统一 stop/restart/install/update/rollback/migrate 缺失 | 先发现和只读健康，再审阅启停接管 |
-| ModelConfigurationProvider | 配置文件与官方 CLI 状态 Adapter | 当前配置可被现有组件使用 | schema、revision、Owner 事务、回滚缺失 | 只读脱敏解析和校验 |
-| CredentialProvider | 环境文件/官方登录/Hook Bearer 的受控封装 | 凭据能被现有进程消费 | 统一安全后端、lease、迁移、审计缺失 | 首片不读取明文，只报告是否存在/可用 |
+| LifecycleProvider | Reference Baseline 只读 Adapter + 产品自有 cc-connect Adapter | 隔离安装、start/stop/restart/status/reconcile、进程身份与回滚 verified | 自动更新、跨机迁移、外部生命周期接管缺失 | 继续限制在产品自有实例 |
+| ModelConfigurationProvider | Reference Baseline 只读 Adapter + cc-connect Native Config Renderer | managed/native 分离、schema、Owner、revision、备份、漂移检测与回滚 verified | Hermes 未安装时仅能生成 pending 计划；通用组件写入缺失 | Claude/Codex 走受管原生配置；外部配置只读 |
+| CredentialProvider | Windows Credential Manager + 显式 Fake 后端 | Telegram 固定引用的 put/replace/status/resolve/delete/metadata/revision verified | 加密导入导出、跨机迁移、通用 Provider Secret 缺失 | Secret 仅在受限 Operation 内解析并注入目标子进程 |
 | CapabilityRegistry | multiagent.yaml、relay bindings、版本事实 Adapter | 三个 Agent 与静态角色已知 | 动态注册、版本协商、心跳缺失 | 从配置与进程探测建立只读快照 |
 | HumanControlPolicy | Hermes routing/intervention Adapter | 显式 @、Reply、部分 pause/cancel入口 | 插话、持久化 ack、强控制、改派缺失 | 只声明 verified 能力；完整控制后续实现 |
 
-表中“现有”列仍映射 Reference Baseline。新的产品自有 cc-connect Provider 是独立隔离路径：LifecycleProvider 已实现 start/stop/restart/status/reconcile，ModelConfigurationProvider 已实现非 Secret 最小配置、revision 与回滚。CredentialProvider 仍不读写真实 Secret。
+表中 Reference Baseline 项仍为只读映射。新的产品自有路径独立于该基线：LifecycleProvider 已实现真实 cc-connect start/stop/restart/status/reconcile，ModelConfigurationProvider 已实现锁定版本的原生配置、revision、备份和回滚，CredentialProvider 已通过 Windows Credential Manager 安全写入与按 Operation 解析 Telegram Token；任何 API、SQLite、配置、日志或命令行都不保存或回显 Token。
 
 ## Hermes Orchestration Adapter
 
@@ -126,9 +126,9 @@ Adapter 私有保存平台 chat/message/entity 值，并仅输出：
 
 read_only_candidate：文件存在、版本、哈希、进程身份、监听可达性、计划启动来源和依赖状态。读取时必须使用占位/脱敏路径输出。
 
-### 安全接管前置
+### 安全接管门禁与现状
 
-在实现 start/stop/restart 前必须：
+产品自有 cc-connect 路径已经按以下门禁实现并通过合成 Windows 验收；Reference Baseline 与外部实例仍只读：
 
 1. 用可验证进程身份而非进程名定位目标。
 2. 明确谁拥有启动权，避免旧计划任务与 Control Plane 双重拉起。
@@ -137,25 +137,25 @@ read_only_candidate：文件存在、版本、哈希、进程身份、监听可�
 5. 不调用 `--force` 作为普通重启默认路径。
 6. 在隔离环境通过回归后才影响 Reference Baseline。
 
-install/update/rollback/migrate 目前为 missing，不能通过组合现有脚本假装已产品化。
+产品自有 cc-connect 的锁定产物隔离安装与回滚已实现；自动 update、跨机 migrate 和外部实例 takeover 仍为 missing，不能通过组合现有脚本假装已产品化。
 
 ## Model Configuration 与 Credential 映射
 
-### 可只读包装
+### Reference Baseline 与外部配置的只读包装
 
 - 判断配置文件是否存在、是否可解析、必需字段是否缺失
 - 判断 credential reference 或环境注入是否“存在”，不读取/回显真实值
 - 调用官方 CLI 的脱敏登录状态检查
 - 把当前文件 mtime/hash 映射为初始 revision，用于漂移检测
 
-### 不可直接接管
+### 产品自有受管路径与不可接管边界
 
-- 不在首片写 Hermes、cc-connect 或官方登录配置
+- Reference Baseline、外部 cc-connect、官方登录配置和 CC Switch 私有数据不写入
 - 不读取 Token/API Key/OAuth/Bearer/Session
 - 不自动把当前环境文件迁移进新 vault
 - 不推断 CC Switch 是否为 Owner；需要专用检测和用户确认
 
-正式 Owner marker、原子备份/回滚、CredentialBackend 和 lease 都是 missing。
+产品自有路径已经实现正式 Owner marker、managed/native 配置分离、原子备份/回滚、Windows CredentialBackend、Telegram Update Lease 与 cc-connect 子进程 Secret 注入。该能力不授权读取旧环境文件中的 Token，也不扩大到 Hermes 模型 Provider、官方登录凭据或 CC Switch。
 
 ## Capability Registry 映射
 
@@ -197,4 +197,4 @@ install/update/rollback/migrate 目前为 missing，不能通过组合现有脚�
 
 ## 本轮保护结论
 
-本设计没有修改 `src/`、`integrations/cc-connect/patches/`、构建产物、真实配置、计划任务、junction 或服务，也没有重新执行 Telegram E2E。Reference Baseline 继续作为第一个 Adapter 对象和回归基准。
+本轮没有修改 `src/`、`integrations/cc-connect/patches/`、Reference Baseline 真实配置、PATH、注册表、计划任务、Watchdog、junction 或外部服务。新增能力只作用于产品自有隔离目录；已执行 Fake Telegram 与合成 Token 验收，没有发送真实消息，真实 Telegram 仍为 `PENDING USER LIVE VALIDATION`。

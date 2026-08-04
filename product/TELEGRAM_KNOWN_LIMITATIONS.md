@@ -1,7 +1,7 @@
 Telegram 已知限制
 =================
 
-更新时间：2026-08-04
+更新时间：2026-08-05
 
 一、已知事实
 ------------
@@ -12,6 +12,9 @@ Telegram 已知限制
 - /start 等命令偶尔可能未进入预期命令逻辑；命令异常时普通消息仍可能正常。
 - 私聊、群聊、Reply、Mention、Topic 与 Session 之间仍可能存在少量隔离和路由边界。
 - 当前未发现阻断性体验 Bug，本阶段不重构现有路由。
+- Control Plane 已通过 Fake Telegram 完成三 Bot getMe、三私聊、三同群绑定与 3/3 一致性；未使用真实 Token，结论是 PENDING USER LIVE VALIDATION。
+- 锁定版 cc-connect 原生 Telegram Schema 只有 allow_from，缺少 Group Chat ID 白名单字段；当前可限制 operator user，不能限制唯一群，状态为 unsupported。
+- 锁定版 management API 没有 bind host 字段，实测监听所有网卡；虽然 Bearer 验证通过，健康仍只能记为 partial。
 
 二、能力证据登记
 ----------------
@@ -39,4 +42,4 @@ Telegram 已知限制
 四、本阶段边界
 --------------
 
-本阶段只更新事实源和模型，不执行真实 Telegram E2E，不发送任何消息，不停止或重启现有服务。
+本阶段只用 Fake Telegram 和合成 Token 验证身份、绑定与受管运行，不执行真实 Telegram E2E，不发送任何消息，不停止或重启 Reference Baseline 或外部服务。

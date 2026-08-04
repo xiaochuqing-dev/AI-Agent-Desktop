@@ -1,6 +1,6 @@
 # 09 迁移与第一个最小纵向切片
 
-实施状态更新（2026-08-04）：只读 Readiness、cc-connect 锁定产物隔离安装，以及产品自有 cc-connect 的原子最小配置、所有权交接和生命周期已实现。Alembic 是唯一升级路径。真实凭据写入与外部生命周期接管仍未实现；无 Secret 真实持续运行因上游限制为 PARTIAL。
+实施状态更新（2026-08-05）：只读 Readiness、cc-connect 锁定产物隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Claude/Codex 原生配置、运行时 Secret 注入和产品自有 cc-connect 生命周期已实现。Alembic 是唯一升级路径。外部生命周期接管、Hermes 已安装态配置、真实 Telegram 与 Windows 10 验证仍未完成；总体状态保持 PARTIAL。
 
 ## 迁移目标
 
@@ -45,7 +45,7 @@
 - 每个 Component 分别返回 InstallationState、ConfigurationState、AuthenticationState、RuntimeState、HealthState 和 UpdateState。
 - Control Plane 按冻结优先级生成 `user_status`，同时保留底层状态和 `status_overlays`。
 - 发现结果与期望不一致时输出 `Drift=True`，不自动修复。
-- 首片只读取授权是否存在或是否有效，不读取真实 Secret，也不代替官方登录。
+- 历史首片只读取授权是否存在或是否有效；当前产品自有 Telegram 路径允许 CredentialProvider 在明确 Operation 内临时解析 Secret 并仅注入目标子进程，仍不向 API、日志或持久化层返回明文，也不代替官方登录。
 
 ### 3. 展示版本和能力
 
@@ -54,11 +54,11 @@
 - Claude Code 与 Codex 始终是独立 Agent；Runtime 状态不能替代 Agent 状态。
 - 静态配置是期望证据，进程和健康探针是观测证据，两者不能合并成虚假 ready。
 
-### 4. 配置只读校验
+### 4. 配置校验与受管写入
 
 - `GET /components/{componentId}/configuration` 只返回脱敏结构、schema、Owner 候选和 revision。
 - `POST .../configuration:validate` 默认执行结构与引用完整性检查，不写文件、不轮换凭据、不访问真实消息 Channel。
-- 历史首片不提供写入；当前只对产品自有 cc-connect 提供配置计划、Owner 交接、revision 与回滚。其他组件仍标 unavailable/unsupported。
+- 历史首片不提供写入；当前只对产品自有 cc-connect 提供绑定锁定 Schema 的 Native Config Renderer、配置计划、Owner 交接、revision、备份、原子应用、漂移恢复与回滚。Claude/Codex 可生成原生配置，Hermes 未安装时保持 `pending_component_install`；其他组件仍标 unavailable/unsupported。
 - 解析失败返回字段级安全摘要和恢复建议，不返回配置正文、私有路径或 Secret 片段。
 
 ### 5. 启动、停止和重启
@@ -114,7 +114,7 @@
 
 ## 后续迁移规则
 
-- 配置写入与凭据迁移不得和首次 lifecycle 接管放在同一风险变更中。
+- 后续扩大到其他组件的配置写入或凭据迁移时，不得和该组件首次 lifecycle 接管放在同一风险变更中。
 - 每替换一个 Adapter，都要通过共同契约测试、状态映射测试、基线回归和回滚演练。
 - 临时 Patch 只有在上游等价能力已验证后删除；不能为了架构整洁提前移除。
 - 新 Channel 复用 Channel/Conversation/Message/Mention/Reply，不给核心 schema 增加平台字段。
@@ -125,7 +125,7 @@
 - 正式 PySide6 GUI 大开发
 - 新 Channel、新 Agent Runtime 或新编排器
 - 通用多组件安装器、自动更新和跨机迁移实现
-- 配置写入、Owner 自动切换和真实凭据迁移
+- 通用多组件配置写入、Owner 自动切换和跨机真实凭据迁移
 - 完整讨论模式或人类控制执行能力
 - 扩大 dual_agent、cc-connect Patch 或真实 Telegram E2E
 - 通用 DAG、消息总线、插件市场或分布式 Control Plane
