@@ -24,8 +24,11 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 - Operation、幂等、基础重启恢复和 SSE 事件
 - Windows System、Hermes、cc-connect、Claude Code、Codex、CC Switch、Telegram Config 共 7 个只读 Adapter
 - 全链路脱敏与源码 Secret 扫描
+- cc-connect Windows amd64 锁定、可重复构建产物与机器可读 Manifest
+- 绑定计划摘要的显式确认、隔离安装、原子 current.json、自动回滚、卸载、恢复和 pending_cleanup
+- Alembic 基线与安装状态迁移、持久化安装审计事件和跨重启恢复
 
-当前不具备：真实安装、配置写入、凭据写入、登录、启动或停止接管、更新或回滚执行、Telegram 自动绑定、真实网络健康探测、六链路自动验收、正式 GUI。
+当前不具备：除 cc-connect 外的组件安装、配置写入、凭据写入、登录、启动或停止接管、自动更新、Telegram 自动绑定、真实网络健康探测、六链路自动验收、正式 GUI。cc-connect 深度健康因上游无完全离线模式而标记 unsupported；当前只执行隔离的 version-only 探针。
 
 三、Telegram 运行证据
 --------------------
@@ -42,4 +45,4 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 五、下一阶段
 ------------
 
-下一阶段是 cc-connect 单组件真实安装纵向切片，尚未开始实现。详见 05_NEXT_PHASE.md。
+下一阶段是“cc-connect 产品管理生命周期与最小配置写入切片”。详见 05_NEXT_PHASE.md。

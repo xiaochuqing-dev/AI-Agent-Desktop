@@ -1,16 +1,26 @@
-cc-connect candidate build manifest (Step 1.5 final)
-===================================================
-buildTime:     2026-07-27T16:48:22Z
-sourceCommit:  fc315d213b49d62e9d90ea4a510189d4115e636f
-npmVersion:    1.4.1
-patchset:      0.1
-version:       v1.4.1-patchset0.1-fc315d2
-buildTags:     no_web goolm no_pi
-ldflags:       -s -w -X main.version=v1.4.1-patchset0.1-fc315d2 -X main.commit=fc315d2 -X main.buildTime=2026-07-27T16:48:22Z
-goVersion:     go version go1.26.5 windows/amd64
-sha256:        f7a577bba84bf732519d98cfdf70fa6c089fbc50ae9e14deb775d3c46d0409fb
-size:          26981376
-candidate:     build/output/cc-connect-candidate.exe
-note:          候选产物，未覆盖 npm 全局运行二进制；等待单独验收后再替换。
-note2:         Step 1.5 变更：patch 003 新增 relay_test.go 断言修正；patch 004 新测试 PII sanitized。
-note3:         每次构建因 buildTime 嵌入 ldflags，SHA256 会变（非位级可复现）。此 manifest 反映最终候选。
+cc-connect locked Windows distributable build manifest
+
+schemaVersion: 1.0
+status: implemented
+sourceRepository: https://github.com/chenhg5/cc-connect.git
+sourceCommit: fc315d213b49d62e9d90ea4a510189d4115e636f
+upstreamVersion: 1.4.1
+patchset: 0.1
+version: v1.4.1-patchset0.1-fc315d2
+platform: windows
+architecture: amd64
+goVersion: 1.26.5
+buildTags: no_web goolm no_pi
+sourceDateEpoch: 1784463303
+buildTimestamp: 2026-07-19T12:15:03Z
+buildTimestampPolicy: locked_upstream_commit_timestamp_utc
+ldflags: -buildid= -s -w -X main.version=v1.4.1-patchset0.1-fc315d2 -X main.commit=fc315d2 -X main.buildTime=2026-07-19T12:15:03Z
+artifactFilename: cc-connect.exe
+artifactSize: 26928640
+artifactSHA256: cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec
+signatureStatus: unsigned
+minimumOS: Windows 10 x64
+installSideRequiresGo: false
+reproducibility: four local PowerShell 5.1/7 builds from the same locked inputs produced the same SHA256
+machineManifest: artifact-lock.json plus generated cc-connect-artifact-manifest.json
+referenceBaselineChanged: false

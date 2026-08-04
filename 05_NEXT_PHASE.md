@@ -4,47 +4,32 @@
 一、准确名称
 ------------
 
-cc-connect 单组件真实安装纵向切片。
+cc-connect 产品管理生命周期与最小配置写入切片。
 
 二、目标
 ------
 
-只把 cc-connect 的 DryRun 安装计划升级为用户显式确认后可执行、可审计、可取消、可验证、失败可回滚的最小真实安装闭环。不得顺带实现其他组件安装、Telegram 自动绑定或 GUI。
+在已完成的隔离安装闭环之上，只为产品管理的 cc-connect 实例增加启动、停止、重启、端口所有权和最小配置模板。配置必须使用 SecretRef，不写入真实 Token 或 API Key，并继续保持可审计、可取消和可回滚。
 
-三、进入条件
+三、进入门禁
 ------------
 
-- 用户显式确认安装目标、来源、版本和影响
-- 使用持久化 Operation 与 Idempotency-Key
-- 取消语义区分“请求已接受”和“外部工作已停止”
-- 安装前保存可验证快照与现有生命周期所有权
-- 来源、版本与摘要锁定
-- 每个配置作用域只有一个 ManagementOwner
+- 明确区分 external 与 product 生命周期所有权，禁止双 supervisor。
+- 只操作产品自有版本目录，不修改 Reference Baseline、计划任务或 Watchdog。
+- 配置写入前完成 revision、备份、原子替换和回滚测试。
+- 端口冲突可诊断，健康探针不连接真实 Telegram。
+- CredentialBackend 未完成前只允许 SecretRef，不落明文。
 
-四、最小执行闭环
-----------------
-
-1. 只读发现当前 cc-connect 状态和生命周期所有者。
-2. 生成安装计划、来源、锁定版本、摘要、前置条件与回滚点。
-3. 获取用户显式确认后创建可审计 Operation。
-4. 执行单组件安装，不修改 Hermes、Claude Code、Codex 或 Telegram 真实配置。
-5. 仅在配置所有权明确时写入本阶段批准的最小配置。
-6. 执行无副作用本地健康验证。
-7. 失败时恢复快照与旧生命周期所有权。
-8. 支持卸载或恢复路径，并保留审计结果。
-
-五、仍然禁止
+四、仍然禁止
 ------------
 
-- 提前实现 Telegram 三 Bot 自动绑定或六链路真实 E2E
-- 发送真实 Telegram 消息
-- 同时安装其他组件
-- 开发正式 GUI、通用安装器或 Provider 编辑器
-- 扩大 dual_agent 或 cc-connect Patch
-- 停止或重启现有 Hermes/cc-connect，除非下一阶段的隔离验收环境和用户确认明确授权
+- Telegram 三 Bot 自动绑定、真实 User ID/Group ID 获取或六链路真实 E2E
+- 其他组件安装、正式 GUI、Provider 编辑器或通用生命周期平台
+- 扩大 dual_agent、增加 Patch 或升级 cc-connect 上游
+- 静默接管外部进程、修改系统 PATH、计划任务、Watchdog 或真实运行配置
 - 读取、输出或提交真实 Secret
 
-六、验收重点
+五、验收重点
 ------------
 
-来源与版本可追溯、重复请求不重复安装、中断后先探测再恢复、取消不虚报、健康验证有直接证据、失败可回滚、Reference Baseline 无回归。
+单一生命周期所有者、最小权限、端口与进程身份可证明、配置可回滚、Operation 重启可恢复、Reference Baseline 无回归。

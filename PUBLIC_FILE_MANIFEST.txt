@@ -1,7 +1,7 @@
 PUBLIC_FILE_MANIFEST
 
 Generated: 2026-08-04
-Public file count: 159
+Public file count: 182
 
 Scope
 This inventory contains every tracked file on final main.
@@ -13,6 +13,7 @@ Excluded artifact classes
 Executable installers, archives, bundles, logs, PID files, databases, sessions, transcripts, and local secrets are not public repository artifacts.
 
 File list
+.gitattributes
 .github/workflows/control-plane-ci.yml
 .gitignore
 00_START_HERE.md
@@ -59,6 +60,11 @@ contracts/control-plane-v1/control-plane.openapi.yaml
 contracts/control-plane-v1/core-models.schema.json
 contracts/control-plane-v1/event-envelope.schema.json
 control-plane/README.md
+control-plane/alembic.ini
+control-plane/alembic/env.py
+control-plane/alembic/script.py.mako
+control-plane/alembic/versions/0001_control_plane_baseline.py
+control-plane/alembic/versions/0002_cc_connect_installer.py
 control-plane/control_plane/__init__.py
 control-plane/control_plane/adapters/__init__.py
 control-plane/control_plane/adapters/discovery.py
@@ -74,29 +80,44 @@ control-plane/control_plane/domain/models.py
 control-plane/control_plane/domain/ports.py
 control-plane/control_plane/infrastructure/__init__.py
 control-plane/control_plane/infrastructure/config.py
+control-plane/control_plane/installer/__init__.py
+control-plane/control_plane/installer/artifact-lock.json
+control-plane/control_plane/installer/artifacts.py
+control-plane/control_plane/installer/models.py
+control-plane/control_plane/installer/paths.py
+control-plane/control_plane/installer/service.py
 control-plane/control_plane/main.py
 control-plane/control_plane/persistence/__init__.py
+control-plane/control_plane/persistence/migration.py
 control-plane/control_plane/persistence/models.py
 control-plane/control_plane/persistence/session.py
 control-plane/control_plane/security/__init__.py
 control-plane/control_plane/security/redaction.py
 control-plane/pyproject.toml
 control-plane/scripts/validate_contracts.py
+control-plane/scripts/windows_isolated_acceptance.py
 control-plane/tests/__init__.py
 control-plane/tests/conftest.py
 control-plane/tests/fakes.py
+control-plane/tests/installer_helpers.py
 control-plane/tests/test_adapters.py
 control-plane/tests/test_api.py
 control-plane/tests/test_contract.py
 control-plane/tests/test_discovery_service.py
 control-plane/tests/test_domain_models.py
 control-plane/tests/test_event_log.py
+control-plane/tests/test_installer_api.py
+control-plane/tests/test_installer_artifacts.py
+control-plane/tests/test_installer_paths.py
+control-plane/tests/test_installer_service.py
+control-plane/tests/test_migrations.py
 control-plane/tests/test_redaction.py
 control-plane/tests/test_security.py
 history-minimal/HISTORY_INDEX.md
 integrations/cc-connect/README.md
 integrations/cc-connect/manifests/SHA256_MANIFEST.txt
 integrations/cc-connect/manifests/VERSIONS.lock
+integrations/cc-connect/manifests/artifact-lock.json
 integrations/cc-connect/manifests/build-manifest.txt
 integrations/cc-connect/patches/001-telegram-directed-routing.patch
 integrations/cc-connect/patches/002-hook-config-headers.patch
@@ -107,6 +128,7 @@ integrations/cc-connect/patches/README.md
 integrations/cc-connect/scripts/apply-cc-connect-patches.ps1
 integrations/cc-connect/scripts/build-cc-connect.ps1
 integrations/cc-connect/scripts/check-cc-connect-patches.ps1
+integrations/cc-connect/scripts/verify-cc-connect-artifact.ps1
 next-agent/NEXT_AGENT_PROMPT.txt
 product/ARCHITECTURE_NON_GOALS.md
 product/COMPONENT_POSITIONING.md
@@ -122,6 +144,7 @@ reference-baseline/KNOWN_ISSUES.md
 reference-baseline/SOURCE_OF_TRUTH.md
 reference-baseline/UPSTREAM_REVISIONS.md
 reference-baseline/VERSION_MATRIX.md
+reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md
 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md

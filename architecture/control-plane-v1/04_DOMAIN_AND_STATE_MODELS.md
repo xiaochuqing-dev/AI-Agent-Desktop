@@ -1,5 +1,7 @@
 # 04 领域与状态模型
 
+实施状态更新（2026-08-04）：核心契约以向后兼容方式增加 ArtifactManifest、InstallPlan、InstallSnapshot、ManagedVersion 和 OperationAuditEvent。数据库以 Alembic 持久化安装计划、快照、版本、安装记录、租约、清理项和事件；这些模型目前只服务 cc-connect 隔离安装。
+
 ## 通用规则
 
 - 所有 ID 是 Control Plane 生成或规范化的不透明字符串，不编码文件路径、平台类型或 Secret。

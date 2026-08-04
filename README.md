@@ -11,8 +11,9 @@ AI Agent Desktop
 - reference baseline v0.1 已冻结，Tag 为 v0.1-reference-baseline。
 - 参考实现的 Telegram 群聊主要链路与 Hermes 私聊已经真实验证。
 - Control Plane v1 契约与四项 ADR 已冻结，基础运行代码已实现于 control-plane/。
-- 当前 Control Plane 能力仅包括只读发现、Readiness、Dry-run、Operation/SSE 和无副作用脱敏诊断。
-- 真实安装、配置写入、凭据写入、启停接管、Telegram 自动绑定、六链路自动验收和正式 GUI 尚未实现。
+- Control Plane 除只读发现、Readiness、Dry-run、Operation/SSE 和脱敏诊断外，已实现锁定 cc-connect Windows amd64 产物的计划、显式确认、隔离安装、回滚、卸载与恢复。
+- 安装状态、审计事件、幂等记录和恢复信息由 SQLite + Alembic 持久化；其他组件安装明确返回 unsupported。
+- 配置写入、凭据写入、启停与生命周期接管、Telegram 自动绑定、六链路自动验收和正式 GUI 尚未实现。
 - 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段没有实现 GUI。
 
 二、首发产品范围
@@ -51,4 +52,4 @@ src/ 保存当前参考实现源码；integrations/cc-connect/ 保存 cc-connect
 六、安全
 --------
 
-仓库不保存真实 Token、API Key、密码、Transcript、个人聊天内容或私有运行配置。Control Plane 默认 loopback + Bearer，并在 API、Diagnostic 和 ReadinessReport 输出前脱敏。详见 SECURITY_REVIEW.md。
+仓库不保存真实 Token、API Key、密码、Transcript、个人聊天内容或私有运行配置。Control Plane 默认 loopback + Bearer，只允许锁定 HTTPS 来源或受信任本地 bundle，并在 API、Diagnostic、Operation 和 ReadinessReport 输出前脱敏。详见 SECURITY_REVIEW.md。

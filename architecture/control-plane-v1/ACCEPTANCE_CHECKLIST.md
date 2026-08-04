@@ -1,5 +1,7 @@
 # Control Plane v1 验收清单
 
+实施状态更新（2026-08-04）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前新增且已验证的运行能力仅为 cc-connect 锁定 Windows 产物的隔离安装、回滚、卸载与恢复；生命周期接管、配置写入、Telegram 自动绑定和 GUI 仍未实现。
+
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
 ## A 事实与范围
@@ -49,14 +51,14 @@
 | 状态 | 验收项 | 证据 |
 |---|---|---|
 | PASS | Hermes 默认但通用核心不绑定其内部实现 | [边界设计](02_CONTROL_PLANE_BOUNDARIES.md)、[映射](08_CURRENT_SYSTEM_ADAPTER_MAPPING.md) |
-| PASS | cc-connect 当前重要但可替换，Patch 有退场条件 | [当前系统映射](08_CURRENT_SYSTEM_ADAPTER_MAPPING.md) |
+| PASS | cc-connect 是 V1 固定核心桥梁，Patch 有独立锁定与升级门禁 | [当前系统映射](08_CURRENT_SYSTEM_ADAPTER_MAPPING.md) |
 | PASS | Claude Code 与 Codex 保持一等 Agent | [Provider 契约](03_PROVIDER_ADAPTER_CONTRACTS.md) |
 | PASS | 不重写上游，不做第二套 Runtime、总线或 DAG | [设计包非目标](README.md) |
 | PASS | 人类控制最高优先级且不伪造强取消 | [人类控制](07_HUMAN_CONTROL_AND_CONCURRENCY.md) |
 | PASS | 每个配置 scope 唯一写入权 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | CC Switch 是可选高级入口，不阻塞新手首用 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | PySide6 首选已同步到产品决策和宪法，且未污染核心契约 | [最新决策](../../03_LATEST_PRODUCT_DECISIONS.md)、[产品宪法](../../product/PRODUCT_CONSTITUTION.md) |
-| PASS | 本轮没有实现 Control Plane 运行时代码、正式 GUI 或安装器 | Git 变更范围 |
+| PASS | 已实现 Control Plane 与 cc-connect 单组件隔离安装；未实现正式 GUI、通用安装器或生命周期接管 | Git 变更范围与阶段报告 |
 
 ## D 安全与公开仓库边界
 

@@ -74,3 +74,14 @@ relay_bindings.json                           174  5B5238775E5ADE56974766FD62B7C
     都是空 session 测试数据 (counter=0, sessions 空)，非敏感，但属 cc-connect 测试产生的临时文件。
   - cc-connect.exe.bak-stage2.5、bak-prefix、exe~ 三者 SHA256 相同 (39F9A417...)，
     是同一二进制的不同备份/残留。
+[current-distributable]
+cc-connect.exe  26928640  cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec
+001-telegram-directed-routing.patch  475441717ea8ddafa216a0440e66eaaac2cf2e04001b4469e4cca91e75069745
+002-hook-config-headers.patch  a59c42b63dfcf9662188831c6a57695ecfa03491d2041f111dbe4f5c256f6cae
+003-relay-response-prefix.patch  3a7cdc0af7ac156b72598b39e47fda2c2b4e071dbf769c0ee83cd30f7b7b3ce8
+004-message-delivery-hooks.patch  dc4a5a9c4830ddf46778c5e192840e1c8f5a89b59994dc968aea024b0a907ddf
+005-windows-build-compat.patch  a23f557bc2ce36469f6d55e1a0dc019fb3cb31056d03a5e524ff57ae12494fd0
+source_commit  fc315d213b49d62e9d90ea4a510189d4115e636f
+artifact_lock  integrations/cc-connect/manifests/artifact-lock.json
+
+[historical-reference-baseline]

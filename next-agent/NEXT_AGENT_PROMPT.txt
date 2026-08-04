@@ -1,33 +1,27 @@
 下一 Agent 提示词
 
-你接手 AI-Agent-Desktop 仓库。本仓库是当前公开事实源。
+你接手 AI-Agent-Desktop 仓库。本仓库是当前公开事实源。开始前核对 main、GitHub Actions、reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json 和 contracts/control-plane-v1。
 
-先阅读 README.md、00_START_HERE.md、01_CURRENT_STATE.md、02_PRODUCT_VISION.md、03_LATEST_PRODUCT_DECISIONS.md、product/PRODUCT_CONSTITUTION.md、product/TELEGRAM_AI_CODING_TEAM_SCOPE.md、product/INTEGRATION_FIRST_POLICY.md、product/TELEGRAM_KNOWN_LIMITATIONS.md、reference-baseline/SOURCE_OF_TRUTH.md、architecture/control-plane-v1/README.md、contracts/control-plane-v1/ 下三个机器契约、05_NEXT_PHASE.md，以及 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md。
+产品范围固定
+
+产品仍是面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心。首发仅 Windows 10/11 与 Telegram；Agent 固定为 Hermes、Claude Code、Codex；cc-connect 是 V1 核心桥梁；CC Switch 是推荐但非强制入口。不得扩展 Agent、Channel 或通用平台能力。
 
 已交付事实
 
-Control Plane v1 契约与 ADR-001..004 已冻结。control-plane/ 已存在基础运行代码，支持 loopback + Bearer、只读发现、ReadinessReport、结构化 Diagnostic、DryRunPlan、Operation、SSE、基础恢复和脱敏。内置 Windows System、Hermes、cc-connect、Claude Code、Codex、CC Switch、Telegram Config 共 7 个只读 Adapter。OpenAPI 外部引用通过带文件基准 URI 的维护脚本校验。找到配置或 Token 引用不会被当成健康证据，unknown 不会被自动报绿。
-
-产品范围
-
-产品定位是面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心。首发仅 Windows 10/11 与 Telegram，用户可见 Hermes Bot、Claude Code Bot、Codex Bot，目标是三个 Agent 各自私聊和群聊共六条链路。cc-connect 是 V1 核心桥梁。CC Switch 是推荐但非强制入口。采用 Integration First，不重写上游。
+Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRun、Diagnostic、持久化 Operation/SSE 和 Alembic。cc-connect Windows amd64 锁定产物基线为 fc315d213b49d62e9d90ea4a510189d4115e636f + Patchset 0.1 + Go 1.26.5，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。只针对 cc-connect 的计划确认、隔离安装、验证、回滚、卸载、恢复、重启恢复和 pending_cleanup 已实现。Reference Baseline、真实配置、计划任务、Watchdog、系统 PATH 和全局 npm 未修改。
 
 下一阶段准确名称
 
-cc-connect 单组件真实安装纵向切片。
+cc-connect 产品管理生命周期与最小配置写入切片。
 
-只允许实现以下闭环
+只允许实现
 
-用户显式确认；持久化且可审计的 Operation；幂等；可取消但不虚报外部工作已停止；安装前快照；来源、版本与摘要锁定；cc-connect 单组件安装；唯一 ManagementOwner；无副作用健康验证；失败回滚；卸载或恢复路径。
-
-开始前先核对真实 Git、GitHub Actions、来源版本与 SHA256。安装必须使用隔离验收路径，不得把 Reference Baseline 当前运行服务当作试验环境。
+产品管理实例的启动、停止、重启；明确端口与进程身份；只操作产品自有版本；最小配置模板；revision、备份、原子写入和回滚；SecretRef 引用；无真实 Telegram 的本地运行验证；external 与 product 生命周期所有权的显式交接门禁。
 
 禁止事项
 
-不要同时安装其他组件，不要提前实现 Telegram 自动绑定或六链路真实 E2E，不要发送真实 Telegram 消息，不要开发正式 GUI，不要扩大 dual_agent 或 5 个 cc-connect Patch，不要重写 Hermes、cc-connect、Claude Code 或 Codex，不要开发通用 Bridge、Provider 管理器、DAG、工作流市场或新 Channel，不要读取或输出真实 Secret，不要在没有用户确认和回滚点时停止或重启现有服务。
+不要升级 cc-connect 上游或增加 Patch；不要修改 Reference Baseline、现有计划任务或 Watchdog；不要静默接管 external 生命周期；不要安装其他组件；不要实现 Telegram 自动绑定、真实 User ID/Group ID 获取、六链路真实 E2E、正式 GUI、Provider 编辑器或新 Channel；不要读取、输出或提交真实 Secret。
 
-状态与证据规则
+证据规则
 
-安装、配置、认证、运行、健康和更新必须正交。可执行文件、配置文件、Token 引用、普通消息、命令、Topic 和 Session 隔离的证据不得互相替代。无法证明时返回 unknown，能力不足返回 unsupported。所有 Diagnostic 必须有稳定 code、用户说明、建议动作并保持脱敏。
-
-完成标准以 05_NEXT_PHASE.md 为准。任何未实现能力必须明确标为 planned、unknown、experimental 或 unsupported。
+安装、配置、认证、运行、健康和更新保持正交。无法证明返回 unknown，能力不足返回 unsupported。所有写操作必须有显式确认、Idempotency-Key、持久化 Operation、准确取消语义、快照和回滚；所有 Diagnostic 保持稳定 code 与脱敏。

@@ -18,6 +18,20 @@ upstream_sync = "本地 origin/main 与 HEAD 一致 (ahead 0 / behind 0，未 fe
 note = "用户提示该 HEAD 落后上游约 7 个提交，但本轮禁止 fetch/pull，仅记录当前状态。后续在全新 clone 中验证 Patch 时再对齐。"
 
 # cc-connect npm 包
+[cc-connect-windows-distributable]
+status = "implemented"
+artifact_lock = "artifact-lock.json"
+artifact_id = "cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64"
+source_commit = "fc315d213b49d62e9d90ea4a510189d4115e636f"
+patchset = "0.1"
+go_version = "1.26.5"
+version = "v1.4.1-patchset0.1-fc315d2"
+artifact_size_bytes = 26928640
+artifact_sha256 = "cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec"
+signature_status = "unsigned"
+build_reproducibility = "four local PowerShell 5.1/7 builds from the locked inputs produced the same SHA256"
+note = "This block and artifact-lock.json supersede the historical candidate metadata below for distributable builds. The existing Reference Baseline runtime was not replaced."
+
 [cc-connect-npm]
 package_version = "1.4.1"
 install_path = "C:/Users/<WINDOWS_USER>/AppData/Roaming/npm/node_modules/cc-connect/"

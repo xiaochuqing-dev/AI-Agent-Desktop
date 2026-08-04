@@ -105,4 +105,4 @@ GUI 不应显示“HTTP 500”“进程退出码 1”作为唯一说明，也不
 
 ## 当前实现状态声明
 
-以上为 Control Plane v1 设计目标。当前仓库只有已冻结 Reference Baseline；独立 Control Plane、安装器、上述 GUI 流程、统一 Owner 切换与完整人类控制仍未实现。本轮没有执行真实 Channel E2E，也没有修改运行环境。
+以上大部分仍为 Control Plane v1 设计目标。当前仓库已实现独立 Control Plane，以及仅限 cc-connect 的计划确认、隔离安装、回滚、卸载与恢复；正式 GUI、其他组件安装、统一 Owner 切换与完整人类控制仍未实现。本阶段没有执行真实 Channel E2E，也没有修改 Reference Baseline 运行环境。

@@ -1,5 +1,7 @@
 # 05 本地 API 与事件契约
 
+实施状态更新（2026-08-04）：`cc-connect` 已实现 install-plan、install、uninstall、restore、managed-versions、Operation 查询/取消和持久化事件。确认必须绑定 plan_id、plan_digest、confirmation=true 与 Idempotency-Key。其他组件安装及 start/stop/restart 仍返回 CAPABILITY_UNSUPPORTED。
+
 ## 传输取舍
 
 v1 默认且唯一必需传输是 loopback HTTP/1.1 + JSON；事件使用同一服务上的 Server-Sent Events。选择原因：PySide6 与其他未来 GUI 都能稳定调用；查询、命令和单向状态流足够；SSE 自带重连游标语义；不需要维护第二套 IPC API 或 WebSocket 双向状态机。

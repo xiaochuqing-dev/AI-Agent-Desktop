@@ -7,8 +7,7 @@ cc-connect 集成
 一、上游
 --------
 仓库 https://github.com/chenhg5/cc-connect.git
-分支 main
-HEAD fc315d213b49d62e9d90ea4a510189d4115e636f
+构建不跟随分支；精确 Commit 为 fc315d213b49d62e9d90ea4a510189d4115e636f。
 
 二、Patch 集（patchset 0.1，5 个）
 -----------------------------------
@@ -20,15 +19,17 @@ patches/005-windows-build-compat.patch         proc_windows.go 删 unused import
 
 三、构建
 --------
-1. git clone cc-connect 上游，checkout fc315d2
-2. 运行 scripts/apply-cc-connect-patches.ps1 应用 5 个 Patch
-3. 运行 scripts/check-cc-connect-patches.ps1 校验
-4. 运行 scripts/build-cc-connect.ps1 构建
-5. 产物版本 v1.4.1-patchset0.1-fc315d2，SHA256 f7a577bb...
+1. 获取上游精确 Commit，并设置 core.autocrlf=false。
+2. 在未修改源码上运行 scripts/check-cc-connect-patches.ps1，验证 5 个 Patch 的 LF 规范化摘要和顺序可应用性。
+3. 运行 scripts/apply-cc-connect-patches.ps1。
+4. 使用锁定 Go 1.26.5 运行相关测试，再运行 scripts/build-cc-connect.ps1。
+5. 运行 scripts/verify-cc-connect-artifact.ps1，验证 Manifest、SHA256、PE amd64 和隔离 --version 探针。
+
+锁文件为 manifests/artifact-lock.json。产物版本为 v1.4.1-patchset0.1-fc315d2，大小 26928640 字节，SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。Windows PowerShell 5.1 与 PowerShell 7.6.4 共四次本地构建得到相同摘要，签名状态为 unsigned。
 
 四、当前运行
 ------------
-当前运行二进制即该构建产物，已通过真实 Telegram 群聊与 Hermes 私聊 E2E。
+当前 Reference Baseline 运行二进制未被替换。新产物只上传为 GitHub Actions Artifact，并由 Control Plane 安装到当前用户 LocalAppData 下的产品自有隔离目录；安装侧不需要 Go、Node 或全局 npm。
 
 五、许可证
 ----------
