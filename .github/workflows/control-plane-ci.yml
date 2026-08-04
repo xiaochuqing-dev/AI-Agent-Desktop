@@ -103,7 +103,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $source = Join-Path $env:RUNNER_TEMP "cc-connect locked source (中文)"
+          $source = Join-Path $env:RUNNER_TEMP "cc-connect locked source (ci)"
           git init $source
           git -C $source config core.autocrlf false
           git -C $source remote add origin $env:CC_CONNECT_REPOSITORY
@@ -140,8 +140,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $first = Join-Path $env:RUNNER_TEMP "cc-connect artifact one (中文)"
-          $second = Join-Path $env:RUNNER_TEMP "cc-connect artifact two (中文)"
+          $first = Join-Path $env:RUNNER_TEMP "cc-connect artifact one (ci)"
+          $second = Join-Path $env:RUNNER_TEMP "cc-connect artifact two (ci)"
           powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\build-cc-connect.ps1" -SourceDir $env:CC_CONNECT_SOURCE -OutputDir $first
           pwsh.exe -NoProfile -NonInteractive -File ".\integrations\cc-connect\scripts\build-cc-connect.ps1" -SourceDir $env:CC_CONNECT_SOURCE -OutputDir $second
           $firstHash = (Get-FileHash -LiteralPath (Join-Path $first "cc-connect.exe") -Algorithm SHA256).Hash
@@ -176,10 +176,10 @@ jobs:
         with:
           name: cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64
           path: |
-            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect.exe
-            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect-artifact-manifest.json
-            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect.sha256
-            ${{ runner.temp }}/cc-connect artifact one (中文)/windows-isolated-acceptance.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect.exe
+            ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect-artifact-manifest.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect.sha256
+            ${{ runner.temp }}/cc-connect artifact one (ci)/windows-isolated-acceptance.json
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
