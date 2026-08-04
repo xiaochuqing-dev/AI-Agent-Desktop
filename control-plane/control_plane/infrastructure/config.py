@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from platformdirs import user_data_dir
 
@@ -29,18 +30,27 @@ class Settings:
     bearer_token_env: str = "CONTROL_PLANE_API_TOKEN"
     contract_version: str = "1.0.0"
     service_version: str = "0.1.0"
+    trusted_artifact_dir: str | None = None
+    artifact_max_bytes: int = 128 * 1024 * 1024
+    download_timeout_seconds: int = 30
+    download_retries: int = 3
+    allowed_download_hosts: tuple[str, ...] = (
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+    )
 
     @property
     def db_path(self) -> str:
-        import os.path as p
+        return str(Path(self.data_dir) / self.db_filename)
 
-        return p.join(self.data_dir, self.db_filename)
+    @property
+    def components_dir(self) -> str:
+        return str(Path(self.data_dir) / "components")
 
     def ensure_data_dir(self) -> None:
-        import os.path as p
-
-        if not p.isdir(self.data_dir):
-            os.makedirs(self.data_dir, exist_ok=True)
+        Path(self.data_dir).mkdir(parents=True, exist_ok=True)
 
     def bearer_token(self) -> str:
         # 启动时从环境读取;不存在则生成一次随机 token 并提示(开发态)。
@@ -56,4 +66,9 @@ class Settings:
         port = os.environ.get("CONTROL_PLANE_PORT")
         bind_port = int(port) if port else cls.bind_port
         data_dir = os.environ.get("CONTROL_PLANE_DATA_DIR") or default_data_dir()
-        return cls(bind_port=bind_port, data_dir=data_dir)
+        trusted_artifact_dir = os.environ.get("CONTROL_PLANE_CC_CONNECT_ARTIFACT_DIR")
+        return cls(
+            bind_port=bind_port,
+            data_dir=data_dir,
+            trusted_artifact_dir=trusted_artifact_dir,
+        )

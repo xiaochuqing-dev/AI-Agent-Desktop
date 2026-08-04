@@ -1,134 +1,138 @@
-﻿# ============================================================================
-# build-cc-connect.ps1
-# 从已应用 Patch 的 cc-connect 源码副本构建候选二进制。
-# 读取 versions.lock 获取版本信息；输出到独立目录，绝不覆盖 npm 全局运行二进制。
-# 用法:
-#   powershell -ExecutionPolicy Bypass -File build-cc-connect.ps1 `
-#     -SourceDir "C:\path\to\cc-connect-src-patched" `
-#     [-OutputDir "C:\path\to\output"]
-# 前提:
-#   - SourceDir 已应用全部 Patch (apply-cc-connect-patches.ps1)
-#   - 本机已安装 Go (见 versions.lock 的 go 版本)
-# 退出码: 0 成功, 1 失败。
-# ============================================================================
 param(
   [Parameter(Mandatory = $true)]
   [string]$SourceDir,
-  [string]$OutputDir = (Join-Path $PSScriptRoot "..\..\..\build\output"),
-  [string]$VersionsLock = (Join-Path $PSScriptRoot "..\..\..\VERSIONS.lock")
+  [Parameter(Mandatory = $true)]
+  [string]$OutputDir,
+  [string]$LockFile
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not $LockFile) { $LockFile = Join-Path $PSScriptRoot "..\manifests\artifact-lock.json" }
 
-# 从 versions.lock 读取构建参数（自定义格式，用正则提取）
-function Read-LockValue($path, $key) {
-  if (-not (Test-Path $path)) { return $null }
-  $content = Get-Content $path -Raw -Encoding UTF8
-  # 匹配 key = "value" 或 key = value
-  $m = [regex]::Match($content, "(?m)^\s*$key\s*=\s*`"?([^`"\r\n]+)`"?")
-  if ($m.Success) { return $m.Groups[1].Value.Trim() }
-  return $null
+$sourcePath = (Resolve-Path -LiteralPath $SourceDir).Path
+$lockPath = (Resolve-Path -LiteralPath $LockFile).Path
+$lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
+
+if (-not (Test-Path -LiteralPath (Join-Path $sourcePath ".git"))) {
+  throw "SourceDir is not a git repository"
 }
 
-$sourceCommit   = Read-LockValue $VersionsLock "head_commit"
-$npmVersion     = Read-LockValue $VersionsLock "package_version"
-$goVersionLock  = Read-LockValue $VersionsLock "go"
-# 短 sha
-$shortSha = if ($sourceCommit) { $sourceCommit.Substring(0,7) } else { "unknown" }
-
-# 版本号构成：upstream-version + patchset-version + source-short-sha（按用户决策）
-$PatchsetVersion = "0.1"
-$versionStr = if ($npmVersion) { "v$npmVersion-patchset$PatchsetVersion-$shortSha" } else { "v0.1-$shortSha" }
-$buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-
-# 构建参数（来自 patches/cc-connect/README.md，固化 ldflags）
-$buildTags = "no_web goolm no_pi"
-$ldflags = "-s -w -X main.version=$versionStr -X main.commit=$shortSha -X main.buildTime=$buildTime"
-
-Write-Host "=== 构建 cc-connect 候选二进制 ===" -ForegroundColor Cyan
-Write-Host "源码:          $SourceDir"
-Write-Host "versions.lock: $VersionsLock"
-Write-Host "source commit: $sourceCommit"
-Write-Host "npm version:   $npmVersion"
-Write-Host "go (lock):     $goVersionLock"
-Write-Host "go (实际):     $(go version)"
-Write-Host "build tags:    $buildTags"
-Write-Host "version:       $versionStr"
-Write-Host "buildTime:     $buildTime"
-Write-Host "output dir:    $OutputDir"
-Write-Host ""
-
-if (-not (Test-Path (Join-Path $SourceDir ".git"))) {
-  Write-Error "$SourceDir 不是 git 仓库"
-  exit 1
+$head = (& git -C $sourcePath rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $head -ne $lock.source_commit) {
+  throw "source commit mismatch: expected $($lock.source_commit), actual $head"
 }
 
-# 校验源码已应用 patch（含 recordSent 说明 004 已应用）
-Push-Location $SourceDir
+$goVersionOutput = (& go version).Trim()
+if ($LASTEXITCODE -ne 0) { throw "Go is required only on the build side" }
+$expectedGoToken = "go$($lock.toolchain.go_version)"
+if ($goVersionOutput -notmatch ("\b" + [regex]::Escape($expectedGoToken) + "\b")) {
+  throw "Go version mismatch: expected $expectedGoToken, actual $goVersionOutput"
+}
+
+$patchMarker = Join-Path $sourcePath "platform\telegram\multiagent_metadata_test.go"
+if (-not (Test-Path -LiteralPath $patchMarker -PathType Leaf)) {
+  throw "locked patchset has not been applied"
+}
+
+$actualPatchedPaths = @(& git -C $sourcePath status --porcelain=v1 | ForEach-Object { $_.Substring(3).Replace("\", "/") } | Sort-Object)
+if ($LASTEXITCODE -ne 0) { throw "unable to inspect patched source" }
+$expectedPatchedPaths = @($lock.patched_files | ForEach-Object { $_.path } | Sort-Object)
+if (($actualPatchedPaths -join "`n") -ne ($expectedPatchedPaths -join "`n")) {
+  throw "patched source file set does not match the lock"
+}
+foreach ($file in $lock.patched_files) {
+  $filePath = Join-Path $sourcePath $file.path
+  $actualFileHash = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actualFileHash -ne $file.sha256) {
+    throw "patched source digest mismatch: $($file.path)"
+  }
+}
+
+$outputPath = [System.IO.Path]::GetFullPath($OutputDir)
+[System.IO.Directory]::CreateDirectory($outputPath) | Out-Null
+$artifactPath = Join-Path $outputPath $lock.artifact_filename
+
+$buildTags = @($lock.build.build_tags) -join " "
+$shortCommit = $lock.source_commit.Substring(0, 7)
+$ldflags = $lock.build.ldflags_template.Replace("{version}", $lock.version).Replace("{short_commit}", $shortCommit).Replace("{build_timestamp}", $lock.build.build_timestamp)
+
+$previousEnvironment = @{}
+foreach ($name in @("GOOS", "GOARCH", "CGO_ENABLED", "SOURCE_DATE_EPOCH", "GOTOOLCHAIN")) {
+  $previousEnvironment[$name] = [System.Environment]::GetEnvironmentVariable($name, "Process")
+}
 try {
-  $checkFile = "platform/telegram/telegram.go"
-  if (-not (Test-Path $checkFile)) { Write-Error "非 cc-connect 源码目录"; exit 1 }
-  $hasPatch = Select-String -Path $checkFile -Pattern "recordSent" -Quiet
-  if (-not $hasPatch) {
-    Write-Error "源码未应用 Patch（无 recordSent）。请先运行 apply-cc-connect-patches.ps1"
-    exit 1
+  $env:GOOS = $lock.toolchain.goos
+  $env:GOARCH = $lock.toolchain.goarch
+  $env:CGO_ENABLED = $lock.toolchain.cgo_enabled
+  $env:SOURCE_DATE_EPOCH = [string]$lock.build.source_date_epoch
+  $env:GOTOOLCHAIN = "local"
+  Push-Location $sourcePath
+  try {
+    & go build -mod=readonly -trimpath -buildvcs=false -tags $buildTags -ldflags $ldflags -o $artifactPath ./cmd/cc-connect
+    if ($LASTEXITCODE -ne 0) { throw "go build failed with exit code $LASTEXITCODE" }
   }
-  Write-Host "源码已应用 Patch（检测到 recordSent）" -ForegroundColor Green
-
-  # 确保 LF
-  git config core.autocrlf false | Out-Null
-
-  # 输出目录
-  if (-not (Test-Path $OutputDir)) { New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null }
-  $candidate = Join-Path $OutputDir "cc-connect-candidate.exe"
-
-  Write-Host ""
-  Write-Host "开始 go build..." -ForegroundColor Cyan
-  $env:GOFLAGS = "-mod=mod"
-  go build -tags $buildTags -ldflags $ldflags -o $candidate ./cmd/cc-connect 2>&1
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "go build 失败 (exit $LASTEXITCODE)"
-    exit 1
+  finally {
+    Pop-Location
   }
-  Write-Host "build 成功" -ForegroundColor Green
-
-  # 验证版本
-  Write-Host ""
-  Write-Host "=== 候选二进制 --version ===" -ForegroundColor Cyan
-  & $candidate --version
-
-  # SHA256
-  $hash = (Get-FileHash $candidate -Algorithm SHA256).Hash.ToLower()
-  $size = (Get-Item $candidate).Length
-  Write-Host ""
-  Write-Host "=== SHA256 ===" -ForegroundColor Cyan
-  Write-Host "  $hash"
-  Write-Host "  大小: $size bytes ($([math]::Round($size/1MB,2)) MB)"
-  Write-Host "  路径: $candidate"
-
-  # 写构建记录
-  $record = Join-Path $OutputDir "build-manifest.txt"
-  $lines = @(
-    "cc-connect candidate build manifest"
-    "buildTime:     $buildTime"
-    "sourceCommit:  $sourceCommit"
-    "npmVersion:    $npmVersion"
-    "patchset:      $PatchsetVersion"
-    "version:       $versionStr"
-    "buildTags:     $buildTags"
-    "ldflags:       $ldflags"
-    "goVersion:     $(go version)"
-    "sha256:        $hash"
-    "size:          $size"
-    "candidate:     $candidate"
-    "note:          候选产物，未覆盖 npm 全局运行二进制；等待单独验收后再替换。"
-  )
-  $lines | Set-Content -Path $record -Encoding UTF8
-  Write-Host ""
-  Write-Host "构建记录: $record" -ForegroundColor DarkGray
-  Write-Host ""
-  Write-Host "==> 构建完成。候选二进制未触碰运行系统。" -ForegroundColor Green
-  exit 0
-} finally {
-  Pop-Location
 }
+finally {
+  foreach ($name in $previousEnvironment.Keys) {
+    [System.Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
+  }
+}
+
+$artifactHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$artifactSize = (Get-Item -LiteralPath $artifactPath).Length
+$patchFiles = @()
+foreach ($patch in $lock.patch_files) {
+  $patchFiles += [ordered]@{
+    filename = $patch.filename
+    sha256 = $patch.sha256
+  }
+}
+
+$manifest = [ordered]@{
+  schema_version = "1.0"
+  component_id = $lock.component_id
+  artifact_id = $lock.artifact_id
+  platform = $lock.toolchain.goos
+  architecture = $lock.toolchain.goarch
+  source_repo = $lock.source_repo
+  source_commit = $lock.source_commit
+  upstream_version = $lock.upstream_version
+  version = $lock.version
+  patchset_version = $lock.patchset_version
+  patch_files = $patchFiles
+  patch_sha256 = @($lock.patch_files | ForEach-Object { $_.sha256 })
+  go_version = $lock.toolchain.go_version
+  build_tags = @($lock.build.build_tags)
+  ldflags = $ldflags
+  source_date_epoch = [long]$lock.build.source_date_epoch
+  build_timestamp_policy = "locked_upstream_commit_timestamp_utc"
+  artifact_filename = $lock.artifact_filename
+  artifact_size = [long]$artifactSize
+  artifact_sha256 = $artifactHash
+  signature_status = $lock.signature_status
+  created_at = $lock.build.build_timestamp
+  compatibility = $lock.compatibility
+  minimum_os = $lock.minimum_os
+  install_layout_version = $lock.install_layout_version
+  health_probe_version = $lock.health_probe_version
+  health_probe = [ordered]@{
+    mode = "version_only"
+    deep_health = "unsupported"
+    network_access = "none"
+  }
+}
+
+$manifestPath = Join-Path $outputPath "cc-connect-artifact-manifest.json"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$manifestJson = $manifest | ConvertTo-Json -Depth 12
+[System.IO.File]::WriteAllText($manifestPath, $manifestJson + [Environment]::NewLine, $utf8NoBom)
+[System.IO.File]::WriteAllText((Join-Path $outputPath "cc-connect.sha256"), "$artifactHash  $($lock.artifact_filename)`n", $utf8NoBom)
+
+Write-Output "artifact=$artifactPath"
+Write-Output "manifest=$manifestPath"
+Write-Output "sha256=$artifactHash"
+Write-Output "size=$artifactSize"

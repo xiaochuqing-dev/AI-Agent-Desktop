@@ -81,3 +81,96 @@ class ComponentStateRecord(Base):
     snapshot_json: Mapped[str] = mapped_column(Text)
     revision: Mapped[str] = mapped_column(String(128))
     observed_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ArtifactRecord(Base):
+    __tablename__ = "artifacts"
+    artifact_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    source_ref: Mapped[str] = mapped_column(String(128))
+    manifest_json: Mapped[str] = mapped_column(Text)
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_size: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class InstallPlanRecord(Base):
+    __tablename__ = "install_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    plan_json: Mapped[str] = mapped_column(Text)
+    source_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class InstallSnapshotRecord(Base):
+    __tablename__ = "install_snapshots"
+    snapshot_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    snapshot_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class InstallRecordRecord(Base):
+    __tablename__ = "install_records"
+    install_record_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    version: Mapped[str] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    relative_path: Mapped[str] = mapped_column(String(512))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    management_owner: Mapped[str] = mapped_column(String(32))
+    installed_at: Mapped[datetime] = mapped_column(DateTime)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ComponentVersionRecord(Base):
+    __tablename__ = "component_versions"
+    artifact_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    version: Mapped[str] = mapped_column(String(128))
+    relative_path: Mapped[str] = mapped_column(String(512))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_size: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    installed_at: Mapped[datetime] = mapped_column(DateTime)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class PendingCleanupRecord(Base):
+    __tablename__ = "pending_cleanup"
+    cleanup_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    relative_path: Mapped[str] = mapped_column(String(512))
+    reason_code: Mapped[str] = mapped_column(String(128))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class InstallationLeaseRecord(Base):
+    __tablename__ = "installation_leases"
+    component_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), unique=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class OperationEventRecord(Base):
+    __tablename__ = "operation_events"
+    event_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(128))
+    phase: Mapped[str] = mapped_column(String(128))
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime)

@@ -51,7 +51,11 @@ class OperationStore:
         # 幂等检查:同 key 同摘要返回原 Operation;同 key 不同摘要返回冲突(以异常表达)。
         existing = self.s.get(IdempotencyRecord, idempotency_key)
         if existing is not None:
-            if existing.body_digest != body_digest(body):
+            if (
+                existing.body_digest != body_digest(body)
+                or existing.method != method
+                or existing.resource != resource
+            ):
                 raise IdempotencyKeyReuse(idempotency_key)
             op = self._load(existing.operation_id)
             if op is None:
@@ -102,7 +106,7 @@ class OperationStore:
             completed_units=op.progress.completed_units,
             total_units=op.progress.total_units,
             point_of_no_return=1 if op.progress.point_of_no_return else 0,
-            result_json=op.model_dump_json() if op.result else None,
+            result_json=json.dumps(op.result) if op.result else None,
             error_json=op.error.model_dump_json() if op.error else None,
             idempotency_key=op.idempotency_key,
             created_at=op.created_at,
@@ -169,6 +173,7 @@ class OperationStore:
         message: str | None = None,
         completed_units: int | None = None,
         total_units: int | None = None,
+        point_of_no_return: bool | None = None,
         result: dict | None = None,
         error: UserFacingError | None = None,
     ) -> Operation | None:
@@ -186,12 +191,18 @@ class OperationStore:
             rec.completed_units = completed_units
         if total_units is not None:
             rec.total_units = total_units
+        if point_of_no_return is not None:
+            rec.point_of_no_return = 1 if point_of_no_return else 0
         if result is not None:
             rec.result_json = json.dumps(result)
         if error is not None:
             rec.error_json = error.model_dump_json()
         if status in (OperationStatus.SUCCEEDED, OperationStatus.FAILED, OperationStatus.CANCELED):
             rec.completed_at = now
+            if status != OperationStatus.SUCCEEDED:
+                rec.result_json = None
+            if status == OperationStatus.SUCCEEDED:
+                rec.error_json = None
         return self._from_record(rec)
 
     def recover_on_startup(self) -> list[str]:

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ai-agent-desktop:control-plane:v1:core-models",
   "title": "AI Agent Desktop Control Plane v1 core models",
-  "description": "Frozen v1 models used by the implemented read-only Control Plane foundation; mutation capabilities remain planned or unsupported.",
+  "description": "Frozen v1 models plus the additive cc-connect Windows isolated-installation vertical slice.",
   "oneOf": [
     { "$ref": "#/$defs/Component" },
     { "$ref": "#/$defs/Provider" },
@@ -19,6 +19,11 @@
     { "$ref": "#/$defs/ManagementOwner" },
     { "$ref": "#/$defs/Operation" },
     { "$ref": "#/$defs/Diagnostic" },
+    { "$ref": "#/$defs/ArtifactManifest" },
+    { "$ref": "#/$defs/InstallPlan" },
+    { "$ref": "#/$defs/InstallSnapshot" },
+    { "$ref": "#/$defs/ManagedVersion" },
+    { "$ref": "#/$defs/OperationAuditEvent" },
     { "$ref": "#/$defs/ReadinessReport" },
     { "$ref": "#/$defs/DryRunPlan" },
     { "$ref": "#/$defs/SecretRef" }
@@ -465,6 +470,143 @@
           "then": { "required": ["error", "completed_at"], "properties": { "error": true, "completed_at": true, "result": false } }
         }
       ]
+    },
+    "PatchDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "sha256"],
+      "properties": {
+        "filename": { "type": "string", "pattern": "^[0-9]{3}-[A-Za-z0-9._-]+\\.patch$" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "ArtifactManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "component_id", "artifact_id", "platform", "architecture", "source_repo", "source_commit", "upstream_version", "version", "patchset_version", "patch_files", "patch_sha256", "go_version", "build_tags", "ldflags", "source_date_epoch", "build_timestamp_policy", "artifact_filename", "artifact_size", "artifact_sha256", "signature_status", "created_at", "compatibility", "minimum_os", "install_layout_version", "health_probe_version", "health_probe"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "component_id": { "const": "cc-connect" },
+        "artifact_id": { "$ref": "#/$defs/Id" },
+        "platform": { "const": "windows" },
+        "architecture": { "const": "amd64" },
+        "source_repo": { "type": "string", "format": "uri" },
+        "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "upstream_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "patchset_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "patch_files": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/PatchDigest" } },
+        "patch_sha256": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
+        "go_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "build_tags": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "ldflags": { "type": "string" },
+        "source_date_epoch": { "type": "integer", "minimum": 0 },
+        "build_timestamp_policy": { "type": "string" },
+        "artifact_filename": { "const": "cc-connect.exe" },
+        "artifact_size": { "type": "integer", "minimum": 1 },
+        "artifact_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "signature_status": { "const": "unsigned" },
+        "created_at": { "$ref": "#/$defs/Timestamp" },
+        "compatibility": { "type": "object", "additionalProperties": true },
+        "minimum_os": { "type": "string" },
+        "install_layout_version": { "type": "string" },
+        "health_probe_version": { "type": "string" },
+        "health_probe": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "ArtifactSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "kind", "manifest_sha256"],
+      "properties": {
+        "source_ref": { "$ref": "#/$defs/Id" },
+        "kind": { "type": "string", "enum": ["trusted_local_bundle", "https"] },
+        "manifest_url": { "type": ["string", "null"], "format": "uri" },
+        "artifact_url": { "type": ["string", "null"], "format": "uri" },
+        "manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "InstallPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_id", "plan_digest", "component_id", "artifact_id", "source", "source_commit", "patchset", "version", "architecture", "sha256", "install_root", "target_version_dir", "current_version", "current_owner", "required_disk_space", "requires_admin", "expected_changes", "prerequisites", "rollback_plan", "risk", "point_of_no_return", "user_confirmation_required", "created_at", "expires_at"],
+      "properties": {
+        "plan_id": { "$ref": "#/$defs/Id" },
+        "plan_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "component_id": { "const": "cc-connect" },
+        "artifact_id": { "$ref": "#/$defs/Id" },
+        "source": { "$ref": "#/$defs/ArtifactSource" },
+        "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "patchset": { "type": "string" },
+        "version": { "type": "string" },
+        "architecture": { "const": "amd64" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "install_root": { "type": "string" },
+        "target_version_dir": { "type": "string" },
+        "current_version": { "type": ["string", "null"] },
+        "current_owner": { "type": "string", "enum": ["external", "product", "unmanaged", "conflict", "unknown"] },
+        "required_disk_space": { "type": "integer", "minimum": 1 },
+        "requires_admin": { "const": false },
+        "expected_changes": { "type": "array", "items": { "type": "string" } },
+        "prerequisites": { "type": "array", "items": { "type": "string" } },
+        "rollback_plan": { "type": "array", "items": { "type": "string" } },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "point_of_no_return": { "type": "string" },
+        "user_confirmation_required": { "const": true },
+        "created_at": { "$ref": "#/$defs/Timestamp" },
+        "expires_at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "InstallSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "operation_id", "component_id", "plan_id", "current_pointer", "current_version", "install_directory_digest", "management_owner", "lifecycle_owner", "discovery_state", "configuration_reference", "product_managed_process_running", "disk_free_bytes", "target_directory_state", "created_at"],
+      "properties": {
+        "snapshot_id": { "$ref": "#/$defs/Id" },
+        "operation_id": { "$ref": "#/$defs/Id" },
+        "component_id": { "const": "cc-connect" },
+        "plan_id": { "$ref": "#/$defs/Id" },
+        "current_pointer": { "type": ["object", "null"], "additionalProperties": true },
+        "current_version": { "type": ["string", "null"] },
+        "install_directory_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "management_owner": { "type": "string", "enum": ["external", "product", "unmanaged", "conflict", "unknown"] },
+        "lifecycle_owner": { "type": "string", "enum": ["external", "product", "unmanaged", "unknown"] },
+        "discovery_state": { "type": "string" },
+        "configuration_reference": { "type": "string" },
+        "product_managed_process_running": { "type": "boolean" },
+        "disk_free_bytes": { "type": "integer", "minimum": 0 },
+        "target_directory_state": { "type": "string", "enum": ["absent", "complete", "incomplete"] },
+        "created_at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "ManagedVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "version", "artifact_sha256", "artifact_size", "status", "current", "installed_at"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/Id" },
+        "version": { "type": "string" },
+        "artifact_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "artifact_size": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["installed", "uninstalled", "pending_cleanup"] },
+        "current": { "type": "boolean" },
+        "installed_at": { "$ref": "#/$defs/Timestamp" },
+        "removed_at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "OperationAuditEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "operation_id", "sequence", "event_type", "phase", "data", "created_at"],
+      "properties": {
+        "event_id": { "type": "integer", "minimum": 1 },
+        "operation_id": { "$ref": "#/$defs/Id" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "event_type": { "type": "string", "pattern": "^com\\.aiagentdesktop\\.[a-z0-9_.-]+\\.v[1-9][0-9]*$" },
+        "phase": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "data": { "type": "object", "additionalProperties": true },
+        "created_at": { "$ref": "#/$defs/Timestamp" }
+      }
     },
     "Diagnostic": {
       "type": "object",

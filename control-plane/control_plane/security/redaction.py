@@ -28,14 +28,14 @@ SENSITIVE_FIELD_NAMES = {
 
 _REDACTED = "<redacted>"
 
-# 凭据形态正则:bot token、OpenAI/Anthropic key、bearer、sha256 等
+# 凭据形态正则:bot token、OpenAI/Anthropic key、bearer 等。
+# Artifact/plan SHA256 是公开完整性信息，必须保留给计划确认与校验。
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b"), _REDACTED),  # Telegram bot token
     (re.compile(r"sk-[A-Za-z0-9]{20,}"), _REDACTED),  # OpenAI 风格 key
     (re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}"), _REDACTED),  # Anthropic 风格 key
     (re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{8,}"), "bearer " + _REDACTED),
     (re.compile(r"(?i)authorization:\s*[A-Za-z0-9._\-]{8,}"), "authorization: " + _REDACTED),
-    (re.compile(r"sha256:[a-f0-9]{64}"), "sha256:" + _REDACTED),
 ]
 
 

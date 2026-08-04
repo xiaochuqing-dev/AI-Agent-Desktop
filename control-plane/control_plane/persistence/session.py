@@ -9,12 +9,14 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..infrastructure.config import Settings
-from .models import Base
+from .migration import run_migrations
 
 
 def make_engine(db_path: str) -> Engine:
     # SQLite 连接串;check_same_thread=False 以允许 ASGI 线程访问
-    url = f"sqlite:///{db_path}"
+    from pathlib import Path
+
+    url = f"sqlite:///{Path(db_path).as_posix()}"
     engine = create_engine(url, connect_args={"check_same_thread": False}, future=True)
 
     @event.listens_for(engine, "connect")
@@ -31,8 +33,8 @@ class Database:
     def __init__(self, settings: Settings) -> None:
         settings.ensure_data_dir()
         self.engine = make_engine(settings.db_path)
+        run_migrations(self.engine)
         self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False, class_=Session)
-        Base.metadata.create_all(self.engine)
 
     @contextmanager
     def session(self) -> Iterator[Session]:

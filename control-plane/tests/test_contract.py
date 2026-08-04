@@ -12,10 +12,29 @@ VALIDATION_SCRIPT = Path(REPO_ROOT) / "control-plane" / "scripts" / "validate_co
 def test_core_models_has_new_models():
     with open(os.path.join(CONTRACTS, "core-models.schema.json"), encoding="utf-8") as f:
         m = json.load(f)
-    for name in ["ReadinessReport", "DryRunPlan", "DryRunAction", "SecretRef"]:
+    for name in [
+        "ReadinessReport",
+        "DryRunPlan",
+        "DryRunAction",
+        "SecretRef",
+        "ArtifactManifest",
+        "InstallPlan",
+        "InstallSnapshot",
+        "ManagedVersion",
+        "OperationAuditEvent",
+    ]:
         assert name in m["$defs"], f"缺少模型 {name}"
     oneof = [r["$ref"].split("/")[-1] for r in m["oneOf"]]
-    for name in ["ReadinessReport", "DryRunPlan", "SecretRef"]:
+    for name in [
+        "ReadinessReport",
+        "DryRunPlan",
+        "SecretRef",
+        "ArtifactManifest",
+        "InstallPlan",
+        "InstallSnapshot",
+        "ManagedVersion",
+        "OperationAuditEvent",
+    ]:
         assert name in oneof
 
 
@@ -27,6 +46,14 @@ def test_openapi_frozen_with_readiness_and_events():
     assert doc["info"]["version"] == "1.0.0"
     assert doc["info"]["x-contract-status"] == "frozen"
     assert "/readiness" in doc["paths"]
+    for path in [
+        "/components/{componentId}/install-plan",
+        "/components/{componentId}:uninstall",
+        "/components/{componentId}:restore",
+        "/components/{componentId}/managed-versions",
+        "/operations/{operationId}/events",
+    ]:
+        assert path in doc["paths"]
     event_types = doc["info"]["x-event-types"]
     for t in [
         "com.aiagentdesktop.operation.started.v1",

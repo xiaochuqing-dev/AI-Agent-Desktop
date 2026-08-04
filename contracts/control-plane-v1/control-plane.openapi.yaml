@@ -4,16 +4,16 @@ info:
   version: 1.0.0
   summary: Stable local management contract for the desktop GUI and trusted clients.
   description: |
-    The read-only Control Plane foundation is implemented: loopback service,
-    discovery, readiness, dry-run planning, operations, diagnostics, and SSE.
-    Mutation endpoints remain contract-only or return unsupported; real install,
-    configuration writes, credential writes, lifecycle takeover, and GUI are not
-    implemented. Provider-specific structures remain behind Adapter boundaries.
+    The read-only Control Plane foundation and the cc-connect Windows AMD64
+    isolated installation vertical slice are implemented. Other component
+    installation, configuration writes, credential writes, lifecycle takeover,
+    and GUI remain unsupported. Provider-specific structures remain behind
+    Adapter boundaries.
   license:
     name: See repository LICENSE
     identifier: Apache-2.0
   x-contract-status: frozen
-  x-implementation-status: partial-read-only
+  x-implementation-status: cc-connect-installation-vertical-slice
   x-event-types:
     - com.aiagentdesktop.component.state.changed.v1
     - com.aiagentdesktop.component.discovered.v1
@@ -23,6 +23,7 @@ info:
     - com.aiagentdesktop.operation.progress.v1
     - com.aiagentdesktop.operation.completed.v1
     - com.aiagentdesktop.operation.failed.v1
+    - com.aiagentdesktop.operation.cancel_requested.v1
     - com.aiagentdesktop.scan.progress.v1
     - com.aiagentdesktop.plan.generated.v1
     - com.aiagentdesktop.diagnostic.created.v1
@@ -212,6 +213,116 @@ paths:
       responses:
         "202":
           $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/install-plan":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: createComponentInstallPlan
+      summary: Create an immutable cc-connect installation plan without installing.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstallPlanRequest"
+      responses:
+        "201":
+          description: Persisted plan waiting for explicit confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/InstallPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/install-plans/{planId}":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+      - name: planId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Id"
+    get:
+      tags: [Components]
+      operationId: getComponentInstallPlan
+      summary: Read one persisted immutable installation plan.
+      x-stability: stable
+      responses:
+        "200":
+          description: Installation plan.
+          content:
+            application/json:
+              schema:
+                $ref: "./core-models.schema.json#/$defs/InstallPlan"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:uninstall":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: uninstallManagedComponentVersion
+      summary: Uninstall one non-current product-managed cc-connect version.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UninstallComponentRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}:restore":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: restoreManagedComponentVersion
+      summary: Restore the selected or previous product-managed cc-connect version.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComponentRestoreRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/managed-versions":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Components]
+      operationId: listManagedComponentVersions
+      summary: List product-managed cc-connect versions and current status.
+      x-stability: stable
+      responses:
+        "200":
+          description: Product-managed versions only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/ManagedVersion"
         default:
           $ref: "#/components/responses/Problem"
   "/components/{componentId}:start":
@@ -1090,6 +1201,27 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  "/operations/{operationId}/events":
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    get:
+      tags: [Operations]
+      operationId: listOperationAuditEvents
+      summary: Read durable audit and progress events for one operation.
+      x-stability: stable
+      responses:
+        "200":
+          description: Ordered durable operation events.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "./core-models.schema.json#/$defs/OperationAuditEvent"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /events:
     get:
       tags: [Events]
@@ -1305,7 +1437,7 @@ components:
     InstallRequest:
       type: object
       additionalProperties: false
-      required: [version_policy, source_ref, expected_digest, confirm]
+      required: [version_policy, requested_version, source_ref, expected_digest, confirm, plan_id, plan_digest, confirmation]
       properties:
         version_policy:
           type: string
@@ -1321,9 +1453,60 @@ components:
         confirm:
           type: boolean
           const: true
+        plan_id:
+          $ref: "#/components/schemas/Id"
+        plan_digest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        confirmation:
+          type: boolean
+          const: true
         deadline_at:
           type: string
           format: date-time
+    InstallPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [source_ref, expected_digest]
+      properties:
+        source_ref:
+          $ref: "#/components/schemas/Id"
+        expected_digest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        manifest_url:
+          type: string
+          format: uri
+          pattern: "^https://"
+        artifact_url:
+          type: string
+          format: uri
+          pattern: "^https://"
+        expires_in_seconds:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+    UninstallComponentRequest:
+      type: object
+      additionalProperties: false
+      required: [artifact_id, confirm]
+      properties:
+        artifact_id:
+          $ref: "#/components/schemas/Id"
+        confirm:
+          type: boolean
+          const: true
+    ComponentRestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [confirm]
+      properties:
+        artifact_id:
+          $ref: "#/components/schemas/Id"
+        confirm:
+          type: boolean
+          const: true
     LifecycleRequest:
       type: object
       additionalProperties: false

@@ -2,33 +2,37 @@ name: control-plane-ci
 
 on:
   push:
-    branches: [main, "phase/**"]
+    branches: [main]
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
 
+env:
+  CC_CONNECT_COMMIT: fc315d213b49d62e9d90ea4a510189d4115e636f
+  CC_CONNECT_REPOSITORY: https://github.com/chenhg5/cc-connect.git
+
 jobs:
   quality:
     name: Windows-first quality gates
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         working-directory: control-plane
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: control-plane/pyproject.toml
 
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
+      - name: Install locked project dependencies
+        run: python -m pip install -e ".[dev]"
 
       - name: Ruff lint
         run: ruff check .
@@ -39,26 +43,144 @@ jobs:
       - name: Mypy type check
         run: mypy control_plane
 
-      - name: Tests (unit + contract + integration + secret scan)
+      - name: Alembic migration tests
+        run: pytest tests/test_migrations.py -q
+
+      - name: Unit, integration, failure-matrix, and secret tests
         run: pytest -q
 
-      - name: OpenAPI lint
+      - name: OpenAPI and JSON Schema validation
         run: python scripts/validate_contracts.py
 
   ubuntu-compat:
-    name: Core logic compatibility (Ubuntu)
-    runs-on: ubuntu-latest
+    name: Platform-independent core compatibility
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: control-plane
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
         with:
           python-version: "3.12"
-      - name: Install
-        run: pip install -e ".[dev]"
-      - name: Non-Windows adapter tests (skipped) + domain/contract/redaction
-        # WindowsSystemDiscoveryAdapter 在非 Windows 仍可运行(psutil 跨平台);
-        # 此 job 验证核心逻辑不依赖 Windows 专属 API
-        run: pytest tests/test_redaction.py tests/test_domain_models.py tests/test_contract.py tests/test_discovery_service.py tests/test_event_log.py -q
+
+      - name: Install project dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run platform-independent tests
+        run: >-
+          pytest -q
+          tests/test_contract.py
+          tests/test_domain_models.py
+          tests/test_event_log.py
+          tests/test_installer_artifacts.py
+          tests/test_migrations.py
+          tests/test_operation_store.py
+          tests/test_redaction.py
+
+  cc-connect-windows-artifact:
+    name: Locked cc-connect Windows artifact and isolated acceptance
+    needs: quality
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+
+      - name: Set up Go 1.26.5
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: 1.26.5
+          cache: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Acquire exact upstream commit
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $source = Join-Path $env:RUNNER_TEMP "cc-connect locked source (中文)"
+          git init $source
+          git -C $source config core.autocrlf false
+          git -C $source remote add origin $env:CC_CONNECT_REPOSITORY
+          git -C $source fetch --depth=1 origin $env:CC_CONNECT_COMMIT
+          git -C $source checkout --detach FETCH_HEAD
+          $head = (git -C $source rev-parse HEAD).Trim()
+          if ($head -ne $env:CC_CONNECT_COMMIT) { throw "upstream commit mismatch: $head" }
+          "CC_CONNECT_SOURCE=$source" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify patches on pristine source with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\check-cc-connect-patches.ps1" -SourceDir $env:CC_CONNECT_SOURCE
+
+      - name: Apply locked patchset with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\apply-cc-connect-patches.ps1" -SourceDir $env:CC_CONNECT_SOURCE
+
+      - name: Run related Go tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Push-Location -LiteralPath $env:CC_CONNECT_SOURCE
+          try {
+            go test -mod=readonly -tags "no_web goolm no_pi" ./core -run 'Test(MessageReceivedExtra|MessageSentDeliveredExtra|RelayManager_(DefaultVisibilityEchoesFullMessages|VisibilitySummarySuppressesBodies|VisibilityNoneSuppressesGroupEcho))$'
+            go test -mod=readonly -tags "no_web goolm no_pi" ./platform/telegram -run 'Test(IsDirectedAtBot|SendRecordsMessageID|SendImageRecordsMessageID|SendFileRecordsMessageID|DispatchMessagePopulatesMetadata|DispatchMessageBotSender)$'
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Build twice with stable inputs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $first = Join-Path $env:RUNNER_TEMP "cc-connect artifact one (中文)"
+          $second = Join-Path $env:RUNNER_TEMP "cc-connect artifact two (中文)"
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\build-cc-connect.ps1" -SourceDir $env:CC_CONNECT_SOURCE -OutputDir $first
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\build-cc-connect.ps1" -SourceDir $env:CC_CONNECT_SOURCE -OutputDir $second
+          $firstHash = (Get-FileHash -LiteralPath (Join-Path $first "cc-connect.exe") -Algorithm SHA256).Hash
+          $secondHash = (Get-FileHash -LiteralPath (Join-Path $second "cc-connect.exe") -Algorithm SHA256).Hash
+          if ($firstHash -ne $secondHash) { throw "reproducible build SHA256 mismatch" }
+          "CC_CONNECT_ARTIFACT=$first" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CC_CONNECT_ARTIFACT_SECOND=$second" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify artifact with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\verify-cc-connect-artifact.ps1" -BundleDir $env:CC_CONNECT_ARTIFACT
+
+      - name: Verify artifact with PowerShell 7
+        shell: pwsh
+        run: |
+          ./integrations/cc-connect/scripts/verify-cc-connect-artifact.ps1 -BundleDir $env:CC_CONNECT_ARTIFACT_SECOND
+
+      - name: Install Control Plane dependencies
+        shell: pwsh
+        run: python -m pip install -e "./control-plane[dev]"
+
+      - name: Run real isolated Windows acceptance
+        shell: pwsh
+        run: >-
+          python ./control-plane/scripts/windows_isolated_acceptance.py
+          --bundle "$env:CC_CONNECT_ARTIFACT"
+          --output "$env:CC_CONNECT_ARTIFACT/windows-isolated-acceptance.json"
+
+      - name: Upload verified distributable bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64
+          path: |
+            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect.exe
+            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect-artifact-manifest.json
+            ${{ runner.temp }}/cc-connect artifact one (中文)/cc-connect.sha256
+            ${{ runner.temp }}/cc-connect artifact one (中文)/windows-isolated-acceptance.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30

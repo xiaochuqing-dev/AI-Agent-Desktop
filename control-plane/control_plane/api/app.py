@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -11,15 +12,22 @@ from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from ..adapters.discovery import default_adapters
 from ..application.discovery_service import DiscoveryService
 from ..application.event_log import CursorExpired, EventLog
-from ..application.operation_store import IdempotencyKeyReuse, OperationStore
+from ..application.operation_store import (
+    IdempotencyKeyReuse,
+    OperationStore,
+    body_digest,
+)
 from ..domain.models import (
     Capability,
     Component,
     Diagnostic,
+    DiagnosticSeverity,
     Operation,
     OperationStatus,
     ReadinessReport,
@@ -27,13 +35,35 @@ from ..domain.models import (
     SystemInfo,
 )
 from ..infrastructure.config import Settings
+from ..installer.artifacts import InstallerError
+from ..installer.models import (
+    InstallConfirmationRequest,
+    InstallPlan,
+    InstallPlanRequest,
+    ManagedVersion,
+    OperationAuditEvent,
+    RestoreRequest,
+    UninstallRequest,
+)
+from ..installer.service import CcConnectInstaller
+from ..persistence.models import DiagnosticRecord, IdempotencyRecord
 from ..persistence.session import Database
 from ..security.redaction import redact_value
 from .errors import ControlPlaneError, Problem, capability_unsupported
 
 
+class CancelRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=512)
+
+
 class AppState:
-    def __init__(self, settings: Settings, adapters: list | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        adapters: list | None = None,
+        installer_fault_injector=None,
+    ) -> None:
         self.settings = settings
         self.db = Database(settings)
         self.events = EventLog()
@@ -50,6 +80,13 @@ class AppState:
         # 启动恢复:未终止 Operation 转 failed
         with self.db.session() as s:
             OperationStore(s).recover_on_startup()
+        self.installer = CcConnectInstaller(
+            settings,
+            self.db,
+            self.events,
+            fault_injector=installer_fault_injector,
+        )
+        self.installer.recover_interrupted_operations()
         self.started_at = datetime.now(UTC)
         self.instance_id = f"cp-{uuid.uuid4().hex[:12]}"
 
@@ -62,9 +99,11 @@ def get_state() -> AppState:
     return _STATE
 
 
-def init_state(settings: Settings, adapters: list | None = None) -> None:
+def init_state(
+    settings: Settings, adapters: list | None = None, installer_fault_injector=None
+) -> None:
     global _STATE
-    _STATE = AppState(settings, adapters)
+    _STATE = AppState(settings, adapters, installer_fault_injector)
 
 
 def _bearer_auth(authorization: str | None = Header(default=None)) -> str:
@@ -114,9 +153,13 @@ def _problem_response(err: ControlPlaneError) -> JSONResponse:
     )
 
 
-def create_app(settings: Settings | None = None, adapters: list | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    adapters: list | None = None,
+    installer_fault_injector=None,
+) -> FastAPI:
     settings = settings or Settings.from_env()
-    init_state(settings, adapters)
+    init_state(settings, adapters, installer_fault_injector)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -155,6 +198,40 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                 recovery_actions=["use_new_idempotency_key"],
                 correlation_id="default",
             ).model_dump(),
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(InstallerError)
+    async def _installer_error_handler(_request: Request, exc: InstallerError):
+        status_code = 409
+        if exc.code.endswith("NOT_FOUND"):
+            status_code = 404
+        elif exc.code in {
+            "MANIFEST_INVALID",
+            "DOWNLOAD_URL_NOT_ALLOWED",
+            "ARTIFACT_SOURCE_INCOMPLETE",
+            "PATH_IDENTIFIER_INVALID",
+        }:
+            status_code = 422
+        elif exc.code in {
+            "ARTIFACT_DOWNLOAD_INTERRUPTED",
+            "ARTIFACT_DOWNLOAD_HTTP_FAILED",
+            "TRUSTED_ARTIFACT_SOURCE_UNAVAILABLE",
+        }:
+            status_code = 503
+        problem = Problem(
+            code=exc.code,
+            title=exc.code.replace("_", " ").title(),
+            status=status_code,
+            detail=exc.message,
+            user_message=exc.message,
+            retryable=exc.retryable,
+            recovery_actions=exc.recovery_actions,
+            correlation_id="installer",
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content=redact_value(problem.model_dump(mode="json")),
             media_type="application/problem+json",
         )
 
@@ -319,13 +396,38 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
             )
         return redact_value(op.model_dump(mode="json"))
 
+    @api.get(
+        "/api/v1/operations/{operation_id}/events",
+        response_model=list[OperationAuditEvent],
+        tags=["Operations"],
+    )
+    def get_operation_events(operation_id: str, _token: str = Depends(_bearer_auth)):
+        st = get_state()
+        with st.db.session() as s:
+            if OperationStore(s).get(operation_id) is None:
+                raise ControlPlaneError(
+                    code="OPERATION_NOT_FOUND",
+                    title="Operation not found",
+                    status=404,
+                    detail="Operation does not exist.",
+                    user_message="未找到该操作。",
+                    retryable=False,
+                )
+        return redact_value(
+            [item.model_dump(mode="json") for item in st.installer.list_audit_events(operation_id)]
+        )
+
     @api.post("/api/v1/operations/{operation_id}:cancel", status_code=202, tags=["Operations"])
-    def cancel_operation(
+    async def cancel_operation(
         operation_id: str,
+        payload: CancelRequest,
+        request: Request,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
         _token: str = Depends(_bearer_auth),
     ):
-        # 切片:取消请求被接受,不声称目标已终止。终态 Operation 拒绝取消。
         st = get_state()
+        raw_body = await request.body()
+        newly_recorded = False
         with st.db.session() as s:
             store = OperationStore(s)
             op = store.get(operation_id)
@@ -338,6 +440,18 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                     user_message="未找到该操作。",
                     retryable=False,
                 )
+            resource = f"/api/v1/operations/{operation_id}:cancel"
+            existing = s.get(IdempotencyRecord, idempotency_key)
+            digest = body_digest(raw_body)
+            if existing is not None:
+                if (
+                    existing.method != "POST"
+                    or existing.resource != resource
+                    or existing.body_digest != digest
+                    or existing.operation_id != operation_id
+                ):
+                    raise IdempotencyKeyReuse(idempotency_key)
+                return redact_value(op.model_dump(mode="json"))
             if op.status in (
                 OperationStatus.SUCCEEDED,
                 OperationStatus.FAILED,
@@ -351,14 +465,33 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
                     user_message="该操作已结束,无法取消。",
                     retryable=False,
                 )
+            s.add(
+                IdempotencyRecord(
+                    idempotency_key=idempotency_key,
+                    method="POST",
+                    resource=resource,
+                    body_digest=digest,
+                    operation_id=operation_id,
+                    response_status=202,
+                    created_at=datetime.now(UTC),
+                )
+            )
+            newly_recorded = True
             store.transition(
-                operation_id, status=OperationStatus.CANCEL_REQUESTED, phase="cancel_requested"
+                operation_id,
+                status=OperationStatus.CANCEL_REQUESTED,
+                phase="cancel_requested",
+                message="Cancellation requested; completion waits for a safe checkpoint.",
             )
             op = store.get(operation_id)
         assert op is not None
+        if newly_recorded and op.kind.startswith("cc_connect_"):
+            st.installer.audit_cancel_requested(
+                operation_id, point_of_no_return=op.progress.point_of_no_return
+            )
         return redact_value(op.model_dump(mode="json"))
 
-    # lifecycle/credentials/owner 真实写入端点:首片统一 CAPABILITY_UNSUPPORTED
+    # 启停与配置接管仍未实现；仅 cc-connect 隔离安装闭环进入真实执行。
     @api.post("/api/v1/components/{component_id}:start", status_code=202, tags=["Components"])
     def start_component(component_id: str, _token: str = Depends(_bearer_auth)):
         raise capability_unsupported(component_id, "start")
@@ -371,9 +504,135 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
     def restart_component(component_id: str, _token: str = Depends(_bearer_auth)):
         raise capability_unsupported(component_id, "restart")
 
+    @api.post(
+        "/api/v1/components/{component_id}/install-plan",
+        response_model=InstallPlan,
+        status_code=201,
+        tags=["Components"],
+    )
+    def create_install_plan(
+        component_id: str,
+        payload: InstallPlanRequest,
+        _token: str = Depends(_bearer_auth),
+    ):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "install")
+        return redact_value(get_state().installer.create_plan(payload).model_dump(mode="json"))
+
+    @api.get(
+        "/api/v1/components/{component_id}/install-plans/{plan_id}",
+        response_model=InstallPlan,
+        tags=["Components"],
+    )
+    def get_install_plan(component_id: str, plan_id: str, _token: str = Depends(_bearer_auth)):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "install")
+        plan = get_state().installer.get_plan(plan_id)
+        if plan is None:
+            raise InstallerError(
+                "INSTALL_PLAN_NOT_FOUND",
+                "Install plan was not found.",
+                recovery_actions=["create_install_plan"],
+            )
+        return redact_value(plan.model_dump(mode="json"))
+
     @api.post("/api/v1/components/{component_id}:install", status_code=202, tags=["Components"])
-    def install_component(component_id: str, _token: str = Depends(_bearer_auth)):
-        raise capability_unsupported(component_id, "install")
+    async def install_component(
+        component_id: str,
+        request: Request,
+        response: Response,
+        payload: InstallConfirmationRequest | None = None,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
+        _token: str = Depends(_bearer_auth),
+    ):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "install")
+        if payload is None:
+            raise InstallerError(
+                "INSTALL_CONFIRMATION_REQUIRED",
+                "A persisted install plan and explicit confirmation are required.",
+                recovery_actions=["create_install_plan", "confirm_install_plan"],
+            )
+        st = get_state()
+        raw_body = await request.body()
+        operation, reused = st.installer.confirm_install(
+            payload, idempotency_key=idempotency_key, body=raw_body
+        )
+        correlation_id = _correlation(x_correlation_id)
+        if not reused:
+            threading.Thread(
+                target=st.installer.execute_install,
+                args=(operation.operation_id, payload.plan_id, correlation_id),
+                daemon=True,
+            ).start()
+        response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
+        response.headers["X-Correlation-ID"] = correlation_id
+        return redact_value(operation.model_dump(mode="json"))
+
+    @api.post("/api/v1/components/{component_id}:uninstall", status_code=202, tags=["Components"])
+    async def uninstall_component(
+        component_id: str,
+        payload: UninstallRequest,
+        request: Request,
+        response: Response,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
+        _token: str = Depends(_bearer_auth),
+    ):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "uninstall")
+        st = get_state()
+        operation, reused = st.installer.create_uninstall_operation(
+            payload, idempotency_key=idempotency_key, body=await request.body()
+        )
+        correlation_id = _correlation(x_correlation_id)
+        if not reused:
+            threading.Thread(
+                target=st.installer.execute_uninstall,
+                args=(operation.operation_id, payload, correlation_id),
+                daemon=True,
+            ).start()
+        response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
+        return redact_value(operation.model_dump(mode="json"))
+
+    @api.post("/api/v1/components/{component_id}:restore", status_code=202, tags=["Components"])
+    async def restore_component(
+        component_id: str,
+        payload: RestoreRequest,
+        request: Request,
+        response: Response,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
+        _token: str = Depends(_bearer_auth),
+    ):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "restore")
+        st = get_state()
+        operation, reused = st.installer.create_restore_operation(
+            payload, idempotency_key=idempotency_key, body=await request.body()
+        )
+        correlation_id = _correlation(x_correlation_id)
+        if not reused:
+            threading.Thread(
+                target=st.installer.execute_restore,
+                args=(operation.operation_id, payload, correlation_id),
+                daemon=True,
+            ).start()
+        response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
+        return redact_value(operation.model_dump(mode="json"))
+
+    @api.get(
+        "/api/v1/components/{component_id}/managed-versions",
+        response_model=list[ManagedVersion],
+        tags=["Components"],
+    )
+    def list_managed_versions(component_id: str, _token: str = Depends(_bearer_auth)):
+        if component_id != "cc-connect":
+            raise capability_unsupported(component_id, "managed-versions")
+        return redact_value(
+            [item.model_dump(mode="json") for item in get_state().installer.list_managed_versions()]
+        )
 
     @api.post(
         "/api/v1/components/{component_id}/health:check", status_code=202, tags=["Components"]
@@ -385,14 +644,56 @@ def create_app(settings: Settings | None = None, adapters: list | None = None) -
     @api.get("/api/v1/diagnostics", response_model=list[Diagnostic], tags=["Diagnostics"])
     def list_diagnostics(_token: str = Depends(_bearer_auth)):
         st = get_state()
+        persisted: list[Diagnostic] = []
         with st.db.session() as s:
+            records = list(
+                s.scalars(
+                    select(DiagnosticRecord).order_by(DiagnosticRecord.created_at.desc()).limit(50)
+                )
+            )
+            persisted = [_diagnostic_from_record(record) for record in records]
             store = OperationStore(s)
             ops = store.list_operations(kind="discovery", limit=20)
         for op in ops:
             if op.status == OperationStatus.SUCCEEDED and op.result:
                 report = ReadinessReport.model_validate(op.result)
-                return redact_value([*report.blockers, *report.warnings])
-        return []
+                return redact_value([*persisted, *report.blockers, *report.warnings])
+        return redact_value(persisted)
+
+    def _diagnostic_from_record(record: DiagnosticRecord) -> Diagnostic:
+        return Diagnostic(
+            diagnostic_id=record.diagnostic_id,
+            severity=DiagnosticSeverity(record.severity),
+            code=record.code,
+            summary=record.summary,
+            user_message=record.user_message,
+            suggested_actions=json.loads(record.suggested_actions_json),
+            technical_details=json.loads(record.technical_details_json),
+            redaction_applied=True,
+            created_at=record.created_at,
+            correlation_id=record.correlation_id,
+            operation_id=record.operation_id,
+            target_ref=(
+                ResourceRef(kind=record.target_kind, id=record.target_id)
+                if record.target_kind and record.target_id
+                else None
+            ),
+        )
+
+    @api.get("/api/v1/diagnostics/{diagnostic_id}", response_model=Diagnostic, tags=["Diagnostics"])
+    def get_diagnostic(diagnostic_id: str, _token: str = Depends(_bearer_auth)):
+        with get_state().db.session() as session:
+            record = session.get(DiagnosticRecord, diagnostic_id)
+            if record is None:
+                raise ControlPlaneError(
+                    code="DIAGNOSTIC_NOT_FOUND",
+                    title="Diagnostic not found",
+                    status=404,
+                    detail="Diagnostic does not exist.",
+                    user_message="未找到该诊断。",
+                    retryable=False,
+                )
+            return redact_value(_diagnostic_from_record(record).model_dump(mode="json"))
 
     @api.get("/api/v1/events", tags=["Events"])
     async def subscribe_events(

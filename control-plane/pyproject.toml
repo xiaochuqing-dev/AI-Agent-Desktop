@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "control-plane"
 version = "0.1.0"
-description = "AI Agent Desktop Local Control Plane: read-only readiness scan, dry-run plan, no side effects."
+description = "AI Agent Desktop Local Control Plane with readiness and isolated cc-connect installation."
 requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -40,6 +40,9 @@ control-plane-serve = "control_plane.main:main"
 
 [tool.setuptools.packages.find]
 include = ["control_plane*"]
+
+[tool.setuptools.package-data]
+"control_plane.installer" = ["artifact-lock.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
