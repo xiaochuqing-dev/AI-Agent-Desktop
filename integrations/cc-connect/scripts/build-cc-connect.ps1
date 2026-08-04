@@ -10,6 +10,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 if (-not $LockFile) { $LockFile = Join-Path $PSScriptRoot "..\manifests\artifact-lock.json" }
 
+function ConvertTo-LockedString {
+  param([object]$Value)
+  if ($Value -is [datetime]) {
+    return $Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [System.Globalization.CultureInfo]::InvariantCulture)
+  }
+  return [string]$Value
+}
+
 $sourcePath = (Resolve-Path -LiteralPath $SourceDir).Path
 $lockPath = (Resolve-Path -LiteralPath $LockFile).Path
 $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -55,7 +63,8 @@ $artifactPath = Join-Path $outputPath $lock.artifact_filename
 
 $buildTags = @($lock.build.build_tags) -join " "
 $shortCommit = $lock.source_commit.Substring(0, 7)
-$ldflags = $lock.build.ldflags_template.Replace("{version}", $lock.version).Replace("{short_commit}", $shortCommit).Replace("{build_timestamp}", $lock.build.build_timestamp)
+$buildTimestamp = ConvertTo-LockedString $lock.build.build_timestamp
+$ldflags = ([string]$lock.build.ldflags_template).Replace('{version}', [string]$lock.version).Replace('{short_commit}', $shortCommit).Replace('{build_timestamp}', $buildTimestamp)
 
 $previousEnvironment = @{}
 foreach ($name in @("GOOS", "GOARCH", "CGO_ENABLED", "SOURCE_DATE_EPOCH", "GOTOOLCHAIN")) {
@@ -114,7 +123,7 @@ $manifest = [ordered]@{
   artifact_size = [long]$artifactSize
   artifact_sha256 = $artifactHash
   signature_status = $lock.signature_status
-  created_at = $lock.build.build_timestamp
+  created_at = $buildTimestamp
   compatibility = $lock.compatibility
   minimum_os = $lock.minimum_os
   install_layout_version = $lock.install_layout_version

@@ -8,6 +8,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 if (-not $LockFile) { $LockFile = Join-Path $PSScriptRoot "..\manifests\artifact-lock.json" }
 
+function ConvertTo-LockedString {
+  param([object]$Value)
+  if ($Value -is [datetime]) {
+    return $Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [System.Globalization.CultureInfo]::InvariantCulture)
+  }
+  return [string]$Value
+}
+
 $bundlePath = (Resolve-Path -LiteralPath $BundleDir).Path
 $lockPath = (Resolve-Path -LiteralPath $LockFile).Path
 $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -46,16 +54,16 @@ if ($manifest.signature_status -ne "unsigned") {
 }
 $expectedVersion = [string]$lock.version
 $expectedCommit = [string]$lock.source_commit
-$expectedBuildTimestamp = [string]$lock.build.build_timestamp
+$expectedBuildTimestamp = ConvertTo-LockedString $lock.build.build_timestamp
 $expectedGoVersion = [string]$lock.toolchain.go_version
-$expectedLdflags = ([string]$lock.build.ldflags_template).Replace("{version}", $expectedVersion).Replace("{short_commit}", $expectedCommit.Substring(0, 7)).Replace("{build_timestamp}", $expectedBuildTimestamp)
+$expectedLdflags = ([string]$lock.build.ldflags_template).Replace('{version}', $expectedVersion).Replace('{short_commit}', $expectedCommit.Substring(0, 7)).Replace('{build_timestamp}', $expectedBuildTimestamp)
 if ([string]$manifest.go_version -cne $expectedGoVersion) {
   throw "toolchain does not match the lock"
 }
 if ([string]$manifest.ldflags -cne $expectedLdflags) {
   throw "ldflags do not match the lock"
 }
-if ([long]$manifest.source_date_epoch -ne [long]$lock.build.source_date_epoch -or $manifest.created_at -ne $lock.build.build_timestamp -or $manifest.build_timestamp_policy -ne "locked_upstream_commit_timestamp_utc") {
+if ([long]$manifest.source_date_epoch -ne [long]$lock.build.source_date_epoch -or (ConvertTo-LockedString $manifest.created_at) -ne $expectedBuildTimestamp -or $manifest.build_timestamp_policy -ne "locked_upstream_commit_timestamp_utc") {
   throw "reproducible build timestamp inputs do not match the lock"
 }
 if ((@($manifest.build_tags) -join "`n") -ne (@($lock.build.build_tags) -join "`n")) {
