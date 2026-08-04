@@ -44,9 +44,16 @@ if ($manifest.platform -ne "windows" -or $manifest.architecture -ne "amd64") {
 if ($manifest.signature_status -ne "unsigned") {
   throw "unexpected signature status"
 }
-$expectedLdflags = $lock.build.ldflags_template.Replace("{version}", $lock.version).Replace("{short_commit}", $lock.source_commit.Substring(0, 7)).Replace("{build_timestamp}", $lock.build.build_timestamp)
-if ($manifest.go_version -ne $lock.toolchain.go_version -or $manifest.ldflags -ne $expectedLdflags) {
-  throw "toolchain or ldflags do not match the lock"
+$expectedVersion = [string]$lock.version
+$expectedCommit = [string]$lock.source_commit
+$expectedBuildTimestamp = [string]$lock.build.build_timestamp
+$expectedGoVersion = [string]$lock.toolchain.go_version
+$expectedLdflags = ([string]$lock.build.ldflags_template).Replace("{version}", $expectedVersion).Replace("{short_commit}", $expectedCommit.Substring(0, 7)).Replace("{build_timestamp}", $expectedBuildTimestamp)
+if ([string]$manifest.go_version -cne $expectedGoVersion) {
+  throw "toolchain does not match the lock"
+}
+if ([string]$manifest.ldflags -cne $expectedLdflags) {
+  throw "ldflags do not match the lock"
 }
 if ([long]$manifest.source_date_epoch -ne [long]$lock.build.source_date_epoch -or $manifest.created_at -ne $lock.build.build_timestamp -or $manifest.build_timestamp_policy -ne "locked_upstream_commit_timestamp_utc") {
   throw "reproducible build timestamp inputs do not match the lock"
