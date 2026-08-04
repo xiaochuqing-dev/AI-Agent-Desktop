@@ -135,7 +135,9 @@ Alembic 0004 增加 credential reference/revision、Bot identity、binding sessi
 - Windows native runtime acceptance：synthetic_acceptance=PASSED，整体 PARTIAL
 - Windows 10 wrapper：当前 Windows 11 主机返回 NOT_WINDOWS_10_X64，没有虚报
 
-GitHub Actions Windows CI Run ID：PENDING PUSH AND CI BACKFILL。
+GitHub Actions 最终成功 Run ID：30943550897，head SHA 为 72a3b356c173eb8e1c16c05b49e3e1d12d037a13，三个作业均为 success。Windows 锁定产物作业已实际执行 Credential Manager、isolated、managed、native runtime 与 Windows 10 wrapper 验收，并上传对应证据。
+
+首次推送 Run 30941858673 的既有质量、Ubuntu、锁定构建、Credential Manager、isolated 和 managed 步骤均通过，但新增 native runtime 步骤发现 GitHub runner 没有 Claude/Codex 可执行入口。修复只作用于验收脚本：优先使用现有用户入口，缺失时在隔离临时目录生成 no-op shim 并临时加入当前进程 PATH，成功或异常均恢复；没有安装 Agent 或修改系统 PATH。修复后本机以真实入口和清空 PATH 两种场景均通过，随后 Run 30943550897 全绿。
 
 ## Secret 与环境不变证明
 
@@ -158,8 +160,9 @@ GitHub Actions Windows CI Run ID：PENDING PUSH AND CI BACKFILL。
 
 ## Git 与回滚
 
-- 功能实现提交 SHA：PENDING COMMIT
-- Windows CI Run ID：PENDING CI
+- 功能实现提交 SHA：8c1a2016f4d587a301e90d54c95191f68a808015
+- CI 环境修复提交 SHA：72a3b356c173eb8e1c16c05b49e3e1d12d037a13
+- Windows CI Run ID：30943550897（success）
 - 报告回填提交 SHA：由 Git 提交元数据记录，报告不做自引用
 - 最终远端分支要求：仅 main
 - 回滚方法：对本阶段功能实现提交执行普通 git revert，并重新运行迁移、测试和 Windows 验收；不得使用 force push 或破坏性 reset
