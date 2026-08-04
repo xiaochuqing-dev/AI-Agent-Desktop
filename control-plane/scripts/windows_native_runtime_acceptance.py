@@ -420,6 +420,33 @@ def _external_candidate() -> dict[str, Any] | None:
     }
 
 
+def _ensure_agent_entrypoints(root: Path, original_path: str) -> tuple[str, list[str]]:
+    """Use installed Agent entrypoints, or create isolated no-op shims for CI."""
+    required = ("claude", "codex")
+    missing = [name for name in required if shutil.which(name) is None]
+    if not missing:
+        return "existing_user_path", []
+
+    shim_dir = root / "合成 Agent 入口 (PATH)"
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    for name in missing:
+        (shim_dir / f"{name}.cmd").write_text(
+            "@echo off\r\nexit /b 0\r\n", encoding="ascii", newline=""
+        )
+    os.environ["PATH"] = str(shim_dir) + os.pathsep + original_path
+    unresolved = [name for name in missing if shutil.which(name) is None]
+    if unresolved:
+        raise AssertionError(f"synthetic Agent entrypoints are not discoverable: {unresolved}")
+    return "synthetic_missing_entrypoints", missing
+
+
+def _restore_process_path(original_path: str, was_present: bool) -> None:
+    if was_present:
+        os.environ["PATH"] = original_path
+    else:
+        os.environ.pop("PATH", None)
+
+
 def _managed_processes(root: Path) -> list[int]:
     import psutil
 
@@ -446,6 +473,7 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
 
     started_at = datetime.now(UTC)
     path_before = os.environ.get("PATH", "")
+    path_was_present = "PATH" in os.environ
     external_before = _external_candidate()
     parent = temp_root.resolve(strict=True) if temp_root else Path("D:\\")
     if parent.drive.casefold() == Path(os.environ.get("SystemDrive", "C:") + "\\").drive.casefold():
@@ -457,6 +485,8 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
     database: Database | None = None
     lifecycle: ManagedProcessService | None = None
     secrets_to_scan: list[str] = []
+    agent_entrypoint_mode = "existing_user_path"
+    synthetic_agent_entrypoints: list[str] = []
     try:
         with tempfile.TemporaryDirectory(
             prefix="AIAD native runtime 中文 空格 (临时) ",
@@ -464,6 +494,9 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
             ignore_cleanup_errors=True,
         ) as root_name:
             root = Path(root_name)
+            agent_entrypoint_mode, synthetic_agent_entrypoints = _ensure_agent_entrypoints(
+                root, path_before
+            )
             data_dir = root / "产品数据 中文 (受管)"
             settings = Settings(
                 data_dir=str(data_dir),
@@ -752,6 +785,7 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
             remaining = _managed_processes(installer.layout.root)
             if remaining:
                 raise AssertionError(f"managed processes remained: {remaining}")
+            _restore_process_path(path_before, path_was_present)
             if os.environ.get("PATH", "") != path_before:
                 raise AssertionError("acceptance changed process PATH")
             if _external_candidate() != external_before:
@@ -798,6 +832,8 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
                 "management_api_verified": running.health.management_api_verified,
                 "management_api_bind_scope": running.health.management_api_bind_scope,
                 "management_api_wrong_bearer_rejected": True,
+                "agent_entrypoint_mode": agent_entrypoint_mode,
+                "synthetic_agent_entrypoints": synthetic_agent_entrypoints,
                 "stop_operation_status": stopped.status.value,
                 "restart_operation_status": restarted.status.value,
                 "control_plane_restart_reconcile_state": reconciled.observed_state,
@@ -819,6 +855,7 @@ def run(bundle: Path, temp_root: Path | None = None) -> dict[str, Any]:
             database = None
             return evidence
     finally:
+        _restore_process_path(path_before, path_was_present)
         if lifecycle is not None:
             for process in lifecycle._launched.values():
                 if process.poll() is None:
