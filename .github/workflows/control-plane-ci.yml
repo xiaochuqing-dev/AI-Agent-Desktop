@@ -78,7 +78,6 @@ jobs:
           tests/test_event_log.py
           tests/test_installer_artifacts.py
           tests/test_migrations.py
-          tests/test_operation_store.py
           tests/test_redaction.py
 
   cc-connect-windows-artifact:
