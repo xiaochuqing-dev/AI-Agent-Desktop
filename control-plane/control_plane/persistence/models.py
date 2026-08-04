@@ -174,3 +174,175 @@ class OperationEventRecord(Base):
     phase: Mapped[str] = mapped_column(String(128))
     data_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class OperationJobRecord(Base):
+    __tablename__ = "operation_jobs"
+    operation_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    kind: Mapped[str] = mapped_column(String(128), index=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    state: Mapped[str] = mapped_column(String(32), index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ConfigurationPlanRecord(Base):
+    __tablename__ = "configuration_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    context_digest: Mapped[str] = mapped_column(String(71))
+    plan_json: Mapped[str] = mapped_column(Text)
+    target_payload_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    current_revision: Mapped[int] = mapped_column(Integer)
+    target_revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ConfigurationRevisionRecord(Base):
+    __tablename__ = "configuration_revisions"
+    component_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    product_instance_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_id: Mapped[str] = mapped_column(String(128), index=True)
+    configuration_digest: Mapped[str] = mapped_column(String(71))
+    payload_json: Mapped[str] = mapped_column(Text)
+    relative_path: Mapped[str] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ConfigurationBackupRecord(Base):
+    __tablename__ = "configuration_backups"
+    backup_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    source_revision: Mapped[int] = mapped_column(Integer)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    relative_path: Mapped[str] = mapped_column(String(512))
+    configuration_digest: Mapped[str] = mapped_column(String(71))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class PendingRepairRecord(Base):
+    __tablename__ = "pending_repairs"
+    repair_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    reason_code: Mapped[str] = mapped_column(String(128))
+    relative_path: Mapped[str] = mapped_column(String(512))
+    details_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class OwnershipPlanRecord(Base):
+    __tablename__ = "ownership_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    context_digest: Mapped[str] = mapped_column(String(71))
+    plan_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ManagedProcessRecord(Base):
+    __tablename__ = "managed_processes"
+    component_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    product_instance_id: Mapped[str] = mapped_column(String(128), index=True)
+    artifact_id: Mapped[str] = mapped_column(String(128), index=True)
+    configuration_revision: Mapped[int] = mapped_column(Integer)
+    pid: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    process_create_time: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_state: Mapped[str] = mapped_column(String(32))
+    observed_state: Mapped[str] = mapped_column(String(32), index=True)
+    management_owner: Mapped[str] = mapped_column(String(32))
+    lifecycle_owner: Mapped[str] = mapped_column(String(32))
+    identity_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    health_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_operation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ProcessIdentityRecord(Base):
+    __tablename__ = "process_identity_records"
+    identity_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    pid: Mapped[int] = mapped_column(Integer, index=True)
+    process_create_time: Mapped[str] = mapped_column(String(64))
+    identity_json: Mapped[str] = mapped_column(Text)
+    verification_status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class PortOwnershipRecord(Base):
+    __tablename__ = "port_ownership_records"
+    ownership_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    listen_host: Mapped[str] = mapped_column(String(64))
+    listen_port: Mapped[int] = mapped_column(Integer, index=True)
+    owner_pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    evidence_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LifecycleLeaseRecord(Base):
+    __tablename__ = "lifecycle_leases"
+    component_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(128), unique=True)
+    owner: Mapped[str] = mapped_column(String(32))
+    action: Mapped[str] = mapped_column(String(32))
+    acquired_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LifecycleEventRecord(Base):
+    __tablename__ = "lifecycle_events"
+    event_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    operation_id: Mapped[str] = mapped_column(String(128), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(128))
+    phase: Mapped[str] = mapped_column(String(128))
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ExternalToolCapabilityRecord(Base):
+    __tablename__ = "external_tool_capabilities"
+    provider_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    capabilities_json: Mapped[str] = mapped_column(Text, default="{}")
+    evidence_json: Mapped[str] = mapped_column(Text, default="{}")
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class UpdateAssessmentRecord(Base):
+    __tablename__ = "update_assessments"
+    assessment_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    component_id: Mapped[str] = mapped_column(String(128), index=True)
+    current_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    target_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    assessment_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime)

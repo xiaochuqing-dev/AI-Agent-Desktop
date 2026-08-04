@@ -73,8 +73,13 @@ def test_component_detail_and_not_found(client):
 
 def test_lifecycle_unsupported(client):
     for action in ("start", "stop", "restart", "install"):
+        payload = (
+            {"configuration_revision": 1, "confirmation": True} if action != "install" else None
+        )
         r = client.post(
-            f"/api/v1/components/hermes:{action}", headers={"Idempotency-Key": "k" * 16}
+            f"/api/v1/components/hermes:{action}",
+            headers={"Idempotency-Key": "k" * 16},
+            json=payload,
         )
         assert r.status_code == 501
         assert r.json()["code"] == "CAPABILITY_UNSUPPORTED"
@@ -84,6 +89,62 @@ def test_operations_list(client):
     r = client.get("/api/v1/operations")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+
+def test_managed_runtime_routes_report_truthful_unconfigured_state(client):
+    runtime = client.get("/api/v1/components/cc-connect/lifecycle")
+    assert runtime.status_code == 200
+    assert runtime.json()["observed_state"] == "unconfigured"
+    assert runtime.json()["lifecycle_owner"] == "none"
+    assert runtime.json()["health"]["deep_health"] == "unsupported"
+
+    plan = client.post(
+        "/api/v1/components/cc-connect/configuration-plans",
+        json={},
+    )
+    assert plan.status_code == 409
+    assert plan.json()["code"] == "MANAGED_VERSION_NOT_INSTALLED"
+
+
+def test_start_api_is_persisted_and_fails_closed_without_configuration(client):
+    response = client.post(
+        "/api/v1/components/cc-connect:start",
+        headers={"Idempotency-Key": "runtime-start-api-key"},
+        json={"configuration_revision": 1, "confirmation": True},
+    )
+    assert response.status_code == 202
+    completed = wait_for_operation(client, response.json()["operation_id"])
+    assert completed["status"] == "failed"
+    assert completed["error"]["code"] == "MANAGED_VERSION_NOT_INSTALLED"
+
+
+def test_health_check_has_its_own_persisted_operation_kind(client):
+    response = client.post(
+        "/api/v1/components/cc-connect/health:check",
+        headers={"Idempotency-Key": "runtime-health-api-key"},
+        json={"configuration_revision": 1, "confirmation": True},
+    )
+    assert response.status_code == 202
+    assert response.json()["kind"] == "cc_connect_lifecycle_health"
+    completed = wait_for_operation(client, response.json()["operation_id"])
+    assert completed["status"] == "succeeded"
+    assert completed["result"]["observed_state"] == "unconfigured"
+
+
+def test_update_and_cc_switch_boundaries_do_not_overreport(client):
+    switch = client.get("/api/v1/external-tools/cc-switch")
+    assert switch.status_code == 200
+    capabilities = {item["capability"]: item["status"] for item in switch.json()["capabilities"]}
+    assert capabilities["install"] == "unknown"
+    assert capabilities["update"] == "unknown"
+
+    hermes = client.get(
+        "/api/v1/components/hermes/update-assessment",
+        params={"requested_version": "future"},
+    )
+    assert hermes.status_code == 200
+    assert hermes.json()["status"] == "unsupported"
+    assert hermes.json()["automatic_update_performed"] is False
 
 
 def test_events_cursor_expired(client):

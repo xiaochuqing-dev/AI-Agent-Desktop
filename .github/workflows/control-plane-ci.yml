@@ -171,6 +171,18 @@ jobs:
           --bundle "$env:CC_CONNECT_ARTIFACT"
           --output "$env:CC_CONNECT_ARTIFACT/windows-isolated-acceptance.json"
 
+      - name: Run managed configuration and lifecycle acceptance
+        shell: pwsh
+        run: >-
+          python ./control-plane/scripts/windows_managed_runtime_acceptance.py
+          --bundle "$env:CC_CONNECT_ARTIFACT"
+          --output "$env:CC_CONNECT_ARTIFACT/windows-managed-runtime-acceptance.json"
+
+      - name: Validate Windows 10 no-development-runtime wrapper with PowerShell 5.1
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\control-plane\scripts\windows10_user_acceptance.ps1" -OutputPath "$env:CC_CONNECT_ARTIFACT\windows10-user-acceptance-wrapper.json"
+
       - name: Upload verified distributable bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
@@ -180,6 +192,8 @@ jobs:
             ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect-artifact-manifest.json
             ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect.sha256
             ${{ runner.temp }}/cc-connect artifact one (ci)/windows-isolated-acceptance.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/windows-managed-runtime-acceptance.json
+            ${{ runner.temp }}/cc-connect artifact one (ci)/windows10-user-acceptance-wrapper.json
           if-no-files-found: error
           compression-level: 0
           retention-days: 30

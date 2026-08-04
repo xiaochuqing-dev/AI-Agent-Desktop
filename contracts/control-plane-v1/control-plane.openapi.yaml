@@ -4,16 +4,16 @@ info:
   version: 1.0.0
   summary: Stable local management contract for the desktop GUI and trusted clients.
   description: |
-    The read-only Control Plane foundation and the cc-connect Windows AMD64
-    isolated installation vertical slice are implemented. Other component
-    installation, configuration writes, credential writes, lifecycle takeover,
-    and GUI remain unsupported. Provider-specific structures remain behind
-    Adapter boundaries.
+    The read-only foundation, cc-connect Windows AMD64 isolated installation,
+    product-owned non-secret configuration revisions, explicit lifecycle
+    ownership, and managed process lifecycle are implemented. Real credential
+    writes, Telegram binding, other component lifecycle, and GUI remain
+    unsupported. Provider-specific structures remain behind Adapter boundaries.
   license:
     name: See repository LICENSE
     identifier: Apache-2.0
   x-contract-status: frozen
-  x-implementation-status: cc-connect-installation-vertical-slice
+  x-implementation-status: cc-connect-managed-runtime-partially-verified
   x-event-types:
     - com.aiagentdesktop.component.state.changed.v1
     - com.aiagentdesktop.component.discovered.v1
@@ -325,6 +325,212 @@ paths:
                   $ref: "./core-models.schema.json#/$defs/ManagedVersion"
         default:
           $ref: "#/components/responses/Problem"
+  "/components/{componentId}/configuration-plans":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: createManagedConfigurationPlan
+      summary: Create an immutable non-secret product configuration plan.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                listen_port: { type: [integer, "null"], minimum: 59000, maximum: 59999 }
+                expires_in_seconds: { type: integer, minimum: 60, maximum: 3600, default: 900 }
+                rollback_to_revision: { type: [integer, "null"], minimum: 1 }
+      responses:
+        "201":
+          description: Persisted plan waiting for explicit confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/ConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/configuration-plans/{planId}":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+      - name: planId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/Id" }
+    get:
+      tags: [Configuration]
+      operationId: getManagedConfigurationPlan
+      summary: Read one immutable managed configuration plan.
+      responses:
+        "200":
+          description: Managed configuration plan.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/ConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/{componentId}/configuration:apply":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: applyManagedConfigurationPlan
+      summary: Confirm and atomically apply an immutable configuration plan.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [plan_id, plan_digest, current_revision, target_revision, confirmation]
+              properties:
+                plan_id: { type: string }
+                plan_digest: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
+                current_revision: { type: integer, minimum: 0 }
+                target_revision: { type: integer, minimum: 1 }
+                confirmation: { const: true }
+      responses:
+        "202": { $ref: "#/components/responses/OperationAccepted" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/ownership-plans":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: createLifecycleOwnershipPlan
+      summary: Create a separate explicit product lifecycle ownership handoff plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                target_lifecycle_owner: { const: product }
+                expires_in_seconds: { type: integer, minimum: 60, maximum: 3600, default: 900 }
+      responses:
+        "201":
+          description: Ownership handoff plan.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/OwnershipPlan" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/ownership-plans/{planId}":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+      - name: planId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/Id" }
+    get:
+      tags: [Configuration]
+      operationId: getLifecycleOwnershipPlan
+      responses:
+        "200":
+          description: Ownership handoff plan.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/OwnershipPlan" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/ownership:confirm":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Configuration]
+      operationId: confirmLifecycleOwnershipPlan
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [plan_id, plan_digest, current_management_owner, current_lifecycle_owner, confirmation]
+              properties:
+                plan_id: { type: string }
+                plan_digest: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
+                current_management_owner: { type: string, enum: [external, product, unmanaged, conflict, unknown] }
+                current_lifecycle_owner: { type: string, enum: [external, product, none, conflict, unknown] }
+                confirmation: { const: true }
+      responses:
+        "202": { $ref: "#/components/responses/OperationAccepted" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/lifecycle":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Components]
+      operationId: getManagedLifecycleStatus
+      summary: Probe and read product-managed process, owner, port, and health evidence.
+      responses:
+        "200":
+          description: Managed runtime status. Deep health remains unsupported.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/LifecycleRuntimeStatus" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}:reconcile":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    post:
+      tags: [Components]
+      operationId: reconcileManagedLifecycle
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LifecycleRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/OperationAccepted" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/process-identity":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Components]
+      operationId: getManagedProcessIdentity
+      responses:
+        "200":
+          description: Recorded identity and current verification result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  identity:
+                    oneOf:
+                      - { $ref: "./managed-runtime.schema.json#/$defs/ProcessIdentity" }
+                      - { type: "null" }
+                  verification: { type: [object, "null"] }
+        default: { $ref: "#/components/responses/Problem" }
+  "/components/{componentId}/port-ownership":
+    parameters:
+      - $ref: "#/components/parameters/ComponentId"
+    get:
+      tags: [Components]
+      operationId: getManagedPortOwnership
+      responses:
+        "200":
+          description: Exact TCP port-to-PID evidence, or null when not applicable.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "./managed-runtime.schema.json#/$defs/PortOwnershipEvidence" }
+                  - { type: "null" }
+        default: { $ref: "#/components/responses/Problem" }
   "/components/{componentId}:start":
     parameters:
       - $ref: "#/components/parameters/ComponentId"
@@ -1222,6 +1428,74 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /external-tools/cc-switch:
+    get:
+      tags: [Maintenance]
+      operationId: getCcSwitchExternalToolStatus
+      summary: Detect CC Switch and disclose only verified external capabilities.
+      responses:
+        "200":
+          description: CC Switch detection and capability evidence.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/ExternalToolStatus" }
+        default: { $ref: "#/components/responses/Problem" }
+  "/external-tools/cc-switch:launch":
+    post:
+      tags: [Maintenance]
+      operationId: launchCcSwitchExternalTool
+      summary: Open a detected CC Switch executable without GUI automation or configuration writes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties:
+                confirmation: { const: true }
+      responses:
+        "200":
+          description: Normal launch receipt; it never claims install, update, or configuration success.
+          content:
+            application/json:
+              schema: { type: object }
+        default: { $ref: "#/components/responses/Problem" }
+  /components/cc-connect/update-assessment:
+    get:
+      tags: [Maintenance]
+      operationId: assessLockedCcConnectUpdate
+      summary: Assess an exact locked target without performing an update.
+      parameters:
+        - name: requested_version
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          description: Read-only update assessment.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/UpdateAssessment" }
+        default: { $ref: "#/components/responses/Problem" }
+  /components/hermes/update-assessment:
+    get:
+      tags: [Maintenance]
+      operationId: assessHermesUpdateBoundary
+      summary: Return unsupported until a verified Hermes update Adapter exists.
+      parameters:
+        - name: requested_version
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          description: Explicit unsupported assessment; no Hermes action occurs.
+          content:
+            application/json:
+              schema: { $ref: "./managed-runtime.schema.json#/$defs/UpdateAssessment" }
+        default: { $ref: "#/components/responses/Problem" }
   /events:
     get:
       tags: [Events]
@@ -1510,14 +1784,13 @@ components:
     LifecycleRequest:
       type: object
       additionalProperties: false
+      required: [configuration_revision, confirmation]
       properties:
-        expected_revision:
-          type: string
-          minLength: 1
-          maxLength: 128
-        deadline_at:
-          type: string
-          format: date-time
+        configuration_revision:
+          type: integer
+          minimum: 1
+        confirmation:
+          const: true
     HealthCheckRequest:
       type: object
       additionalProperties: false

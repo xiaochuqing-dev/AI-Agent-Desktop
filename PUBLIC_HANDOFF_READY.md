@@ -11,7 +11,7 @@ PR #1 合并提交：0952c74e95fa8557b78352f8c30d19de0e021fb0
 
 当前交付
 
-Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnostic、Dry-run、持久化 Operation/SSE 和脱敏外，cc-connect 单组件的锁定 Windows 产物、隔离安装、回滚、卸载与恢复已实现。其他组件安装、配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。
+Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnostic、Dry-run、持久化 OperationExecutor/SSE 和脱敏外，cc-connect 锁定 Windows 产物的隔离安装、原子最小配置、revision/回滚、所有权交接与产品自有生命周期已实现。真实凭据、其他组件生命周期、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现；无 Secret 持续运行为 PARTIAL。
 
 产品范围
 
@@ -23,7 +23,7 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 下一阶段
 
-cc-connect 产品管理生命周期与最小配置写入切片。入口与门禁见 05_NEXT_PHASE.md 和 next-agent/NEXT_AGENT_PROMPT.txt。
+Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片。入口与门禁见 05_NEXT_PHASE.md 和 next-agent/NEXT_AGENT_PROMPT.txt。Windows 10 x64 仍待用户实机验证。
 
 最终 Git、CI、分支清理、文件清单与 SHA256 结果见 reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md。
 

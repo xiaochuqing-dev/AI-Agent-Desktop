@@ -1,6 +1,6 @@
 下一 Agent 提示词
 
-你接手 AI-Agent-Desktop 仓库。本仓库是当前公开事实源。开始前核对 main、GitHub Actions、reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json 和 contracts/control-plane-v1。
+你接手 AI-Agent-Desktop 仓库。开始前核对 main、GitHub Actions、reports/CC_CONNECT_MANAGED_LIFECYCLE_CONFIGURATION_AND_INTEGRATION_BOUNDARIES_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json 和 contracts/control-plane-v1。
 
 产品范围固定
 
@@ -8,20 +8,26 @@
 
 已交付事实
 
-Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRun、Diagnostic、持久化 Operation/SSE 和 Alembic。cc-connect Windows amd64 锁定产物基线为 fc315d213b49d62e9d90ea4a510189d4115e636f + Patchset 0.1 + Go 1.26.5，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。只针对 cc-connect 的计划确认、隔离安装、验证、回滚、卸载、恢复、重启恢复和 pending_cleanup 已实现。Reference Baseline、真实配置、计划任务、Watchdog、系统 PATH 和全局 npm 未修改。
+Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRun、Diagnostic、持久化 OperationExecutor/SSE 和 Alembic。cc-connect Windows amd64 锁定基线为 fc315d213b49d62e9d90ea4a510189d4115e636f + Patchset 0.1 + Go 1.26.5，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。
+
+仅针对产品自有 cc-connect，已实现隔离安装、不可变配置计划、显式确认、原子最小配置、revision/备份/回滚、SecretRef/CredentialBackend 边界、ManagementOwner/LifecycleOwner 交接、start/stop/restart/status/reconcile、PID 复用与 exe SHA 验证、端口所有权、崩溃与 Control Plane 重启恢复。更新与 ExternalToolProvider 稳定边界已存在，但不执行自动更新。CC Switch 只检测公开可执行入口并普通打开。
+
+准确限制
+
+锁定版 cc-connect 要求至少一个 Project 和 Platform；Telegram-disabled、无 Secret 合成配置无法满足运行前提，且上游无稳定本地 health endpoint。因此无 Secret 真实持续运行验收是 PARTIAL，local endpoint/deep health 是 unsupported。Windows 10 x64 是 pending user real-machine validation。Windows Credential Manager 适配器只有不读写 Secret 的骨架。Reference Baseline、真实配置、计划任务、Watchdog、注册表、系统 PATH 和外部进程未修改。
 
 下一阶段准确名称
 
-cc-connect 产品管理生命周期与最小配置写入切片。
+Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片。
 
 只允许实现
 
-产品管理实例的启动、停止、重启；明确端口与进程身份；只操作产品自有版本；最小配置模板；revision、备份、原子写入和回滚；SecretRef 引用；无真实 Telegram 的本地运行验证；external 与 product 生命周期所有权的显式交接门禁。
+先完成不回显明文的 Windows CredentialBackend，再安全录入三个 Bot Token；使用 Telegram getMe 验证 Bot 身份；使用一次性绑定码发现 User ID 和 Group ID；验证三 Bot 同群一致性；生成可回滚的 Hermes 与 cc-connect 配置。所有真实 Telegram 操作都必须由用户显式启动，先用 Fake 和合成凭据验证。
 
 禁止事项
 
-不要升级 cc-connect 上游或增加 Patch；不要修改 Reference Baseline、现有计划任务或 Watchdog；不要静默接管 external 生命周期；不要安装其他组件；不要实现 Telegram 自动绑定、真实 User ID/Group ID 获取、六链路真实 E2E、正式 GUI、Provider 编辑器或新 Channel；不要读取、输出或提交真实 Secret。
+不要升级 cc-connect 上游或增加 Patch；不要修改 Reference Baseline、计划任务、Watchdog、PATH 或外部配置；不要静默接管 external 生命周期；不要安装其他组件；不要直接跳到六链路完整 E2E、正式 GUI、Provider 编辑器或新 Channel；不要在日志、事件、数据库或配置中保存明文 Secret。
 
 证据规则
 
-安装、配置、认证、运行、健康和更新保持正交。无法证明返回 unknown，能力不足返回 unsupported。所有写操作必须有显式确认、Idempotency-Key、持久化 Operation、准确取消语义、快照和回滚；所有 Diagnostic 保持稳定 code 与脱敏。
+安装、配置、认证、运行、健康和更新保持正交。无法证明返回 unknown，能力不足返回 unsupported，上游限制返回 PARTIAL。所有写操作必须使用显式确认、Idempotency-Key、持久化 Operation、revision、备份和回滚；所有 Diagnostic 保持稳定 code 与脱敏。

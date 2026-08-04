@@ -51,6 +51,16 @@ def test_openapi_frozen_with_readiness_and_events():
         "/components/{componentId}:uninstall",
         "/components/{componentId}:restore",
         "/components/{componentId}/managed-versions",
+        "/components/{componentId}/configuration-plans",
+        "/components/{componentId}/configuration:apply",
+        "/components/{componentId}/ownership-plans",
+        "/components/{componentId}/ownership:confirm",
+        "/components/{componentId}/lifecycle",
+        "/components/{componentId}:reconcile",
+        "/components/{componentId}/process-identity",
+        "/components/{componentId}/port-ownership",
+        "/external-tools/cc-switch",
+        "/components/cc-connect/update-assessment",
         "/operations/{operationId}/events",
     ]:
         assert path in doc["paths"]
@@ -75,6 +85,25 @@ def test_event_envelope_pattern_allows_new_types():
     assert re.match(pat, "com.aiagentdesktop.plan.generated.v1")
 
 
+def test_managed_runtime_schema_has_non_secret_lifecycle_models():
+    with open(os.path.join(CONTRACTS, "managed-runtime.schema.json"), encoding="utf-8") as f:
+        models = json.load(f)
+    for name in [
+        "ManagedConfiguration",
+        "ConfigurationPlan",
+        "OwnershipPlan",
+        "ProcessIdentity",
+        "PortOwnershipEvidence",
+        "LifecycleRuntimeStatus",
+        "UpdateAssessment",
+        "ExternalToolStatus",
+    ]:
+        assert name in models["$defs"]
+    configuration = models["$defs"]["ManagedConfiguration"]
+    assert "token" not in configuration["properties"]
+    assert "api_key" not in configuration["properties"]
+
+
 def test_contract_validation_resolves_external_refs_from_any_working_directory(tmp_path):
     result = subprocess.run(
         [sys.executable, str(VALIDATION_SCRIPT)],
@@ -88,3 +117,4 @@ def test_contract_validation_resolves_external_refs_from_any_working_directory(t
     assert "control-plane.openapi.yaml" in result.stdout
     assert "core-models.schema.json" in result.stdout
     assert "event-envelope.schema.json" in result.stdout
+    assert "managed-runtime.schema.json" in result.stdout

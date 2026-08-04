@@ -1,6 +1,6 @@
 # 08 当前系统 Adapter 映射
 
-实施状态更新（2026-08-04）：除本文件原有只读 Adapter 映射外，当前新增了仅限 cc-connect 的产品自有隔离安装 Adapter。它不接管下述计划任务、Watchdog、junction 或运行服务；`src/` 与 5 个 Patch 内容保持冻结。
+实施状态更新（2026-08-04）：除本文件原有只读 Adapter 映射外，当前已有仅限产品自有 cc-connect 的隔离安装、受管配置和生命周期 Adapter。它不接管下述 Reference Baseline、计划任务、Watchdog、junction 或外部运行服务；`src/` 与 5 个 Patch 内容保持冻结。
 
 ## 映射原则
 
@@ -35,6 +35,8 @@
 | CredentialProvider | 环境文件/官方登录/Hook Bearer 的受控封装 | 凭据能被现有进程消费 | 统一安全后端、lease、迁移、审计缺失 | 首片不读取明文，只报告是否存在/可用 |
 | CapabilityRegistry | multiagent.yaml、relay bindings、版本事实 Adapter | 三个 Agent 与静态角色已知 | 动态注册、版本协商、心跳缺失 | 从配置与进程探测建立只读快照 |
 | HumanControlPolicy | Hermes routing/intervention Adapter | 显式 @、Reply、部分 pause/cancel入口 | 插话、持久化 ack、强控制、改派缺失 | 只声明 verified 能力；完整控制后续实现 |
+
+表中“现有”列仍映射 Reference Baseline。新的产品自有 cc-connect Provider 是独立隔离路径：LifecycleProvider 已实现 start/stop/restart/status/reconcile，ModelConfigurationProvider 已实现非 Secret 最小配置、revision 与回滚。CredentialProvider 仍不读写真实 Secret。
 
 ## Hermes Orchestration Adapter
 

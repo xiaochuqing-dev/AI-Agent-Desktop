@@ -3,17 +3,19 @@ Control Plane 本地控制面
 
 本目录是 AI Agent Desktop 的独立 Local Control Plane。服务仅绑定 loopback，使用 Bearer，并与 src/ Reference Baseline 物理隔离。
 
-当前已实现两类能力。第一类是 Windows System、Hermes、cc-connect、Claude Code、Codex、CC Switch、Telegram Config 的只读发现、Readiness、DryRun、Diagnostic、Operation 和 SSE。第二类仅针对 cc-connect：锁定产物安装计划、计划摘要确认、普通用户隔离安装、SHA256 与 PE 校验、version-only 离线探针、原子激活、自动回滚、卸载、恢复和 pending_cleanup。
+当前已实现两类能力。第一类是 Windows System、Hermes、cc-connect、Claude Code、Codex、CC Switch、Telegram Config 的只读发现、Readiness、DryRun、Diagnostic、Operation 和 SSE。第二类仅针对 cc-connect：锁定产物隔离安装与回滚、不可变配置计划、原子最小配置 revision/备份/回滚、所有权交接、启停重启、进程身份、端口所有权、崩溃与重启恢复，以及更新/外部工具稳定边界。
 
-其他组件安装、配置与凭据写入、登录、启动停止接管、Telegram 自动绑定、真实消息验证和 GUI 均为 unsupported 或 planned。
+真实凭据写入、其他组件安装/生命周期、Telegram 自动绑定、真实消息验证和 GUI 均为 unsupported 或 planned。锁定版 cc-connect 要求至少一个 Project 和 Platform；Telegram-disabled、无 Secret 配置无法满足运行前提，真实持续运行验收为 PARTIAL，deep health 为 unsupported。
 
 一、目录
 --------
 
-control_plane/ 为领域、应用、API、安装器、持久化、安全和 Adapter 代码。
-alembic/ 为基线与 cc-connect 安装状态迁移。
+control_plane/ 为领域、应用、API、OperationExecutor、安装器、配置、生命周期、更新/外部工具边界、持久化、安全和 Adapter 代码。
+alembic/ 为基线、cc-connect 安装与受管运行状态迁移。
 tests/ 为单元、契约、迁移、集成和失败矩阵测试。
 scripts/windows_isolated_acceptance.py 为真实 Windows 临时 LocalAppData 验收。
+scripts/windows_managed_runtime_acceptance.py 为真实锁定产物的配置、所有权、生命周期、冲突与恢复验收。
+scripts/windows10_user_acceptance.ps1 为未来打包用户验收入口骨架，其存在不代表 Windows 10 已验证。
 
 二、开发命令
 ------------
@@ -33,7 +35,7 @@ scripts/windows_isolated_acceptance.py 为真实 Windows 临时 LocalAppData 验
 三、安装布局
 ------------
 
-默认根目录由 platformdirs 解析为当前用户 LocalAppData 下的 AI-Agent-Desktop。cc-connect 使用 components/cc-connect/current.json、versions、staging、backups 和 state。每个版本独立，current.json 原子替换，不覆盖全局 npm 或运行中的外部 cc-connect.exe，不修改 PATH、计划任务或 Watchdog。
+默认根目录由 platformdirs 解析为当前用户 LocalAppData 下的 AI-Agent-Desktop。cc-connect 使用 components/cc-connect/current.json、versions、staging、backups 和 state；受管配置固定为 state/config/cc-connect.managed.toml。每个版本独立，current.json 和配置均原子替换，不覆盖全局 npm 或运行中的外部 cc-connect.exe，不修改 PATH、注册表、计划任务或 Watchdog。
 
 四、安全边界
 ------------
@@ -43,4 +45,4 @@ scripts/windows_isolated_acceptance.py 为真实 Windows 临时 LocalAppData 验
 五、契约
 --------
 
-机器契约位于 contracts/control-plane-v1。cc-connect 增量包括 install-plan、install、uninstall、restore、managed-versions、持久化 Operation 事件和安装相关模型。客户端必须忽略未知向后兼容字段。
+机器契约位于 contracts/control-plane-v1。cc-connect 增量包括 install-plan/install/uninstall/restore/managed-versions，以及 configuration plans/revisions、ownership plans、start/stop/restart/status/reconcile、process identity、port ownership、health、update assessment 和 CC Switch detect/launch。managed-runtime.schema.json 保存新模型。客户端必须忽略未知向后兼容字段。

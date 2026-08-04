@@ -27,8 +27,14 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 - cc-connect Windows amd64 锁定、可重复构建产物与机器可读 Manifest
 - 绑定计划摘要的显式确认、隔离安装、原子 current.json、自动回滚、卸载、恢复和 pending_cleanup
 - Alembic 基线与安装状态迁移、持久化安装审计事件和跨重启恢复
+- 有界持久化 OperationExecutor，含组件互斥、幂等、取消、关机等待和现场探测恢复
+- 不可变配置计划、显式确认、产品自有最小配置、revision、备份、原子替换、手工漂移检测和回滚
+- SecretRef/CredentialBackend 边界；InMemory 仅用于测试，Windows Credential Manager 只有不读写 Secret 的骨架
+- 显式 ManagementOwner/LifecycleOwner 交接与 cc-connect start/stop/restart/status/reconcile
+- 进程身份、PID 复用、exe SHA256、命令摘要、配置 revision、端口到 PID 所有权和崩溃恢复检查
+- cc-connect/Hermes 更新边界与 CC Switch ExternalToolProvider 边界；CC Switch 仅支持可执行文件检测和普通打开
 
-当前不具备：除 cc-connect 外的组件安装、配置写入、凭据写入、登录、启动或停止接管、自动更新、Telegram 自动绑定、真实网络健康探测、六链路自动验收、正式 GUI。cc-connect 深度健康因上游无完全离线模式而标记 unsupported；当前只执行隔离的 version-only 探针。
+当前不具备：真实凭据写入、其他组件安装或生命周期接管、自动更新、Telegram 自动绑定、六链路自动验收和正式 GUI。锁定版 cc-connect 要求至少一个 Project 和 Platform；Telegram-disabled、无 Secret 最小配置无法满足该运行前提，真实持续运行验收为 PARTIAL，local endpoint 与 deep health 为 unsupported。Windows 10 x64 仍为 pending user real-machine validation。
 
 三、Telegram 运行证据
 --------------------
@@ -45,4 +51,4 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 五、下一阶段
 ------------
 
-下一阶段是“cc-connect 产品管理生命周期与最小配置写入切片”。详见 05_NEXT_PHASE.md。
+下一阶段是“Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片”。详见 05_NEXT_PHASE.md。

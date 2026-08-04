@@ -1,7 +1,7 @@
 PUBLIC_FILE_MANIFEST
 
 Generated: 2026-08-04
-Public file count: 182
+Public file count: 218
 
 Scope
 This inventory contains every tracked file on final main.
@@ -46,6 +46,7 @@ architecture/control-plane-v1/08_CURRENT_SYSTEM_ADAPTER_MAPPING.md
 architecture/control-plane-v1/09_MIGRATION_AND_FIRST_VERTICAL_SLICE.md
 architecture/control-plane-v1/10_RISKS_OPEN_DECISIONS_AND_NON_GOALS.md
 architecture/control-plane-v1/11_OPEN_SOURCE_DESIGN_REFERENCES.md
+architecture/control-plane-v1/12_CC_CONNECT_MANAGED_RUNTIME_BOUNDARIES.md
 architecture/control-plane-v1/ACCEPTANCE_CHECKLIST.md
 architecture/control-plane-v1/README.md
 architecture/control-plane-v1/adr/ADR-001-implementation-language-and-api-framework.md
@@ -59,25 +60,41 @@ config-examples/relay_bindings.example.json
 contracts/control-plane-v1/control-plane.openapi.yaml
 contracts/control-plane-v1/core-models.schema.json
 contracts/control-plane-v1/event-envelope.schema.json
+contracts/control-plane-v1/managed-runtime.schema.json
 control-plane/README.md
 control-plane/alembic.ini
 control-plane/alembic/env.py
 control-plane/alembic/script.py.mako
 control-plane/alembic/versions/0001_control_plane_baseline.py
 control-plane/alembic/versions/0002_cc_connect_installer.py
+control-plane/alembic/versions/0003_cc_connect_managed_runtime.py
 control-plane/control_plane/__init__.py
 control-plane/control_plane/adapters/__init__.py
 control-plane/control_plane/adapters/discovery.py
 control-plane/control_plane/api/__init__.py
 control-plane/control_plane/api/app.py
 control-plane/control_plane/api/errors.py
+control-plane/control_plane/api/routers/__init__.py
+control-plane/control_plane/api/routers/configuration.py
+control-plane/control_plane/api/routers/integrations.py
+control-plane/control_plane/api/routers/lifecycle.py
 control-plane/control_plane/application/__init__.py
 control-plane/control_plane/application/discovery_service.py
 control-plane/control_plane/application/event_log.py
 control-plane/control_plane/application/operation_store.py
+control-plane/control_plane/configuration/__init__.py
+control-plane/control_plane/configuration/config_store.py
+control-plane/control_plane/configuration/credential.py
+control-plane/control_plane/configuration/migrations.py
+control-plane/control_plane/configuration/models.py
+control-plane/control_plane/configuration/service.py
+control-plane/control_plane/configuration/templates.py
 control-plane/control_plane/domain/__init__.py
 control-plane/control_plane/domain/models.py
 control-plane/control_plane/domain/ports.py
+control-plane/control_plane/external_tools/__init__.py
+control-plane/control_plane/external_tools/cc_switch.py
+control-plane/control_plane/external_tools/models.py
 control-plane/control_plane/infrastructure/__init__.py
 control-plane/control_plane/infrastructure/config.py
 control-plane/control_plane/installer/__init__.py
@@ -86,22 +103,36 @@ control-plane/control_plane/installer/artifacts.py
 control-plane/control_plane/installer/models.py
 control-plane/control_plane/installer/paths.py
 control-plane/control_plane/installer/service.py
+control-plane/control_plane/installer/version_store.py
+control-plane/control_plane/lifecycle/__init__.py
+control-plane/control_plane/lifecycle/managed_process.py
+control-plane/control_plane/lifecycle/models.py
+control-plane/control_plane/lifecycle/port_ownership.py
+control-plane/control_plane/lifecycle/process_identity.py
 control-plane/control_plane/main.py
+control-plane/control_plane/operations/__init__.py
+control-plane/control_plane/operations/executor.py
 control-plane/control_plane/persistence/__init__.py
 control-plane/control_plane/persistence/migration.py
 control-plane/control_plane/persistence/models.py
 control-plane/control_plane/persistence/session.py
 control-plane/control_plane/security/__init__.py
 control-plane/control_plane/security/redaction.py
+control-plane/control_plane/updates/__init__.py
+control-plane/control_plane/updates/models.py
+control-plane/control_plane/updates/providers.py
 control-plane/pyproject.toml
 control-plane/scripts/validate_contracts.py
+control-plane/scripts/windows10_user_acceptance.ps1
 control-plane/scripts/windows_isolated_acceptance.py
+control-plane/scripts/windows_managed_runtime_acceptance.py
 control-plane/tests/__init__.py
 control-plane/tests/conftest.py
 control-plane/tests/fakes.py
 control-plane/tests/installer_helpers.py
 control-plane/tests/test_adapters.py
 control-plane/tests/test_api.py
+control-plane/tests/test_configuration_service.py
 control-plane/tests/test_contract.py
 control-plane/tests/test_discovery_service.py
 control-plane/tests/test_domain_models.py
@@ -110,9 +141,13 @@ control-plane/tests/test_installer_api.py
 control-plane/tests/test_installer_artifacts.py
 control-plane/tests/test_installer_paths.py
 control-plane/tests/test_installer_service.py
+control-plane/tests/test_lifecycle_service.py
 control-plane/tests/test_migrations.py
+control-plane/tests/test_operation_executor.py
+control-plane/tests/test_process_identity_and_ports.py
 control-plane/tests/test_redaction.py
 control-plane/tests/test_security.py
+control-plane/tests/test_update_and_external_boundaries.py
 history-minimal/HISTORY_INDEX.md
 integrations/cc-connect/README.md
 integrations/cc-connect/manifests/SHA256_MANIFEST.txt
@@ -144,6 +179,7 @@ reference-baseline/KNOWN_ISSUES.md
 reference-baseline/SOURCE_OF_TRUTH.md
 reference-baseline/UPSTREAM_REVISIONS.md
 reference-baseline/VERSION_MATRIX.md
+reports/CC_CONNECT_MANAGED_LIFECYCLE_CONFIGURATION_AND_INTEGRATION_BOUNDARIES_REPORT.md
 reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md

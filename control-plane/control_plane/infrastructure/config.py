@@ -34,6 +34,12 @@ class Settings:
     artifact_max_bytes: int = 128 * 1024 * 1024
     download_timeout_seconds: int = 30
     download_retries: int = 3
+    operation_worker_count: int = 2
+    operation_queue_capacity: int = 64
+    operation_shutdown_timeout_seconds: float = 10.0
+    lifecycle_startup_timeout_seconds: float = 10.0
+    lifecycle_stop_timeout_seconds: float = 5.0
+    lifecycle_stable_window_seconds: float = 3.0
     allowed_download_hosts: tuple[str, ...] = (
         "github.com",
         "api.github.com",

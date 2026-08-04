@@ -14,9 +14,10 @@
 9. GUI 与 Control Plane 独立；GUI 未来只调用稳定契约，不直接读写上游私有配置。
 10. 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段不实现 GUI。
 11. Control Plane v1 契约和四项 ADR 已冻结，基础运行代码已经存在。
-12. 当前能力包含只读发现、Readiness、Dry-run、持久化 Operation/SSE、脱敏诊断，以及 cc-connect 单组件的锁定产物隔离安装、回滚、卸载和恢复。
+12. 当前能力包含只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断，以及 cc-connect 锁定产物隔离安装、原子配置 revision/回滚、所有权交接和产品管理生命周期。
 13. 找到可执行文件、配置文件或 Token 引用均不足以证明运行、配置有效、认证有效或健康；没有直接证据时返回 unknown。
-14. CC Switch 本阶段只做 PATH 与官方协议注册的只读发现，不读取或写入供应商配置与 Secret。
-15. 只有 cc-connect 隔离安装已实现；配置或凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。
+14. CC Switch 只允许公开边界上的可执行文件检测和普通打开；安装、更新、配置和所有权交接无稳定证据时为 unknown，不读取其私有数据或 Secret。
+15. cc-connect 最小非敏感配置和生命周期机制已实现；上游要求至少一个 Project 和 Platform，Telegram-disabled、无 Secret 配置无法满足前提，故真实持续运行验收为 PARTIAL，不等同于完整健康。
 16. Telegram 命令与 Session 隔离问题登记为非阻断已知限制，后续依靠可观测性和测试矩阵修复，本阶段不重构现有路由。
-17. 下一阶段固定为“cc-connect 产品管理生命周期与最小配置写入切片”。
+17. 真实凭据写入、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现；Windows 10 x64 待用户实机验证。
+18. 下一阶段固定为“Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片”，不直接跳到 GUI。

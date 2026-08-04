@@ -157,7 +157,7 @@ install/update/rollback/migrate 的不可逆阶段必须在 Operation 中标记 
 
 ### 可替换性与映射
 
-当前 Adapter 映射：VBS/CMD/Python 启动链、计划任务、junction 工具和只读健康脚本仍只读。另有仅限 cc-connect 的产品自有隔离安装、回滚、卸载与恢复实现；停止、重启、自动更新、配置迁移和外部生命周期接管尚不存在。
+当前 Adapter 映射：VBS/CMD/Python 启动链、计划任务、junction 工具和 Reference Baseline 健康脚本仍只读。另有仅限产品自有 cc-connect 的隔离安装、配置、所有权计划、start/stop/restart/status/reconcile、回滚与恢复实现。自动更新、真实凭据迁移和外部生命周期接管仍不存在。
 
 未来替代：由用户级后台宿主和受限提权 helper 接管；旧脚本在回归通过和回滚点建立后逐项退场，不要求外部组件改变内部实现。
 

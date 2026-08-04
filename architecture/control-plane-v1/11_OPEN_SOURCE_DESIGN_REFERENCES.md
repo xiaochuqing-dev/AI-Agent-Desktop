@@ -36,3 +36,17 @@ CloudEvents 只规范 GUI 订阅的本地事件信封。SSE 是 Control Plane �
 ### 原生 keystore 优先，迁移包显式加密
 
 Docker 与 Dapr 的接口表明凭据后端应可替换。Windows 首版优先系统原生安全存储；跨机迁移不能假设系统 keystore 可直接复制，必须由 CredentialProvider 在用户确认后生成独立加密包并在目标端重新封装。
+
+## 2026-08-04 受管运行窄调研
+
+| 官方资料 | 本项目结论 |
+|---|---|
+| [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) | Job Object 可统一约束进程树，但本切片已有可验证的 psutil 进程树终止；Job Object 保留为加固，不为此引入新服务框架 |
+| [GetProcessTimes](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes) 与 [Process Information](https://learn.microsoft.com/en-us/windows/win32/procthread/process-information) | PID 必须与创建时间、路径、SHA256 和命令摘要联合验证，不使用单独 PID 文件 |
+| [GetExtendedTcpTable](https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getextendedtcptable) | Windows 可提供 TCP 端口到 PID 映射；当前复用已有 psutil 封装，无法证明 IPv6 时返回 unknown/unsupported |
+| [Process Creation Flags](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags) | 使用 CREATE_NO_WINDOW 与 CREATE_NEW_PROCESS_GROUP，不起可见黑窗，不通过 shell 拼接命令 |
+| [MoveFileEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexa) 与 [ReplaceFile](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilea) | 不自行封装 Win32 替换 API；在同卷同目录使用 Python `os.replace`、fsync、备份与回滚 |
+| [Python os.replace](https://docs.python.org/3/library/os.html#os.replace) 与 [subprocess](https://docs.python.org/3/library/subprocess.html) | 标准库已满足原子替换和参数数组/shell=False 启动，不新增依赖 |
+| [CredRead](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw) 与 [CredWrite](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew) | 先冻结 CredentialBackend 边界；本切片不需真实 Secret，所以 Windows 适配器只做不读写骨架 |
+| [cc-connect 锁定源码](https://github.com/chenhg5/cc-connect/tree/fc315d213b49d62e9d90ea4a510189d4115e636f) | 官方 CLI 支持 `-config`，但要求至少一个 Project 和 Platform，且无稳定本地 health endpoint；Telegram-disabled、无 Secret 合成配置无法满足运行前提，因此证据标 PARTIAL |
+| [CC Switch](https://github.com/farion1231/cc-switch) | 只采用公开可执行文件检测和普通打开；深链导入仍需 UI 确认，不把私有存储或 GUI 自动化当成稳定 API |

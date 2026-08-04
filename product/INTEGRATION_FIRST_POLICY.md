@@ -26,3 +26,10 @@ Hermes 负责编排和 Hermes Bot；Claude Code、Codex 是独立编码 Agent；
 --------------
 
 真实写入前必须确定 ManagementOwner、备份与 revision。所有者切换经用户确认和两阶段交接；冲突时保持只读并生成 Diagnostic，不自动合并或覆盖。
+
+五、当前可升级边界
+------------------------
+
+cc-connect 的已安装版本只从 artifact lock、manifest、current 指针和持久化记录获取，不使用 latest。ArtifactProvider、UpdateSource、CompatibilityRule 与 MigrationPlan 已形成稳定内部边界，但本阶段不执行自动更新。Hermes 无实现的更新源准确返回 unsupported。
+
+CC Switch 作为 ExternalToolProvider，只基于公开可执行入口做检测和普通打开。其安装、更新、配置和所有权能力无稳定证据时为 unknown，不读私有数据库、不读 Secret、不自动点击 GUI。

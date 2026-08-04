@@ -52,6 +52,11 @@ C. 用 Control Plane 直接拉起现有脚本替代 Watchdog:未通过 controlle
 
 回退路径:Control Plane 进程直接退出,不遗留任何注册项、计划任务或服务;现有生命周期脚本未被修改,回滚为零成本。
 
+后续实施记录（2026-08-04）
+----------------------------
+
+本 ADR 对 Reference Baseline 和外部进程的决策保持不变。后续切片只对产品自有隔离安装的 cc-connect 实例实现了独立所有权计划和 start/stop/restart/status/reconcile。它不注册 Windows Service，不修改计划任务或 Watchdog，external/conflict 所有权会阻断操作，因此不构成对本 ADR 的外部接管决策修改。
+
 未来重审触发器
 ----------------
 

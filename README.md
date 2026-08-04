@@ -11,9 +11,10 @@ AI Agent Desktop
 - reference baseline v0.1 已冻结，Tag 为 v0.1-reference-baseline。
 - 参考实现的 Telegram 群聊主要链路与 Hermes 私聊已经真实验证。
 - Control Plane v1 契约与四项 ADR 已冻结，基础运行代码已实现于 control-plane/。
-- Control Plane 除只读发现、Readiness、Dry-run、Operation/SSE 和脱敏诊断外，已实现锁定 cc-connect Windows amd64 产物的计划、显式确认、隔离安装、回滚、卸载与恢复。
-- 安装状态、审计事件、幂等记录和恢复信息由 SQLite + Alembic 持久化；其他组件安装明确返回 unsupported。
-- 配置写入、凭据写入、启停与生命周期接管、Telegram 自动绑定、六链路自动验收和正式 GUI 尚未实现。
+- Control Plane 已实现只读发现、Readiness、Dry-run、持久化 Operation/SSE、脱敏诊断，以及 cc-connect 锁定产物的隔离安装、原子最小配置、revision/备份/回滚、所有权交接和产品管理生命周期。
+- Operation、配置计划、进程身份、端口所有权、生命周期事件和更新/外部工具评估由 SQLite + Alembic 持久化。
+- 锁定版 cc-connect 要求至少一个 Project 和一个 Platform；本阶段的 Telegram-disabled、无 Secret 合成配置无法满足受支持运行前提，因此真实托管运行验收为 PARTIAL，deep health 为 unsupported。
+- 真实凭据写入、Telegram 自动绑定、六链路自动验收和正式 GUI 尚未实现；Windows 10 x64 为 pending user real-machine validation。
 - 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段没有实现 GUI。
 
 二、首发产品范围

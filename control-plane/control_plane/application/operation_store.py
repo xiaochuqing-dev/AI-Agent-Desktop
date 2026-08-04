@@ -1,5 +1,5 @@
-# Operation 存储:状态机、幂等、重启恢复。领域 Operation 与 ORM 记录互转。
-# 重启时未终止 Operation(queued/running/cancel_requested)转 failed + Diagnostic,禁止自动重放。
+# Operation 存储:状态机与幂等。领域 Operation 与 ORM 记录互转。
+# 正式启动恢复由 operations/executor.py 先探测现场再决定完成、重排或失败。
 from __future__ import annotations
 
 import hashlib
@@ -206,7 +206,7 @@ class OperationStore:
         return self._from_record(rec)
 
     def recover_on_startup(self) -> list[str]:
-        # 重启恢复:未终止 Operation 转 failed,生成 diagnostic,禁止自动重放未知副作用。
+        # 旧调用方的保守兼容入口；应用启动不再使用，正式恢复由 OperationExecutor 完成。
         stmt = select(OperationRecord).where(
             OperationRecord.status.in_(["queued", "running", "cancel_requested"])
         )

@@ -1,6 +1,6 @@
 # 09 迁移与第一个最小纵向切片
 
-实施状态更新（2026-08-04）：只读 Readiness 子集已实现；cc-connect 单组件的锁定产物计划、显式确认、隔离安装、回滚、卸载和恢复也已实现。Alembic 取代 create_all 作为升级路径。真实生命周期接管、配置写入和凭据写入仍未实现；下一阶段只进入 cc-connect 产品管理生命周期与最小配置写入切片。
+实施状态更新（2026-08-04）：只读 Readiness、cc-connect 锁定产物隔离安装，以及产品自有 cc-connect 的原子最小配置、所有权交接和生命周期已实现。Alembic 是唯一升级路径。真实凭据写入与外部生命周期接管仍未实现；无 Secret 真实持续运行因上游限制为 PARTIAL。
 
 ## 迁移目标
 
@@ -58,7 +58,7 @@
 
 - `GET /components/{componentId}/configuration` 只返回脱敏结构、schema、Owner 候选和 revision。
 - `POST .../configuration:validate` 默认执行结构与引用完整性检查，不写文件、不轮换凭据、不访问真实消息 Channel。
-- 首片不提供配置写入和 Owner 交接的可用实现；对应 Capability 标 unavailable，即使 OpenAPI 已冻结未来端点。
+- 历史首片不提供写入；当前只对产品自有 cc-connect 提供配置计划、Owner 交接、revision 与回滚。其他组件仍标 unavailable/unsupported。
 - 解析失败返回字段级安全摘要和恢复建议，不返回配置正文、私有路径或 Secret 片段。
 
 ### 5. 启动、停止和重启
@@ -68,7 +68,7 @@
 1. shadow plan：识别现有启动所有者、目标进程、依赖、命令与预期结果，只生成计划，不执行。
 2. controlled takeover：仅在隔离环境回归、备份旧启动定义并由用户显式确认后，对一个组件启用 start/stop/restart。
 
-每个动作返回 Operation，使用 Idempotency-Key 和目标状态幂等。restart 是单个串行操作；超时后先重新探测，不把“命令已发出”当成“组件已停止或运行”。旧计划任务、Watchdog 与 Control Plane 不能同时拥有启动权。首片若尚未通过接管门禁，API 返回 `CAPABILITY_UNSUPPORTED`，不得调用现有脚本冒充实现完成。
+每个动作返回 Operation，使用 Idempotency-Key 和目标状态幂等。restart 是单个串行操作；超时后先重新探测，不把“命令已发出”当成“组件已停止或运行”。旧计划任务、Watchdog 与 Control Plane 不能同时拥有启动权。当前仅产品自有实例通过门禁；外部或冲突所有权仍返回稳定冲突 Diagnostic。
 
 ### 6. 健康检查
 

@@ -29,12 +29,12 @@ Telegram
 CC Switch
 ---------
 
-推荐但非强制的供应商、模型和 API 配置入口。Control Plane 本阶段只做只读安装发现，不读取或写入 Provider 配置。启用管理时必须遵守唯一 ManagementOwner。
+推荐但非强制的供应商、模型和 API 配置入口。Control Plane 本阶段只做公开可执行入口检测和普通打开，不读取或写入 Provider 配置。启用管理时必须遵守唯一 ManagementOwner。
 
 Control Plane
 -------------
 
-统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新和回滚。当前只实现只读发现、Readiness、Dry-run 和无副作用诊断，真实变更能力尚未实现。
+统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前只对产品自有 cc-connect 实现安装、最小配置和生命周期变更；其他组件保持只读或 unsupported。锁定版无 Secret 持续运行证据为 PARTIAL。
 
 GUI
 ---

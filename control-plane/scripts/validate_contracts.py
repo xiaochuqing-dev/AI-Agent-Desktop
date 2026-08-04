@@ -13,7 +13,11 @@ from openapi_spec_validator.readers import read_from_filename
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_DIRECTORY = Path("contracts") / "control-plane-v1"
 OPENAPI_FILENAME = "control-plane.openapi.yaml"
-JSON_SCHEMA_FILENAMES = ("core-models.schema.json", "event-envelope.schema.json")
+JSON_SCHEMA_FILENAMES = (
+    "core-models.schema.json",
+    "event-envelope.schema.json",
+    "managed-runtime.schema.json",
+)
 
 
 def _validate_json_schema(path: Path) -> None:
@@ -24,7 +28,7 @@ def _validate_json_schema(path: Path) -> None:
 
 
 def validate_contracts(repo_root: Path = REPO_ROOT) -> list[Path]:
-    """Validate OpenAPI external refs and both JSON Schemas from any cwd."""
+    """Validate OpenAPI external refs and all JSON Schemas from any cwd."""
     contract_dir = repo_root.resolve() / CONTRACT_DIRECTORY
     openapi_path = contract_dir / OPENAPI_FILENAME
 

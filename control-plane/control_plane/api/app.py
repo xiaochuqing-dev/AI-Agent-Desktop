@@ -1,11 +1,10 @@
-# FastAPI 应用:loopback 绑定、Bearer 鉴权、problem+json、最小端点矩阵、SSE。
-# 本切片只实现只读发现 + 就绪报告 + dry-run 计划 + Operation + 事件 + 诊断。
-# lifecycle/credentials/owner 真实写入端点返回 CAPABILITY_UNSUPPORTED。
+# FastAPI 应用:loopback、Bearer、problem+json、SSE 与模块化管理路由。
+# 已实现 cc-connect 隔离安装、非敏感配置事务、显式所有权和产品进程生命周期。
+# 真实 Credential、Telegram 绑定及其他组件写操作仍保持 unsupported。
 from __future__ import annotations
 
 import asyncio
 import json
-import threading
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -23,6 +22,7 @@ from ..application.operation_store import (
     OperationStore,
     body_digest,
 )
+from ..configuration.service import CcConnectConfigurationService
 from ..domain.models import (
     Capability,
     Component,
@@ -34,6 +34,7 @@ from ..domain.models import (
     ResourceRef,
     SystemInfo,
 )
+from ..external_tools.cc_switch import CcSwitchExternalToolProvider
 from ..infrastructure.config import Settings
 from ..installer.artifacts import InstallerError
 from ..installer.models import (
@@ -46,10 +47,21 @@ from ..installer.models import (
     UninstallRequest,
 )
 from ..installer.service import CcConnectInstaller
+from ..installer.version_store import ManagedVersionStore
+from ..lifecycle.managed_process import ManagedProcessService
+from ..lifecycle.models import LifecycleActionRequest
+from ..lifecycle.port_ownership import PortOwnershipInspector
+from ..operations import ExecutionContext, OperationExecutor, RecoveryDecision
 from ..persistence.models import DiagnosticRecord, IdempotencyRecord
 from ..persistence.session import Database
 from ..security.redaction import redact_value
+from ..updates.providers import CcConnectArtifactProvider, HermesUpdateProvider
 from .errors import ControlPlaneError, Problem, capability_unsupported
+from .routers import (
+    build_configuration_router,
+    build_integrations_router,
+    build_lifecycle_router,
+)
 
 
 class CancelRequest(BaseModel):
@@ -77,18 +89,160 @@ class AppState:
             for a in adapters:
                 reg.register(a)
             self.registry = reg
-        # 启动恢复:未终止 Operation 转 failed
-        with self.db.session() as s:
-            OperationStore(s).recover_on_startup()
         self.installer = CcConnectInstaller(
             settings,
             self.db,
             self.events,
             fault_injector=installer_fault_injector,
         )
-        self.installer.recover_interrupted_operations()
+        self.version_store = ManagedVersionStore(self.installer.layout, self.db)
+        self.port_inspector = PortOwnershipInspector()
+        self.configuration = CcConnectConfigurationService(
+            self.db,
+            self.installer.layout,
+            version_store=self.version_store,
+            port_inspector=self.port_inspector,
+        )
+        self.lifecycle = ManagedProcessService(
+            self.db,
+            self.installer.layout,
+            self.configuration,
+            version_store=self.version_store,
+            port_inspector=self.port_inspector,
+            startup_timeout_seconds=settings.lifecycle_startup_timeout_seconds,
+            stop_timeout_seconds=settings.lifecycle_stop_timeout_seconds,
+            stable_window_seconds=settings.lifecycle_stable_window_seconds,
+        )
+        self.cc_connect_updates = CcConnectArtifactProvider(self.db, self.version_store)
+        self.hermes_updates = HermesUpdateProvider()
+        self.cc_switch = CcSwitchExternalToolProvider(self.db)
+        self.executor = OperationExecutor(
+            self.db,
+            worker_count=settings.operation_worker_count,
+            queue_capacity=settings.operation_queue_capacity,
+            shutdown_timeout_seconds=settings.operation_shutdown_timeout_seconds,
+        )
+        self._register_handlers()
         self.started_at = datetime.now(UTC)
         self.instance_id = f"cp-{uuid.uuid4().hex[:12]}"
+
+    def start(self) -> None:
+        self.installer.recover_interrupted_operations()
+        self.lifecycle.recover_leases()
+        self.executor.start()
+        # Executor recovery first classifies interrupted jobs; service cleanup then
+        # rolls back any newly terminal installer operation and releases stale leases.
+        self.installer.recover_interrupted_operations()
+        self.lifecycle.recover_leases()
+        try:
+            self.lifecycle.reconcile(operation_id="control-plane-startup")
+        except InstallerError:
+            # Startup remains available for diagnostics even when managed state is corrupt.
+            pass
+
+    def stop(self) -> bool:
+        return self.executor.shutdown()
+
+    def _register_handlers(self) -> None:
+        self.executor.register(
+            "discovery",
+            self._execute_discovery,
+            recovery_probe=lambda _operation_id, _payload: RecoveryDecision.requeue(),
+        )
+        self.executor.register(
+            "cc_connect_install",
+            self._execute_install,
+            recovery_probe=self._installer_recovery_probe,
+        )
+        self.executor.register(
+            "cc_connect_uninstall",
+            self._execute_uninstall,
+            recovery_probe=self._installer_recovery_probe,
+        )
+        self.executor.register(
+            "cc_connect_restore",
+            self._execute_restore,
+            recovery_probe=self._installer_recovery_probe,
+        )
+        self.executor.register(
+            "cc_connect_configuration_apply",
+            self._execute_configuration,
+            recovery_probe=self.configuration.recovery_probe,
+        )
+        self.executor.register(
+            "cc_connect_ownership_handoff",
+            self._execute_ownership_handoff,
+            recovery_probe=self.lifecycle.recovery_probe,
+        )
+        for action in ("start", "stop", "restart", "reconcile", "health"):
+            self.executor.register(
+                f"cc_connect_lifecycle_{action}",
+                self._execute_lifecycle,
+                recovery_probe=self.lifecycle.recovery_probe,
+            )
+
+    def _execute_discovery(self, context: ExecutionContext) -> None:
+        with self.db.session() as session:
+            service = DiscoveryService(self.registry.all(), OperationStore(session), self.events)
+            service.run(
+                context.operation_id,
+                str(context.payload.get("correlation_id", "executor")),
+            )
+
+    def _execute_install(self, context: ExecutionContext) -> None:
+        self.installer.execute_install(
+            context.operation_id,
+            str(context.payload["plan_id"]),
+            str(context.payload.get("correlation_id", "executor")),
+        )
+
+    def _execute_uninstall(self, context: ExecutionContext) -> None:
+        self.installer.execute_uninstall(
+            context.operation_id,
+            UninstallRequest.model_validate(context.payload["request"]),
+            str(context.payload.get("correlation_id", "executor")),
+        )
+
+    def _execute_restore(self, context: ExecutionContext) -> None:
+        self.installer.execute_restore(
+            context.operation_id,
+            RestoreRequest.model_validate(context.payload["request"]),
+            str(context.payload.get("correlation_id", "executor")),
+        )
+
+    def _execute_configuration(self, context: ExecutionContext) -> dict | None:
+        return self.configuration.execute_plan(
+            context.operation_id, str(context.payload["plan_id"])
+        )
+
+    def _execute_ownership_handoff(self, context: ExecutionContext) -> dict | None:
+        return self.lifecycle.execute_ownership_handoff(
+            context.operation_id, str(context.payload["plan_id"])
+        )
+
+    def _execute_lifecycle(self, context: ExecutionContext) -> dict | None:
+        action = str(context.payload["action"])
+        if action not in {"start", "stop", "restart", "reconcile", "health"}:
+            raise ValueError("invalid persisted lifecycle action")
+        return self.lifecycle.execute_action(
+            context.operation_id,
+            action,  # type: ignore[arg-type]
+            LifecycleActionRequest.model_validate(context.payload["request"]),
+        )
+
+    def _installer_recovery_probe(self, operation_id: str, _payload: dict) -> RecoveryDecision:
+        with self.db.session() as session:
+            operation = OperationStore(session).get(operation_id)
+        if operation is None:
+            return RecoveryDecision.fail(code="OPERATION_NOT_FOUND")
+        safe_phases = {"queued", "dispatching", "recovered_queued"}
+        if operation.progress.phase in safe_phases:
+            return RecoveryDecision.requeue()
+        return RecoveryDecision.fail(
+            code="INSTALLER_RECOVERY_REQUIRES_ROLLBACK",
+            message="Interrupted installer state requires snapshot recovery before a new attempt.",
+            recovery_actions=["inspect_install_snapshot", "create_new_install_plan"],
+        )
 
 
 _STATE: AppState | None = None
@@ -163,7 +317,12 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        yield
+        state = get_state()
+        state.start()
+        try:
+            yield
+        finally:
+            state.stop()
 
     app = FastAPI(
         title="AI Agent Desktop Local Control Plane API",
@@ -281,31 +440,15 @@ def create_app(
             except IdempotencyKeyReuse:
                 raise
         if not reused:
-            # 后台线程执行发现(只读),用独立 DB 会话
-            t = threading.Thread(
-                target=_run_discovery_bg,
-                args=(op.operation_id, corr),
-                daemon=True,
+            st.executor.submit(
+                operation_id=op.operation_id,
+                component_id="system",
+                kind="discovery",
+                payload={"correlation_id": corr},
             )
-            t.start()
         response.headers["Location"] = f"/api/v1/operations/{op.operation_id}"
         response.headers["X-Correlation-ID"] = corr
         return redact_value(op.model_dump(mode="json"))
-
-    def _run_discovery_bg(operation_id: str, corr: str) -> None:
-        st = get_state()
-        with st.db.session() as s:
-            store = OperationStore(s)
-            svc = DiscoveryService(st.registry.all(), store, st.events)
-            try:
-                svc.run(operation_id, corr)
-            except Exception as e:  # pragma: no cover - 防御性
-                store.transition(
-                    operation_id,
-                    status=OperationStatus.FAILED,
-                    phase="failed",
-                    message=str(e)[:200],
-                )
 
     @api.get("/api/v1/readiness", response_model=ReadinessReport, tags=["Discovery"])
     def get_readiness(
@@ -485,24 +628,15 @@ def create_app(
             )
             op = store.get(operation_id)
         assert op is not None
-        if newly_recorded and op.kind.startswith("cc_connect_"):
+        if newly_recorded and op.kind in {
+            "cc_connect_install",
+            "cc_connect_uninstall",
+            "cc_connect_restore",
+        }:
             st.installer.audit_cancel_requested(
                 operation_id, point_of_no_return=op.progress.point_of_no_return
             )
         return redact_value(op.model_dump(mode="json"))
-
-    # 启停与配置接管仍未实现；仅 cc-connect 隔离安装闭环进入真实执行。
-    @api.post("/api/v1/components/{component_id}:start", status_code=202, tags=["Components"])
-    def start_component(component_id: str, _token: str = Depends(_bearer_auth)):
-        raise capability_unsupported(component_id, "start")
-
-    @api.post("/api/v1/components/{component_id}:stop", status_code=202, tags=["Components"])
-    def stop_component(component_id: str, _token: str = Depends(_bearer_auth)):
-        raise capability_unsupported(component_id, "stop")
-
-    @api.post("/api/v1/components/{component_id}:restart", status_code=202, tags=["Components"])
-    def restart_component(component_id: str, _token: str = Depends(_bearer_auth)):
-        raise capability_unsupported(component_id, "restart")
 
     @api.post(
         "/api/v1/components/{component_id}/install-plan",
@@ -561,11 +695,12 @@ def create_app(
         )
         correlation_id = _correlation(x_correlation_id)
         if not reused:
-            threading.Thread(
-                target=st.installer.execute_install,
-                args=(operation.operation_id, payload.plan_id, correlation_id),
-                daemon=True,
-            ).start()
+            st.executor.submit(
+                operation_id=operation.operation_id,
+                component_id=component_id,
+                kind="cc_connect_install",
+                payload={"plan_id": payload.plan_id, "correlation_id": correlation_id},
+            )
         response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
         response.headers["X-Correlation-ID"] = correlation_id
         return redact_value(operation.model_dump(mode="json"))
@@ -588,11 +723,15 @@ def create_app(
         )
         correlation_id = _correlation(x_correlation_id)
         if not reused:
-            threading.Thread(
-                target=st.installer.execute_uninstall,
-                args=(operation.operation_id, payload, correlation_id),
-                daemon=True,
-            ).start()
+            st.executor.submit(
+                operation_id=operation.operation_id,
+                component_id=component_id,
+                kind="cc_connect_uninstall",
+                payload={
+                    "request": payload.model_dump(mode="json"),
+                    "correlation_id": correlation_id,
+                },
+            )
         response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
         return redact_value(operation.model_dump(mode="json"))
 
@@ -614,11 +753,15 @@ def create_app(
         )
         correlation_id = _correlation(x_correlation_id)
         if not reused:
-            threading.Thread(
-                target=st.installer.execute_restore,
-                args=(operation.operation_id, payload, correlation_id),
-                daemon=True,
-            ).start()
+            st.executor.submit(
+                operation_id=operation.operation_id,
+                component_id=component_id,
+                kind="cc_connect_restore",
+                payload={
+                    "request": payload.model_dump(mode="json"),
+                    "correlation_id": correlation_id,
+                },
+            )
         response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
         return redact_value(operation.model_dump(mode="json"))
 
@@ -633,13 +776,6 @@ def create_app(
         return redact_value(
             [item.model_dump(mode="json") for item in get_state().installer.list_managed_versions()]
         )
-
-    @api.post(
-        "/api/v1/components/{component_id}/health:check", status_code=202, tags=["Components"]
-    )
-    def check_health(component_id: str, _token: str = Depends(_bearer_auth)):
-        # 首片:深度健康检查不实现,返回 CAPABILITY_UNSUPPORTED;只读状态已在发现中给出
-        raise capability_unsupported(component_id, "health:check")
 
     @api.get("/api/v1/diagnostics", response_model=list[Diagnostic], tags=["Diagnostics"])
     def list_diagnostics(_token: str = Depends(_bearer_auth)):
@@ -745,5 +881,9 @@ def create_app(
                 st.events.unsubscribe(queue)
 
         return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+    app.include_router(build_configuration_router(get_state, _bearer_auth))
+    app.include_router(build_lifecycle_router(get_state, _bearer_auth))
+    app.include_router(build_integrations_router(get_state, _bearer_auth))
 
     return app

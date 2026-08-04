@@ -2,7 +2,7 @@
 ========
 
 更新时间：2026-08-04
-结论：本阶段通过
+结论：安全门禁通过；无 Secret 持续运行验收为 PARTIAL
 
 一、仓库内容
 ------------
@@ -21,16 +21,19 @@
 - 安装下载仅允许锁定 HTTPS 主机并保留 TLS 校验；重定向、大小、文件名、平台、架构和 SHA256 均在执行前校验。
 - 安装目标限制在 platformdirs 生成的当前用户 LocalAppData 产品目录，拒绝路径穿越、符号链接和 junction 逃逸。
 - 健康探针使用参数数组、隔离环境、临时配置、随机 loopback 端口、无窗口进程和进程树清理，不读取真实用户配置。
+- 产品配置仅能写入固定的产品自有路径；使用不可变计划、revision、备份、同目录临时文件、fsync、os.replace、重解析和回滚。
+- 生命周期启动使用参数数组、shell=False、固定 cwd、环境白名单和 Windows 无窗口标志；停止前核验 PID 创建时间、exe 路径/SHA256、命令摘要与产品所有权。
+- Windows Credential Manager 适配器本阶段只返回 unknown，不读取或写入任何真实 Secret。
 
 三、本阶段无副作用证明
 ----------------------
 
-只在临时 platformdirs LocalAppData 中安装并清理产品管理版本。未修改真实配置、凭据、系统 PATH、全局 npm、计划任务、Watchdog、junction 或运行中服务；未停止或重启 Hermes/cc-connect；未执行真实 Telegram E2E；未发送任何真实消息。ManagementOwner 为 external 时保持 external，不自动接管生命周期。
+只在临时、非系统盘、含中文/空格/括号的隔离产品目录中安装、写入合成配置并尝试运行锁定版 cc-connect。未修改真实配置、凭据、系统 PATH、注册表、计划任务、Watchdog、Windows Service、Reference Baseline 或外部进程；未执行真实 Telegram E2E；未发送任何真实消息。external/conflict Owner 会阻断操作，不自动接管。
 
 四、验证
 --------
 
-Control Plane 测试包含源码 Secret 扫描、脱敏正反例、API 响应、Diagnostic、非法 URL、摘要与 Manifest 不匹配、路径逃逸、并发、取消、回滚失败和重启恢复。真实 Windows 隔离验收还检查合成 Token 不落盘、PATH 与外部 cc-connect 不变、无残留进程。最终证据记录于 reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md。
+Control Plane 测试覆盖 Secret 扫描、配置竞态/漂移/回滚、路径逃逸、Operation 并发/取消/恢复、PID 复用、exe SHA256、端口冲突、所有权冲突、进程崩溃和 Control Plane 重启。真实 Windows 隔离验收还检查无真实 Secret/Telegram/PATH/外部状态变更与无残留进程。最终证据记录于 reports/CC_CONNECT_MANAGED_LIFECYCLE_CONFIGURATION_AND_INTEGRATION_BOUNDARIES_REPORT.md。
 
 五、分发限制
 ------------

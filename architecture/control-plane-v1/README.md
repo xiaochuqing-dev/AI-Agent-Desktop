@@ -7,7 +7,7 @@
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
 - 实现决策：ADR-001..004 已冻结（见 `adr/`）
-- 实现状态：Control Plane 已实现只读发现、Readiness、Dry-run、持久化 Operation/SSE 和诊断，并完成 cc-connect 单组件的锁定产物隔离安装、回滚、卸载与恢复；配置写入、生命周期接管和正式 GUI 未实现
+- 实现状态：Control Plane 已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE 和诊断，并完成 cc-connect 锁定产物隔离安装、原子最小配置、revision/备份/回滚、所有权交接、产品自有生命周期、进程身份与端口所有权；真实无 Secret 持续运行验收为 PARTIAL
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
 
@@ -25,12 +25,14 @@
 10. [10 风险、开放决策与非目标](10_RISKS_OPEN_DECISIONS_AND_NON_GOALS.md)
 11. [11 开源成熟方案取舍](11_OPEN_SOURCE_DESIGN_REFERENCES.md)
 12. [验收清单](ACCEPTANCE_CHECKLIST.md)
+13. [cc-connect 受管运行与可升级边界](12_CC_CONNECT_MANAGED_RUNTIME_BOUNDARIES.md)
 
 机器可读入口：
 
 - [OpenAPI 3.1 契约](../../contracts/control-plane-v1/control-plane.openapi.yaml)
 - [统一事件信封 JSON Schema](../../contracts/control-plane-v1/event-envelope.schema.json)
 - [核心模型 JSON Schema](../../contracts/control-plane-v1/core-models.schema.json)
+- [受管运行 JSON Schema](../../contracts/control-plane-v1/managed-runtime.schema.json)
 
 ## 与现有事实源的关系
 
@@ -66,7 +68,7 @@
 9. 每个配置作用域同一时刻仅有一个 `ManagementOwner`；切换使用备份、版本比较和两阶段交接，禁止双写窗口。
 10. 凭据与业务配置分离；GUI 不读取明文 Secret，Secret 不出现在 URL、普通日志、事件或错误详情中。
 11. 人类指令优先级最高；取消是可确认的异步请求，不虚假承诺瞬时终止外部进程。
-12. Readiness 切片已经实现；第二个纵向切片只为 cc-connect 实现隔离安装、回滚、卸载与恢复。start/stop/restart、配置写入和其他组件安装仍返回 unsupported。
+12. Readiness 与 cc-connect 隔离安装切片已实现；第三个切片仅为产品自有 cc-connect 增加受控配置和 start/stop/restart/status/reconcile。外部生命周期、其他组件安装与真实凭据仍为 unsupported。
 
 ## 未冻结项
 
@@ -82,7 +84,7 @@
 
 ## 当前实现的明确非目标
 
-- 不在当前切片实现其他组件安装、配置或凭据写入、生命周期接管或正式 PySide6 GUI
+- 不在当前切片实现其他组件安装、真实凭据写入、外部生命周期接管或正式 PySide6 GUI
 - 不新增 Channel 或 Runtime
 - 不重写 Hermes、Claude Code、Codex 或 cc-connect
 - 不扩大 dual_agent 或 5 个 cc-connect Patch

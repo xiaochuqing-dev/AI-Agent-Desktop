@@ -45,7 +45,7 @@
 六、当前实现边界
 ----------------
 
-Control Plane 基础运行代码已存在，但当前只实现只读发现、Readiness、Dry-run、Operation/SSE 和无副作用脱敏诊断。真实安装、配置写入、凭据写入、生命周期接管、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现。第五节全部是产品目标，不得写成已交付能力。
+Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE 和无副作用脱敏诊断，以及仅限产品自有 cc-connect 的隔离安装、原子最小配置、所有权交接与生命周期。真实凭据写入、Telegram 自动绑定、六链路自动验收和 GUI 尚未实现；锁定版无 Secret 持续运行验收为 PARTIAL。第五节仍是完整产品目标，不得把未交付部分写成已实现。
 
 七、不得走偏
 ------------

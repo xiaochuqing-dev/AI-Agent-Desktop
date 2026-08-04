@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-04）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前新增且已验证的运行能力仅为 cc-connect 锁定 Windows 产物的隔离安装、回滚、卸载与恢复；生命周期接管、配置写入、Telegram 自动绑定和 GUI 仍未实现。
+实施状态更新（2026-08-04）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 cc-connect 锁定 Windows 产物的隔离安装、原子最小配置和产品自有生命周期；无 Secret 真实持续运行是 PARTIAL，Telegram 自动绑定和 GUI 仍未实现。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
@@ -58,7 +58,7 @@
 | PASS | 每个配置 scope 唯一写入权 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | CC Switch 是可选高级入口，不阻塞新手首用 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | PySide6 首选已同步到产品决策和宪法，且未污染核心契约 | [最新决策](../../03_LATEST_PRODUCT_DECISIONS.md)、[产品宪法](../../product/PRODUCT_CONSTITUTION.md) |
-| PASS | 已实现 Control Plane 与 cc-connect 单组件隔离安装；未实现正式 GUI、通用安装器或生命周期接管 | Git 变更范围与阶段报告 |
+| PASS | 已实现 Control Plane 与 cc-connect 隔离安装、最小配置和产品自有生命周期；未实现正式 GUI、通用安装器或外部接管 | Git 变更范围与阶段报告 |
 
 ## D 安全与公开仓库边界
 
