@@ -106,7 +106,7 @@ ManagementOwner 枚举 external/product/unmanaged/conflict/unknown。受管配�
 
 ## 27. PowerShell 5.1/7
 
-PowerShell 5.1 用户验收包装骨架在本机通过语法/运行检查。本机未安装 PowerShell 7；Windows Server 2022 CI 同时执行 PowerShell 5.1 和 PowerShell 7 入口，最终状态以本报告第 43 节的 CI 证据为准。
+PowerShell 5.1 用户验收包装骨架在本机通过语法/运行检查。本机未安装 PowerShell 7；Windows Server 2022 CI Run 30890477563 同时用 Windows PowerShell 5.1 和 PowerShell 7 校验 Patch、双构建、产物与验收入口，全部 success。
 
 ## 28. Windows 10 状态
 
@@ -180,11 +180,11 @@ Ruff format/check、mypy 和四份契约验证通过；pytest 133 passed、1 ski
 
 ## 43. Windows CI Run ID
 
-PENDING_POST_PUSH。实现提交推送 origin/main 后填入精确 GitHub Actions Run ID 和结果，不预先声称全绿。
+GitHub Actions Run ID 30890477563，head SHA `ae69444c361ac75b049a8ef61534a5f768b34494`，结论 success。三个 job 均通过：Platform-independent core compatibility、Windows-first quality gates、Locked cc-connect Windows artifact and isolated acceptance。最后一个 job 包括精确上游 commit、5 个 Patch、Go 测试、双构建一致性、PowerShell 5.1/7、两套真实 Windows 验收、Windows 10 包装入口和 Artifact 上传。证据 URL：https://github.com/xiaochuqing-dev/AI-Agent-Desktop/actions/runs/30890477563。
 
 ## 44. 真实 Windows 隔离验收
 
-Windows 11 x64 build 26100、普通用户、非系统盘、中文/空格/括号路径上，锁定产物 SHA256 `cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec` 的安装验收 PASSED。受管运行验收 PARTIAL：配置 revision 1→3、竞态、回滚到 revision 1、Owner、端口/外部冲突、停止和重启恢复证据正确；真实 start 因上游无 Secret 退出而得到 `MANAGED_PROCESS_EXITED_DURING_STARTUP`，restart 也准确失败。结束后无受管残留进程。
+Windows 11 x64（Python API 报告 build 26100，PowerShell 系统查询报告 build 26200）、普通用户、非系统盘、中文/空格/括号路径上，锁定产物 SHA256 `cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec` 的安装验收 PASSED。受管运行验收 PARTIAL：配置 revision 1→3、竞态、回滚到 revision 1、Owner、端口/外部冲突、停止和重启恢复证据正确；真实 start 因上游运行前提不满足而得到 `MANAGED_PROCESS_EXITED_DURING_STARTUP`，restart 也准确失败。结束后无受管残留进程。同样的两套验收在 Windows Server 2022 CI Run 30890477563 中通过脚本预期判定。
 
 ## 45. 失败场景矩阵
 
@@ -227,15 +227,15 @@ Telegram 三 Bot 安全绑定、自动身份发现与配置生成切片。先完
 
 ## 52. 最终 main SHA
 
-最终精确 SHA 由交付完成后的 origin/main 提供，并在最终用户回执中记录。Git 提交无法在自身已提交内容中无循环地嵌入自己的 SHA；本报告不写伪值。阶段实现基准 SHA：PENDING_AFTER_IMPLEMENTATION_COMMIT。
+最终精确 SHA 由交付完成后的 origin/main 提供，并在最终用户回执中记录。Git 提交无法在自身已提交内容中无循环地嵌入自己的 SHA；本报告不写伪值。阶段实现与完整 Windows CI 基准 SHA：`ae69444c361ac75b049a8ef61534a5f768b34494`。
 
 ## 53. 最终分支列表
 
-目标与验收要求：本地仅 main，远端仅 `refs/heads/main`。本阶段不创建分支或 PR，推送后再次复核。
+实现提交推送后已复核：本地仅 main，远端仅 `refs/heads/main`。本阶段未创建分支或 PR；最终证据提交后再次复核。
 
 ## 54. 最终 git status
 
-目标与验收要求：报告与 CI 证据提交推送后，main 与 origin/main 一致，working tree clean。精确结果同时在用户回执记录。
+实现提交与 Run 30890477563 完成后曾复核 main 与 origin/main 一致、working tree clean。回填本报告的最终证据提交推送后再次复核，精确结果同时在用户回执记录。
 
 ## 55. 回滚本阶段代码的方法
 
