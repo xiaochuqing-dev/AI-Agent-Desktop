@@ -1,7 +1,7 @@
 PUBLIC_FILE_MANIFEST
 
-Generated: 2026-08-05
-Public file count: 252
+Generated: 2026-08-07
+Public file count: 276
 
 Scope
 This inventory contains every tracked file on final main.
@@ -62,6 +62,7 @@ contracts/control-plane-v1/control-plane.openapi.yaml
 contracts/control-plane-v1/core-models.schema.json
 contracts/control-plane-v1/event-envelope.schema.json
 contracts/control-plane-v1/managed-runtime.schema.json
+control-plane/.python-version
 control-plane/README.md
 control-plane/alembic.ini
 control-plane/alembic/env.py
@@ -70,6 +71,7 @@ control-plane/alembic/versions/0001_control_plane_baseline.py
 control-plane/alembic/versions/0002_cc_connect_installer.py
 control-plane/alembic/versions/0003_cc_connect_managed_runtime.py
 control-plane/alembic/versions/0004_telegram_native_config.py
+control-plane/alembic/versions/0005_six_link_observability.py
 control-plane/control_plane/__init__.py
 control-plane/control_plane/adapters/__init__.py
 control-plane/control_plane/adapters/discovery.py
@@ -82,6 +84,7 @@ control-plane/control_plane/api/routers/credentials.py
 control-plane/control_plane/api/routers/integrations.py
 control-plane/control_plane/api/routers/lifecycle.py
 control-plane/control_plane/api/routers/native_configuration.py
+control-plane/control_plane/api/routers/observability.py
 control-plane/control_plane/api/routers/telegram_binding.py
 control-plane/control_plane/application/__init__.py
 control-plane/control_plane/application/discovery_service.py
@@ -129,6 +132,11 @@ control-plane/control_plane/lifecycle/models.py
 control-plane/control_plane/lifecycle/port_ownership.py
 control-plane/control_plane/lifecycle/process_identity.py
 control-plane/control_plane/main.py
+control-plane/control_plane/network/__init__.py
+control-plane/control_plane/network/proxy.py
+control-plane/control_plane/observability/__init__.py
+control-plane/control_plane/observability/models.py
+control-plane/control_plane/observability/service.py
 control-plane/control_plane/operations/__init__.py
 control-plane/control_plane/operations/executor.py
 control-plane/control_plane/persistence/__init__.py
@@ -146,7 +154,18 @@ control-plane/control_plane/telegram/update_lease.py
 control-plane/control_plane/updates/__init__.py
 control-plane/control_plane/updates/models.py
 control-plane/control_plane/updates/providers.py
+control-plane/control_plane/validation/__init__.py
+control-plane/control_plane/validation/wizard.py
 control-plane/pyproject.toml
+control-plane/requirements-build.in
+control-plane/requirements-build.lock
+control-plane/requirements-dev-linux.lock
+control-plane/requirements-dev.lock
+control-plane/requirements-prod.lock
+control-plane/scripts/USER_VALIDATION_GUIDE.txt
+control-plane/scripts/build_windows_candidate.ps1
+control-plane/scripts/candidate_entry.py
+control-plane/scripts/production_only_acceptance.py
 control-plane/scripts/validate_contracts.py
 control-plane/scripts/windows10_user_acceptance.ps1
 control-plane/scripts/windows_credential_manager_acceptance.py
@@ -174,13 +193,17 @@ control-plane/tests/test_installer_service.py
 control-plane/tests/test_lifecycle_service.py
 control-plane/tests/test_migrations.py
 control-plane/tests/test_native_configuration_and_secrets.py
+control-plane/tests/test_observability.py
+control-plane/tests/test_observability_api.py
 control-plane/tests/test_operation_executor.py
 control-plane/tests/test_process_identity_and_ports.py
+control-plane/tests/test_proxy_policy.py
 control-plane/tests/test_redaction.py
 control-plane/tests/test_security.py
 control-plane/tests/test_telegram_api_client.py
 control-plane/tests/test_telegram_binding.py
 control-plane/tests/test_update_and_external_boundaries.py
+control-plane/tests/test_validation_wizard.py
 history-minimal/HISTORY_INDEX.md
 integrations/cc-connect/README.md
 integrations/cc-connect/manifests/SHA256_MANIFEST.txt
@@ -217,6 +240,7 @@ reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md
 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md
+reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md
 reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md
 src/dual-agent-fallback/__init__.py
 src/dual-agent-fallback/aggregate.py

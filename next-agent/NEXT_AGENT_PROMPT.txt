@@ -1,6 +1,6 @@
 下一 Agent 提示词
 
-你接手 AI-Agent-Desktop 仓库。开始前核对 main、最新 GitHub Actions、reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json、architecture/control-plane-v1/13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md 和 contracts/control-plane-v1。
+你接手 AI-Agent-Desktop 仓库。开始前核对 main、最新 GitHub Actions、reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json、architecture/control-plane-v1/13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md 和 contracts/control-plane-v1。
 
 产品范围固定
 
@@ -12,7 +12,9 @@ Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRu
 
 Windows CredentialBackend 已真实落到 keyring.backends.Windows.WinVaultKeyring，支持 put、replace、status、resolve_for_operation、delete、metadata 和 revision，不允许明文文件回退。公开 CredentialRef 固定为 telegram/hermes-bot-token、telegram/claude-bot-token、telegram/codex-bot-token。
 
-已实现 TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处理、Update Lease、一次性 HMAC bind code、offset 防重放、同一 User/Group 的三私聊/三群聊 3/3 绑定。Fake Telegram 合成验收通过，但真实 Telegram 状态仍是 PENDING USER LIVE VALIDATION。
+已实现 TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处理、Update Lease、一次性 HMAC bind code、offset 防重放、同一 User/Group 的三私聊/三群聊 3/3 绑定。Fake Telegram 合成验收通过。六 LinkState、不可变一次性 E2E 计划、消息关联、Session 隔离探针、direct/environment/explicit 代理策略、Alembic 0005、Observability API 和自包含 Windows 验收向导也已交付。
+
+2026-08-07 用户直接在 Telegram 验证 Hermes、Claude Code、Codex 的私聊与群聊六条链路，并明确确认无问题、可以通过。该轮未使用向导，不得虚构三次真实 getMe、3/3 bound、plan/run 或 correlation 持久化记录；用户体验 LIVE_VERIFIED 与 Control Plane 结构化证据边界必须继续分开。
 
 产品管理状态与原生配置已分离为 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。Renderer 固定为 cc-connect-fc315d2-native-v1，只输出锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。Claude/Codex 配置支持 plan、revision、备份、原子写入、漂移检测和回滚。
 
@@ -20,19 +22,19 @@ Windows CredentialBackend 已真实落到 keyring.backends.Windows.WinVaultKeyri
 
 准确限制
 
-整体阶段为 PARTIAL。真实 Telegram 为 PENDING USER LIVE VALIDATION；Windows 10 为 PENDING WINDOWS 10 VALIDATION；Hermes 为 pending_component_install。锁定上游 management API 无 bind host 字段，实测监听所有网卡；原生 Telegram options 无 Group Chat ID 白名单；deep health 无官方端点，这三项不得虚报，且不得为此增加 Patch。Python/keyring 无法保证物理内存完全清零。
+整体阶段为 PARTIAL。六条 Telegram 用户体验链路为 LIVE_VERIFIED；Windows 10 为 PENDING WINDOWS 10 VALIDATION；向导真实 getMe、3/3 和 correlation 证据未采集。Hermes 在当前机器作为 observed external runtime，但 Control Plane 不接管。锁定上游 management API 无 bind host 字段，实测监听所有网卡；原生 Telegram options 无 Group Chat ID 白名单；deep health 无官方端点，这三项不得虚报，且不得为此增加 Patch。Python/keyring 无法保证物理内存完全清零。
 
 下一阶段准确名称
 
-六链路可观测性、真实消息 E2E 与会话隔离修复切片。
+最小 GUI、十分钟 Onboarding 与 Windows 自包含分发切片。
 
 进入门禁
 
-真实操作必须由用户显式启动。先用三个真实测试 Bot Token 分别完成 getMe，再由同一用户完成三私聊和同一群 3/3 绑定；确认 Claude/Codex 受管运行、Update Lease 和配置回滚稳定；Hermes 保持明确安装/配置状态；Windows 10 x64 单独实机验证。Fake 结果不能替代这些门禁。
+保持六条用户体验链路稳定；任何行为变化都必须重新请用户验收。Windows 10 x64 需单独实机验证。如需机器可审计的 live 证据，另行通过向导完成三个真实 getMe、同一 User/Group 的 3/3 绑定和六条 correlation；Fake 结果或用户口头结论均不能伪装成这些记录。
 
 下一阶段只允许
 
-为 Hermes、Claude Code、Codex 的三个私聊和三个群聊建立脱敏可观测性；在用户确认的目标会话中逐条执行一次真实消息 E2E；分别记录普通消息、命令、Mention、Reply、Topic 和 Session 隔离；发现问题时做最小修复和回归测试。
+基于稳定 Control Plane 契约实现最小正式 GUI、十分钟 Onboarding、状态面板、一键诊断、有限修复和可回滚 Windows 分发；补齐 Windows 10 实机证据。不得让 GUI 读取上游私有数据库、Secret 或消息正文。
 
 禁止事项
 

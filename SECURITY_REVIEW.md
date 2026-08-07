@@ -1,8 +1,8 @@
 安全审查
 ========
 
-更新时间：2026-08-05
-结论：代码、Fake 与 Windows 11 合成安全门禁通过；整体交付为 PARTIAL
+更新时间：2026-08-07
+结论：代码、Fake、Windows 11 合成安全门禁和六链路用户体验验收通过；整体交付因 Windows 10 与结构化 live 证据边界保持 PARTIAL
 
 一、仓库内容
 ------------
@@ -33,12 +33,14 @@
 三、本阶段无副作用证明
 ----------------------
 
-只在临时、非系统盘、含中文/空格/括号的隔离产品目录中安装、写入合成配置并运行锁定版 cc-connect。Windows Credential Manager 验收只写入随机 acceptance/ 引用并在 finally 删除；未读取用户旧 Token。未修改真实配置、系统 PATH、注册表、计划任务、Watchdog、Windows Service、Reference Baseline 或外部进程；未执行真实 Telegram E2E；未发送任何真实消息。external/conflict Owner 会阻断操作，不自动接管。
+自动化只在临时、非系统盘、含中文/空格/括号的隔离产品目录中安装、写入合成配置并运行锁定版 cc-connect。Windows Credential Manager 验收只写入随机 acceptance/ 引用并在 finally 删除；未读取用户旧 Token。仓库代码未修改真实 Bot/Provider 配置、系统 PATH、注册表、计划任务定义、Windows Service 或 Reference Baseline；external/conflict Owner 会阻断操作，不自动接管。
+
+2026-08-07 的真实 Telegram 消息由用户在 Telegram 客户端内直接发送，Token 未提供给本任务，消息正文未写入仓库或最终报告。本轮绕过验收向导，因此没有伪造 getMe、3/3 绑定或 correlation 持久化证据。Hermes 黑窗口修复位于本机外部运行层，修改前有独立备份；最终报告只引用脱敏的事件类型、Agent、私聊/群聊范围和时间，不复制上游日志正文。
 
 四、验证
 --------
 
-Control Plane 自动化覆盖 Secret API 不回显与不落库、Credential 后端错误、Telegram getMe/webhook/getUpdates、Update Lease、绑定过期/重放/抢绑定/同群一致性、原生 Renderer、配置竞态/漂移/回滚、external 检测、PID/SHA/端口/Owner 和重启恢复。Windows 11 普通用户验收确认 Credential Manager、合法 cc-connect 持续运行、Bearer management API、stop/restart/reconcile、Secret/绑定码文件扫描、PATH/外部状态不变和无残留进程。证据记录于 reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md。
+Control Plane 自动化覆盖 Secret API 不回显与不落库、Credential 后端错误、Telegram getMe/webhook/getUpdates、Update Lease、绑定过期/重放/抢绑定/同群一致性、六 LinkState、一次性 E2E、消息关联、Session 隔离、代理策略、原生 Renderer、配置竞态/漂移/回滚、external 检测、PID/SHA/端口/Owner 和重启恢复。最终本地门禁为 ruff、格式、mypy、合同、compileall、生产依赖 smoke 和 pytest 187 passed、1 skipped；候选包文本扫描未发现 Secret 形态或消息正文关键字段。详细证据记录于 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md。
 
 五、分发限制
 ------------

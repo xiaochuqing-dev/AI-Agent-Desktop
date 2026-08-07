@@ -16,16 +16,19 @@ AI Agent Desktop
 - 产品管理状态与锁定版 cc-connect 原生运行配置已分离为 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。Renderer 绑定 fc315d2，只输出锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。
 - 三个固定 Bot slot、getMe 身份验证、Webhook 检查、Update Lease、一次性绑定码、防重放、User ID/Group ID 自动发现和三 Bot 3/3 一致性已实现并通过 Fake Telegram 合成验收。
 - 合法 Claude/Codex Project 的真实 cc-connect 进程已在 Windows 11 普通用户、非系统盘、中文空格括号路径下通过持续运行、stop、restart、Control Plane 重启 reconcile、PID/exe SHA/config revision/端口所有权和 Bearer management API 验收。
-- 整体状态仍为 PARTIAL：未使用真实 Telegram Token，live 身份与绑定为 PENDING USER LIVE VALIDATION；Windows 10 为 PENDING WINDOWS 10 VALIDATION；Hermes 为 pending_component_install；上游 management API 只能监听所有网卡、原生 Group Chat 过滤和 deep health 为 unsupported。
-- 六链路真实消息 E2E 与正式 GUI 尚未实现。
-- 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS，本阶段没有实现 GUI。
+- 六链路可观测性、消息关联、Session 隔离探针、显式一次性 E2E 计划、代理策略、脱敏用户验收向导和 Windows x64 候选包已实现。
+- 2026-08-07，用户直接在 Telegram 完成 Hermes、Claude Code、Codex 的私聊与群聊六链路验收，并明确确认无问题、可以通过；六条用户体验链路均记为 LIVE_VERIFIED。
+- 本轮真实验收绕过向导，未生成三次 getMe、3/3 绑定和六条 correlation 的 Control Plane 持久化证据，不能把用户确认改写为不存在的结构化记录。
+- 整体仍为 PARTIAL：Windows 10 为 PENDING WINDOWS 10 VALIDATION；当前实机为 Windows 11；上游 management API 只能监听所有网卡、原生 Group Chat 过滤和 deep health 为 unsupported。
+- Hermes 在当前机器作为 external runtime 被观测，不由 Control Plane 接管生命周期；本机启动黑窗口问题已在外部运行层修复并由用户复测通过。
+- 候选包内含验收向导（Tk/Windows GUI）；正式产品 GUI 仍以后续 PySide6 + Qt Widgets + QSS 为首选方向。
 
 二、首发产品范围
 ----------------
 
 首发平台为 Windows 10/11，首发渠道仅为 Telegram，用户可见三个 Bot：Hermes Bot、Claude Code Bot、Codex Bot。
 
-目标验收六条链路：Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 私聊、Codex 群聊。当前已交付安全凭据、身份发现、三 Bot 绑定和 Claude/Codex 原生配置生成，但尚未执行六链路真实消息 E2E。
+目标验收六条链路：Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 私聊、Codex 群聊。当前已交付安全凭据、身份发现、三 Bot 绑定、Claude/Codex 原生配置生成、六链路可观测性和候选包；六条真实用户体验链路已由用户逐条验证通过。产品内置 E2E 仍坚持逐条显式确认、每次最多一条且失败不自动重试。
 
 三、集成优先
 ------------
@@ -46,8 +49,9 @@ AI Agent Desktop
 9. architecture/control-plane-v1/README.md
 10. contracts/control-plane-v1/
 11. reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md
-12. 05_NEXT_PHASE.md
-13. next-agent/NEXT_AGENT_PROMPT.txt
+12. reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md
+13. 05_NEXT_PHASE.md
+14. next-agent/NEXT_AGENT_PROMPT.txt
 
 五、目录结构
 ------------

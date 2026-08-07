@@ -34,12 +34,12 @@ src/ 与 integrations/cc-connect/patches/ 是 Reference Baseline 的当前证据
 三、当前实现边界
 ----------------
 
-Control Plane 已提供只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager 凭据、三 Bot getMe 与绑定、Update Lease、managed/native 配置分离、锁定 Renderer、Claude/Codex 原生配置计划/备份/回滚，以及合法 cc-connect 进程的启停重启和重启恢复。Fake Telegram 与合成 Token 验收已通过；未使用真实 Telegram Token，Windows 10 未实机验证，六链路消息 E2E 和 GUI 未实现，因此整体状态为 PARTIAL。
+Control Plane 已提供只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager 凭据、三 Bot getMe 与绑定、Update Lease、managed/native 配置分离、锁定 Renderer、Claude/Codex 原生配置计划/备份/回滚、六链路可观测性、一次性 E2E 计划、Session 隔离探针、代理策略和自包含验收向导。Fake/合成门禁已通过；2026-08-07 用户直接在 Telegram 验证六条私聊/群聊链路并明确通过。由于没有经向导执行，本轮没有三次 getMe、3/3 绑定和 correlation 的结构化 live 记录；Windows 10 也未实机验证，因此整体状态仍为 PARTIAL。
 
 四、下一阶段
 ------------
 
-下一阶段准确名称是“六链路可观测性、真实消息 E2E 与会话隔离修复切片”。进入真实消息测试前，必须由用户显式完成三个真实 Token 的 getMe、三私聊/三群聊同一 User/Group 绑定，并在 Windows 10 x64 单独完成实机验证。见 05_NEXT_PHASE.md 与 next-agent/NEXT_AGENT_PROMPT.txt。
+下一阶段准确名称是“最小 GUI、十分钟 Onboarding 与 Windows 自包含分发切片”。进入正式发布前仍需补齐 Windows 10 x64 实机验证；如需把直接 Telegram 的用户证据升级为 Control Plane 可审计证据，应单独执行向导 getMe、3/3 绑定和六链路 correlation 流程，不得由现有用户确认反推。见 05_NEXT_PHASE.md 与 next-agent/NEXT_AGENT_PROMPT.txt。
 
 五、遇到矛盾
 ------------
