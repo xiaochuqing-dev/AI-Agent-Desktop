@@ -77,7 +77,7 @@ jobs:
       - name: Install locked project dependencies
         run: |
           python -m pip install --require-hashes -r requirements-build.lock
-          python -m pip install --require-hashes -r requirements-dev.lock
+          python -m pip install --require-hashes -r requirements-dev-linux.lock
           python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Run platform-independent tests
