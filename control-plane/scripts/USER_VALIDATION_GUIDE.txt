@@ -1,0 +1,13 @@
+AI-Agent-Desktop 阶段 A Windows x64 用户验收候选包
+
+启动 AI-Agent-Desktop-Validation-Wizard.exe。向导启动、刷新和合成验收不会访问 Telegram。
+输入 Token 时只使用向导中的安全输入框，不要把 Token 发给支持人员或写入文本文件。
+验证三个 Bot 后，创建绑定会话，按界面显示的私聊和群聊命令逐个操作，再点击检查更新。
+六条链路必须在列表中逐条选择。每条链路先创建计划，再明确确认发送一条短的只读验收消息。
+失败、超时或没有响应时不会自动重试；需要新建计划并重新确认。向导不会读取 Telegram 响应来替代运行时的 Update Lease。
+响应 message_id 只能在运行时提供可靠证据后录入。导出的报告只包含摘要、哈希、状态和消息 ID，不包含正文或 Token。
+清理验收数据按钮只删除候选包中的 validation-data 和脱敏报告，不删除 Windows Credential Manager 凭据。
+
+候选包中的 AI-Agent-Desktop-Validation-Wizard.exe --serve 可启动 loopback Control Plane；默认不绑定外部地址。
+候选包不要求安装 Python、Go 或 Node，也不修改 PATH、注册表、计划任务、Windows Service 或 Watchdog。
+真实 Telegram 和 Windows 10 状态仍需用户在自己的机器上确认。

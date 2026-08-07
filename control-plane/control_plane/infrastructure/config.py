@@ -40,6 +40,9 @@ class Settings:
     lifecycle_startup_timeout_seconds: float = 10.0
     lifecycle_stop_timeout_seconds: float = 5.0
     lifecycle_stable_window_seconds: float = 3.0
+    telegram_proxy_mode: str = "direct"
+    telegram_proxy_url: str | None = None
+    telegram_proxy_credential_reference: str | None = None
     allowed_download_hosts: tuple[str, ...] = (
         "github.com",
         "api.github.com",
@@ -77,4 +80,9 @@ class Settings:
             bind_port=bind_port,
             data_dir=data_dir,
             trusted_artifact_dir=trusted_artifact_dir,
+            telegram_proxy_mode=os.environ.get("CONTROL_PLANE_TELEGRAM_PROXY_MODE", "direct"),
+            telegram_proxy_url=os.environ.get("CONTROL_PLANE_TELEGRAM_PROXY_URL"),
+            telegram_proxy_credential_reference=os.environ.get(
+                "CONTROL_PLANE_TELEGRAM_PROXY_CREDENTIAL_REF"
+            ),
         )

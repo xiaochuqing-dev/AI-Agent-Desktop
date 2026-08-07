@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "control-plane"
 version = "0.1.0"
 description = "AI Agent Desktop Local Control Plane with readiness and isolated cc-connect installation."
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "AI Agent Desktop" }]
@@ -22,13 +22,16 @@ dependencies = [
     "alembic>=1.13",
     "keyring>=25",
     "pyyaml>=6.0",
+    # Telegram live E2E and the local API use httpx at runtime; it must not be
+    # hidden in the development extra.
+    "httpx>=0.28,<0.29",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
-    "httpx>=0.27",
+    "httpx>=0.28,<0.29",
     "ruff>=0.7",
     "mypy>=1.13",
     "jsonschema>=4.23",

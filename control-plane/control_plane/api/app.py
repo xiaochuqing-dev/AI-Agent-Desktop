@@ -60,6 +60,8 @@ from ..installer.version_store import ManagedVersionStore
 from ..lifecycle.managed_process import ManagedProcessService
 from ..lifecycle.models import LifecycleActionRequest
 from ..lifecycle.port_ownership import PortOwnershipInspector
+from ..network.proxy import ProxyPolicy
+from ..observability.service import LiveE2ETestService
 from ..operations import (
     ExecutionContext,
     OperationExecutionError,
@@ -81,6 +83,7 @@ from .routers import (
     build_integrations_router,
     build_lifecycle_router,
     build_native_configuration_router,
+    build_observability_router,
     build_telegram_router,
 )
 
@@ -128,7 +131,19 @@ class AppState:
             port_inspector=self.port_inspector,
         )
         self.credentials = CredentialService(self.db, credential_backend)
-        self.telegram_client = telegram_client or TelegramBotApiClient()
+
+        def resolve_proxy_credential(reference_id: str) -> str:
+            with self.credentials.resolve_for_operation(reference_id) as value:
+                return value
+
+        self.telegram_client = telegram_client or TelegramBotApiClient(
+            proxy_policy=ProxyPolicy(
+                mode=settings.telegram_proxy_mode,  # type: ignore[arg-type]
+                explicit_url=settings.telegram_proxy_url,
+                credential_reference_id=settings.telegram_proxy_credential_reference,
+            ),
+            proxy_secret_resolver=resolve_proxy_credential,
+        )
         self.telegram_identities = TelegramBotIdentityService(
             self.db,
             self.credentials,
@@ -171,6 +186,15 @@ class AppState:
             stop_timeout_seconds=settings.lifecycle_stop_timeout_seconds,
             stable_window_seconds=settings.lifecycle_stable_window_seconds,
         )
+        self.observability = LiveE2ETestService(
+            self.db,
+            credentials=self.credentials,
+            identities=self.telegram_identities,
+            binding=self.telegram_binding,
+            lifecycle=self.lifecycle,
+            configuration=self.configuration,
+            telegram_client=self.telegram_client,
+        )
         self.cc_connect_updates = CcConnectArtifactProvider(self.db, self.version_store)
         self.hermes_updates = HermesUpdateProvider()
         self.hermes_configuration = HermesConfigurationPlanner(
@@ -204,7 +228,11 @@ class AppState:
             pass
 
     def stop(self) -> bool:
-        return self.executor.shutdown()
+        stopped = self.executor.shutdown()
+        # Release SQLite/WAL handles when the embedded server exits; this is
+        # required for ordinary-user candidate cleanup on Windows.
+        self.db.engine.dispose()
+        return stopped
 
     def _register_handlers(self) -> None:
         self.executor.register(
@@ -1105,5 +1133,6 @@ def create_app(
     app.include_router(build_credentials_router(get_state, _bearer_auth))
     app.include_router(build_telegram_router(get_state, _bearer_auth))
     app.include_router(build_native_configuration_router(get_state, _bearer_auth))
+    app.include_router(build_observability_router(get_state, _bearer_auth))
 
     return app

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from sqlalchemy import inspect, text
 
 from alembic import command
 from control_plane.infrastructure.config import Settings
-from control_plane.persistence.migration import _config
+from control_plane.persistence.migration import _config, _control_plane_root
 from control_plane.persistence.models import (
     Base,
     ComponentStateRecord,
@@ -56,15 +58,34 @@ RUNTIME_TABLES = {
     "hermes_configuration_plans",
 }
 
+OBSERVABILITY_TABLES = {
+    "link_status_records",
+    "live_e2e_test_plans",
+    "live_e2e_test_runs",
+    "message_correlation_records",
+    "session_isolation_results",
+    "user_validation_sessions",
+    "user_validation_steps",
+    "packaged_candidate_records",
+}
+
+
+def test_frozen_resource_root_uses_pyinstaller_bundle(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "control_plane.persistence.migration.sys._MEIPASS", str(tmp_path), raising=False
+    )
+    assert _control_plane_root() == Path(tmp_path).resolve()
+
 
 def test_empty_database_migrates_to_head(tmp_path):
     database = Database(Settings(data_dir=str(tmp_path)))
     tables = set(inspect(database.engine).get_table_names())
     assert INSTALLER_TABLES.issubset(tables)
     assert RUNTIME_TABLES.issubset(tables)
+    assert OBSERVABILITY_TABLES.issubset(tables)
     with database.engine.connect() as connection:
         assert connection.scalar(text("select version_num from alembic_version")) == (
-            "0004_telegram_native_config"
+            "0005_six_link_observability"
         )
 
 
@@ -83,6 +104,7 @@ def test_legacy_create_all_schema_is_stamped_and_upgraded(tmp_path):
     database = Database(Settings(data_dir=str(tmp_path), db_filename="legacy.db"))
     assert INSTALLER_TABLES.issubset(set(inspect(database.engine).get_table_names()))
     assert RUNTIME_TABLES.issubset(set(inspect(database.engine).get_table_names()))
+    assert OBSERVABILITY_TABLES.issubset(set(inspect(database.engine).get_table_names()))
 
 
 def test_repeated_migration_is_idempotent(tmp_path):
@@ -92,7 +114,7 @@ def test_repeated_migration_is_idempotent(tmp_path):
     second = Database(settings)
     with second.engine.connect() as connection:
         rows = connection.execute(text("select version_num from alembic_version")).all()
-    assert rows == [("0004_telegram_native_config",)]
+    assert rows == [("0005_six_link_observability",)]
 
 
 def test_current_0002_database_upgrades_without_losing_installer_tables(tmp_path):
@@ -106,6 +128,7 @@ def test_current_0002_database_upgrades_without_losing_installer_tables(tmp_path
     tables = set(inspect(database.engine).get_table_names())
     assert INSTALLER_TABLES.issubset(tables)
     assert RUNTIME_TABLES.issubset(tables)
+    assert OBSERVABILITY_TABLES.issubset(tables)
 
 
 def test_runtime_migration_has_reversible_schema_strategy(tmp_path):

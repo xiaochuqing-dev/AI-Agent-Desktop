@@ -535,3 +535,105 @@ class HermesConfigurationPlanRecord(Base):
     status: Mapped[str] = mapped_column(String(64), index=True)
     plan_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LinkStatusRecord(Base):
+    __tablename__ = "link_status_records"
+    link_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    state_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    evidence_level: Mapped[str] = mapped_column(String(32), index=True)
+    last_probe_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_live_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class LiveE2ETestPlanRecord(Base):
+    __tablename__ = "live_e2e_test_plans"
+    plan_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    plan_digest: Mapped[str] = mapped_column(String(71), unique=True)
+    link_id: Mapped[str] = mapped_column(String(32), index=True)
+    plan_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LiveE2ETestRunRecord(Base):
+    __tablename__ = "live_e2e_test_runs"
+    run_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    plan_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    link_id: Mapped[str] = mapped_column(String(32), index=True)
+    lifecycle: Mapped[str] = mapped_column(String(32), index=True)
+    evidence_level: Mapped[str] = mapped_column(String(32), index=True)
+    correlation_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    request_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reply_to_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    diagnostic_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    recovery_actions_json: Mapped[str] = mapped_column(Text, default="[]")
+    idempotency_key: Mapped[str] = mapped_column(String(256), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class MessageCorrelationRecord(Base):
+    __tablename__ = "message_correlation_records"
+    correlation_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    link_id: Mapped[str] = mapped_column(String(32), index=True)
+    bot_id: Mapped[int] = mapped_column(Integer, index=True)
+    chat_identity_hash: Mapped[str] = mapped_column(String(64), index=True)
+    request_message_id: Mapped[int] = mapped_column(Integer, index=True)
+    response_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reply_to_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    send_status: Mapped[str] = mapped_column(String(32))
+    response_status: Mapped[str] = mapped_column(String(32), index=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    diagnostic_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    consumed: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SessionIsolationResultRecord(Base):
+    __tablename__ = "session_isolation_results"
+    probe_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    evidence_level: Mapped[str] = mapped_column(String(32), index=True)
+    checks_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserValidationSessionRecord(Base):
+    __tablename__ = "user_validation_sessions"
+    session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    candidate_version: Mapped[str] = mapped_column(String(64), index=True)
+    state: Mapped[str] = mapped_column(String(64), index=True)
+    current_step: Mapped[int] = mapped_column(Integer, default=1)
+    state_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserValidationStepRecord(Base):
+    __tablename__ = "user_validation_steps"
+    session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    step_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    evidence_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class PackagedCandidateRecord(Base):
+    __tablename__ = "packaged_candidate_records"
+    candidate_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    version: Mapped[str] = mapped_column(String(64), index=True)
+    platform: Mapped[str] = mapped_column(String(32))
+    architecture: Mapped[str] = mapped_column(String(32))
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    package_sha256: Mapped[str] = mapped_column(String(64))
+    relative_path: Mapped[str] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)

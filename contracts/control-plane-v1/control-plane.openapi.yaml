@@ -52,6 +52,8 @@ tags:
     description: Secret storage boundaries that never return plaintext values.
   - name: Telegram
     description: Three fixed bot identities, explicit binding sessions, webhook safety, and update-stream ownership.
+  - name: Observability
+    description: Six independent Telegram link states, explicit one-shot live E2E evidence, and session-isolation probes.
   - name: Native Configuration
     description: Locked-version cc-connect rendering and non-writing Hermes configuration plans.
   - name: Agents
@@ -2023,6 +2025,221 @@ paths:
                 $ref: "#/components/schemas/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /observability/links:
+    get:
+      tags: [Observability]
+      operationId: listObservabilityLinks
+      summary: List the six independent Telegram link states.
+      responses:
+        "200":
+          description: Redacted link snapshots; process state alone never implies a healthy message path.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkState"
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/links/{linkId}:
+    get:
+      tags: [Observability]
+      operationId: getObservabilityLink
+      summary: Read one independent Telegram link state.
+      parameters:
+        - name: linkId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/LinkId" }
+      responses:
+        "200":
+          description: Redacted link snapshot.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkState" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/links/{linkId}/e2e-plans:
+    post:
+      tags: [Observability]
+      operationId: createObservabilityE2EPlan
+      summary: Create an immutable, un-sent one-shot E2E plan.
+      description: Creating a plan never contacts Telegram. Confirmation is required before exactly one message can be sent.
+      parameters:
+        - name: linkId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/LinkId" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/E2EPlanCreateRequest" }
+      responses:
+        "201":
+          description: Immutable plan with a digest and expected revisions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/E2ETestPlan" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/e2e-plans/{planId}:
+    get:
+      tags: [Observability]
+      operationId: getObservabilityE2EPlan
+      summary: Read an immutable E2E plan and its lifecycle status.
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: E2E plan metadata only; no payload body is returned.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/E2ETestPlan" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/e2e-plans/{planId}:confirm:
+    post:
+      tags: [Observability]
+      operationId: confirmObservabilityE2EPlan
+      summary: Explicitly consume one plan and send at most one acceptance message.
+      description: The Idempotency-Key and the plan's unique database claim prevent retries, duplicate sends, and cross-link sends.
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/E2ETestConfirmation" }
+      responses:
+        "200":
+          description: Redacted send and response evidence summary. A pending response is not a failure retry signal.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/E2ETestRun" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/e2e-plans/{planId}:cancel:
+    post:
+      tags: [Observability]
+      operationId: cancelObservabilityE2EPlan
+      summary: Cancel an unconsumed plan.
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/E2EPlanCancelRequest" }
+      responses:
+        "200":
+          description: Canceled plan.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/E2ETestPlan" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/e2e-runs:
+    get:
+      tags: [Observability]
+      operationId: listObservabilityE2ERuns
+      summary: List redacted E2E run summaries.
+      responses:
+        "200":
+          description: Message identifiers and evidence levels only; complete message bodies are never stored.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/E2ETestRun"
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/e2e-runs/{runId}/response:
+    post:
+      tags: [Observability]
+      operationId: recordObservabilityE2EResponse
+      summary: Record exact response identifiers supplied by the owning runtime.
+      description: Control Plane does not poll Telegram. Evidence is accepted only when bot, chat hash, reply-to, and message timing match the request.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/E2ETestResponseEvidence" }
+      responses:
+        "200":
+          description: Updated evidence summary, or an ambiguous/duplicate result without promotion.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/E2ETestRun" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/synthetic-e2e:run:
+    post:
+      tags: [Observability]
+      operationId: runSyntheticObservabilityE2E
+      summary: Run six deterministic offline E2E fixtures.
+      description: Synthetic fixtures never contact Telegram and can only produce synthetic evidence.
+      responses:
+        "200":
+          description: Six synthetic run summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 6
+                maxItems: 6
+                items:
+                  $ref: "#/components/schemas/E2ETestRun"
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/session-isolation:probe:
+    post:
+      tags: [Observability]
+      operationId: runSessionIsolationProbe
+      summary: Run the offline session-isolation matrix.
+      description: The probe covers private/group, bot, user/group/topic, reply/mention, command, restart, offset, duplicate, and no-retry boundaries.
+      responses:
+        "200":
+          description: Synthetic isolation result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionIsolationResult" }
+        default: { $ref: "#/components/responses/Problem" }
+  /observability/session-isolation:
+    get:
+      tags: [Observability]
+      operationId: getLatestSessionIsolationProbe
+      summary: Read the latest isolation probe result.
+      responses:
+        "200":
+          description: Latest result, or null before the first probe.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/SessionIsolationResult"
+                  - type: "null"
+        default: { $ref: "#/components/responses/Problem" }
+  /telegram/network-policy:
+    get:
+      tags: [Telegram]
+      operationId: getTelegramNetworkPolicy
+      summary: Read the effective Telegram proxy policy without credentials.
+      description: The policy is direct, environment, or explicit. Proxy passwords and inline credentials are never returned.
+      responses:
+        "200":
+          description: Redacted policy state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProxyPolicyState" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     localBearer:
@@ -2184,6 +2401,225 @@ components:
       minLength: 1
       maxLength: 128
       pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    LinkId:
+      type: string
+      enum: [hermes.private, hermes.group, claude.private, claude.group, codex.private, codex.group]
+    LinkStatus:
+      type: string
+      enum: [unknown, not_configured, credential_missing, identity_unverified, binding_pending, runtime_stopped, runtime_conflict, ready_for_live_test, live_test_running, healthy, degraded, failed, unsupported, pending_user_validation]
+    EvidenceLevel:
+      type: string
+      enum: [inferred, synthetic, observed, live_verified]
+    TestLifecycle:
+      type: string
+      enum: [planned, confirmed, running, succeeded, failed, unknown, canceled, expired]
+    LinkState:
+      type: object
+      additionalProperties: false
+      required: [link_id, bot_slot, session_scope]
+      properties:
+        link_id: { $ref: "#/components/schemas/LinkId" }
+        bot_slot:
+          type: string
+          enum: [hermes, claude, codex]
+        session_scope:
+          type: string
+          enum: [private, group]
+        bot_id:
+          anyOf: [{ type: integer, exclusiveMinimum: 0 }, { type: "null" }]
+        bot_username:
+          anyOf: [{ type: string }, { type: "null" }]
+        credential_reference_id:
+          anyOf: [{ type: string }, { type: "null" }]
+        credential_revision: { type: integer, minimum: 0, default: 0 }
+        binding_session_id:
+          anyOf: [{ type: string }, { type: "null" }]
+        binding_revision: { type: integer, minimum: 0, default: 0 }
+        operator_identity_hash:
+          anyOf: [{ type: string }, { type: "null" }]
+        group_identity_hash:
+          anyOf: [{ type: string }, { type: "null" }]
+        runtime_owner: { type: string, default: unknown }
+        runtime_state: { type: string, default: unknown }
+        configuration_revision: { type: integer, minimum: 0, default: 0 }
+        update_lease_owner: { type: string, default: unknown }
+        send_status: { type: string, default: unknown }
+        receive_status: { type: string, default: unknown }
+        response_status: { type: string, default: unknown }
+        correlation_id:
+          anyOf: [{ type: string }, { type: "null" }]
+        request_message_id:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        response_message_id:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        latency_ms:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        evidence_level:
+          $ref: "#/components/schemas/EvidenceLevel"
+        status:
+          $ref: "#/components/schemas/LinkStatus"
+        diagnostic_code:
+          anyOf: [{ type: string }, { type: "null" }]
+        recovery_actions:
+          type: array
+          items: { type: string }
+        last_probe_at:
+          anyOf: [{ type: string, format: date-time }, { type: "null" }]
+        last_live_verified_at:
+          anyOf: [{ type: string, format: date-time }, { type: "null" }]
+    E2EPlanCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expires_in_seconds:
+          type: integer
+          minimum: 60
+          maximum: 900
+          default: 300
+    E2ETestPlan:
+      type: object
+      additionalProperties: false
+      required: [plan_id, plan_digest, link_id, target_bot_slot, expected_bot_id, target_chat_kind, target_chat_identity_hash, expected_credential_revision, expected_binding_session_id, expected_binding_revision, expected_runtime_owner, expected_runtime_state, expected_update_lease_owner, correlation_id, payload_digest, expires_at, created_at]
+      properties:
+        plan_id: { type: string }
+        plan_digest: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
+        link_id: { $ref: "#/components/schemas/LinkId" }
+        target_bot_slot:
+          type: string
+          enum: [hermes, claude, codex]
+        expected_bot_id: { type: integer, exclusiveMinimum: 0 }
+        target_chat_kind:
+          type: string
+          enum: [private, group]
+        target_chat_identity_hash: { type: string }
+        expected_credential_revision: { type: integer, minimum: 1 }
+        expected_binding_session_id: { type: string }
+        expected_binding_revision: { type: integer, minimum: 1 }
+        expected_configuration_revision: { type: integer, minimum: 0, default: 0 }
+        expected_runtime_owner: { type: string }
+        expected_runtime_state: { type: string }
+        expected_update_lease_owner: { type: string }
+        correlation_id: { type: string }
+        payload_digest: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
+        message_count: { type: integer, const: 1, default: 1 }
+        automatic_retry: { type: boolean, const: false, default: false }
+        expires_at: { type: string, format: date-time }
+        explicit_confirmation_required: { type: boolean, const: true, default: true }
+        status:
+          $ref: "#/components/schemas/TestLifecycle"
+        created_at: { type: string, format: date-time }
+    E2ETestConfirmation:
+      type: object
+      additionalProperties: false
+      required: [plan_id, plan_digest, link_id, credential_revision, binding_session_id, binding_revision, confirmation]
+      properties:
+        plan_id: { type: string }
+        plan_digest: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
+        link_id: { $ref: "#/components/schemas/LinkId" }
+        credential_revision: { type: integer, minimum: 1 }
+        binding_session_id: { type: string }
+        binding_revision: { type: integer, minimum: 1 }
+        configuration_revision: { type: integer, minimum: 0, default: 0 }
+        confirmation: { type: boolean, const: true }
+    E2EPlanCancelRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation: { type: boolean, const: true }
+    E2ETestRun:
+      type: object
+      additionalProperties: false
+      required: [run_id, plan_id, link_id, lifecycle, evidence_level, correlation_id, created_at]
+      properties:
+        run_id: { type: string }
+        plan_id: { type: string }
+        link_id: { $ref: "#/components/schemas/LinkId" }
+        lifecycle: { $ref: "#/components/schemas/TestLifecycle" }
+        evidence_level: { $ref: "#/components/schemas/EvidenceLevel" }
+        correlation_id: { type: string }
+        request_message_id:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        response_message_id:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        reply_to_message_id:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        latency_ms:
+          anyOf: [{ type: integer, minimum: 0 }, { type: "null" }]
+        diagnostic_code:
+          anyOf: [{ type: string }, { type: "null" }]
+        recovery_actions:
+          type: array
+          items: { type: string }
+        message_count: { type: integer, const: 1, default: 1 }
+        automatic_retry: { type: boolean, const: false, default: false }
+        created_at: { type: string, format: date-time }
+        completed_at:
+          anyOf: [{ type: string, format: date-time }, { type: "null" }]
+    E2ETestResponseEvidence:
+      type: object
+      additionalProperties: false
+      description: Runtime-supplied identifiers only; complete message or reply bodies are never accepted.
+      required: [run_id, bot_id, chat_identity_hash, response_message_id]
+      properties:
+        run_id: { type: string }
+        bot_id: { type: integer, exclusiveMinimum: 0 }
+        chat_identity_hash: { type: string }
+        response_message_id: { type: integer, exclusiveMinimum: 0 }
+        reply_to_message_id:
+          anyOf: [{ type: integer, exclusiveMinimum: 0 }, { type: "null" }]
+        received_at:
+          anyOf: [{ type: string, format: date-time }, { type: "null" }]
+    IsolationCheck:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name: { type: string }
+        status:
+          type: string
+          enum: [passed, failed, unknown]
+        evidence:
+          type: object
+          additionalProperties: true
+        diagnostic_code:
+          anyOf: [{ type: string }, { type: "null" }]
+    SessionIsolationResult:
+      type: object
+      additionalProperties: false
+      required: [probe_id, status, evidence_level, checks, created_at]
+      properties:
+        probe_id: { type: string }
+        status:
+          type: string
+          enum: [passed, failed, unknown]
+        evidence_level: { $ref: "#/components/schemas/EvidenceLevel" }
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/IsolationCheck" }
+        created_at: { type: string, format: date-time }
+        completed_at:
+          anyOf: [{ type: string, format: date-time }, { type: "null" }]
+    ProxyPolicyState:
+      type: object
+      additionalProperties: false
+      required: [mode, source, status]
+      properties:
+        mode:
+          type: string
+          enum: [direct, environment, explicit]
+        source:
+          type: string
+          enum: [none, environment, explicit]
+        effective_proxy:
+          anyOf: [{ type: string }, { type: "null" }]
+        credential_reference_id:
+          anyOf: [{ type: string }, { type: "null" }]
+        status:
+          type: string
+          enum: [ready, missing, invalid, authentication_failed, timeout, unknown]
+        diagnostic_code:
+          anyOf: [{ type: string }, { type: "null" }]
     DeadlineRequest:
       type: object
       additionalProperties: false

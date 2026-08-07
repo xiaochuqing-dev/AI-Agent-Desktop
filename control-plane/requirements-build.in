@@ -1,0 +1,4 @@
+packaging==26.0
+setuptools>=68
+wheel
+pyinstaller==6.21.0

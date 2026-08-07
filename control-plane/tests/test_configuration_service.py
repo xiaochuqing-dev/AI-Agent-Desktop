@@ -217,7 +217,9 @@ def test_failed_rollback_is_persisted_as_pending_repair(managed_runtime_environm
     environment = managed_runtime_environment
     service = environment["configuration"]
     confirm_and_apply(environment, service.create_plan(ConfigurationPlanRequest()))
-    plan = service.create_plan(ConfigurationPlanRequest(listen_port=59015))
+    plan = service.create_plan(
+        ConfigurationPlanRequest(listen_port=service.port_inspector.choose_available())
+    )
 
     def invalid(_data):
         raise ValueError("post-write schema failure")

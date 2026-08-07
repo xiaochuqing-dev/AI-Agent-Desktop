@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from alembic.config import Config
@@ -18,10 +19,25 @@ LEGACY_TABLES = {
 }
 
 
+def _control_plane_root() -> Path:
+    """Return the root containing Alembic resources in source and frozen runs."""
+
+    bundled_root = getattr(sys, "_MEIPASS", None)
+    if bundled_root:
+        return Path(str(bundled_root)).resolve()
+    return Path(__file__).resolve().parents[2]
+
+
 def _config(connection) -> Config:
-    control_plane_root = Path(__file__).resolve().parents[2]
-    config = Config(str(control_plane_root / "alembic.ini"))
-    config.set_main_option("script_location", str(control_plane_root / "alembic"))
+    control_plane_root = _control_plane_root()
+    alembic_ini = control_plane_root / "alembic.ini"
+    script_location = control_plane_root / "alembic"
+    if not alembic_ini.is_file() or not script_location.is_dir():
+        raise RuntimeError(
+            f"Alembic migration resources are missing from the candidate package: {script_location}"
+        )
+    config = Config(str(alembic_ini))
+    config.set_main_option("script_location", str(script_location))
     config.attributes["connection"] = connection
     return config
 

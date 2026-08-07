@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 
 from ...application.operation_store import OperationStore
 from ...domain.models import ResourceRef
+from ...observability.models import ProxyPolicyState
 from ...operations import OperationExecutionError
 from ...security.redaction import redact_value
 from ...telegram.models import (
@@ -130,6 +131,15 @@ def build_telegram_router(
                 for slot in ("hermes", "claude", "codex")
             ]
         )
+
+    @router.get("/network-policy", response_model=ProxyPolicyState)
+    def network_policy(_token: str = Depends(bearer_auth)):
+        client = get_state().telegram_client
+        policy = getattr(client, "proxy_policy", None)
+        if policy is None:
+            return ProxyPolicyState(mode="direct", source="none", status="ready")
+        resolver = getattr(client, "proxy_secret_resolver", None)
+        return redact_value(policy.state(secret_resolver=resolver).model_dump(mode="json"))
 
     @router.post("/bindings", response_model=BindingSessionCreated, status_code=201)
     def create_binding(

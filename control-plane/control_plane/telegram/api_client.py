@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from ..network.proxy import ProxyPolicy, ProxyPolicyError
 from .models import TelegramUpdate, TelegramWebhookInfo
 
 
@@ -32,12 +33,16 @@ class TelegramBotApiClient:
         response_limit_bytes: int = 1024 * 1024,
         connect_timeout_seconds: float = 10.0,
         max_rate_limit_retries: int = 1,
+        proxy_policy: ProxyPolicy | None = None,
+        proxy_secret_resolver=None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.transport = transport
         self.response_limit_bytes = response_limit_bytes
         self.connect_timeout_seconds = connect_timeout_seconds
         self.max_rate_limit_retries = max_rate_limit_retries
+        self.proxy_policy = proxy_policy or ProxyPolicy("direct")
+        self.proxy_secret_resolver = proxy_secret_resolver
 
     async def get_me(
         self, token: str, *, cancel_event: asyncio.Event | None = None
@@ -125,6 +130,35 @@ class TelegramBotApiClient:
         )
         return bool(result)
 
+    async def send_message(
+        self,
+        token: str,
+        *,
+        chat_id: int,
+        text: str,
+        reply_to_message_id: int | None = None,
+        cancel_event: asyncio.Event | None = None,
+    ) -> dict[str, Any]:
+        """Send one caller-supplied message; retries are intentionally disabled."""
+        if not text or len(text) > 512:
+            raise TelegramApiError("TELEGRAM_MESSAGE_INVALID", "Acceptance payload is invalid.")
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text}
+        if reply_to_message_id is not None:
+            payload["reply_parameters"] = {"message_id": reply_to_message_id}
+        result = await self._call(
+            "sendMessage",
+            token,
+            payload,
+            timeout_seconds=10,
+            cancel_event=cancel_event,
+            rate_limit_retries=0,
+        )
+        if not isinstance(result, dict) or not isinstance(result.get("message_id"), int):
+            raise TelegramApiError(
+                "TELEGRAM_RESPONSE_INVALID", "Telegram sendMessage returned an invalid response."
+            )
+        return result
+
     async def _call(
         self,
         method: str,
@@ -133,11 +167,15 @@ class TelegramBotApiClient:
         *,
         timeout_seconds: float,
         cancel_event: asyncio.Event | None,
+        rate_limit_retries: int | None = None,
     ) -> Any:
         if not token:
             raise TelegramApiError("TELEGRAM_CREDENTIAL_MISSING", "Telegram credential is missing.")
         url = f"{self.base_url}/bot{token}/{method}"
-        for attempt in range(self.max_rate_limit_retries + 1):
+        retry_limit = (
+            self.max_rate_limit_retries if rate_limit_retries is None else rate_limit_retries
+        )
+        for attempt in range(retry_limit + 1):
             try:
                 response_payload = await self._request_json(
                     url, payload, timeout_seconds=timeout_seconds, cancel_event=cancel_event
@@ -149,11 +187,7 @@ class TelegramBotApiClient:
             error_code = int(response_payload.get("error_code", 0) or 0)
             parameters = response_payload.get("parameters") or {}
             retry_after = int(parameters.get("retry_after", 0) or 0) or None
-            if (
-                error_code == 429
-                and retry_after is not None
-                and attempt < self.max_rate_limit_retries
-            ):
+            if error_code == 429 and retry_after is not None and attempt < retry_limit:
                 await self._cancelable_sleep(min(retry_after, 30), cancel_event)
                 continue
             if error_code == 401:
@@ -202,6 +236,7 @@ class TelegramBotApiClient:
                 timeout=timeout,
                 follow_redirects=False,
                 trust_env=False,
+                proxy=self._proxy_url(),
             ) as client:
                 request_task = asyncio.create_task(client.post(url, json=payload))
                 if cancel_event is None:
@@ -219,6 +254,12 @@ class TelegramBotApiClient:
                         )
                     cancel_task.cancel()
                     response = await request_task
+                if response.status_code == 407:
+                    raise TelegramApiError(
+                        "TELEGRAM_PROXY_AUTHENTICATION_FAILED",
+                        "Telegram proxy rejected authentication.",
+                        False,
+                    )
         except TelegramApiError:
             raise
         except httpx.TimeoutException:
@@ -249,6 +290,12 @@ class TelegramBotApiClient:
                 code = "TELEGRAM_NETWORK_ERROR"
                 message = "Telegram network connection failed."
             raise TelegramApiError(code, message, True) from None
+        except httpx.ProxyError:
+            raise TelegramApiError(
+                "TELEGRAM_PROXY_AUTHENTICATION_FAILED",
+                "Telegram proxy connection or authentication failed.",
+                False,
+            ) from None
         except httpx.HTTPError:
             raise TelegramApiError(
                 "TELEGRAM_NETWORK_ERROR", "Telegram network request failed.", True
@@ -269,6 +316,13 @@ class TelegramBotApiClient:
                 "TELEGRAM_RESPONSE_INVALID", "Telegram returned an invalid response object."
             )
         return parsed
+
+    def _proxy_url(self) -> str | None:
+        try:
+            value, _state = self.proxy_policy.resolve(secret_resolver=self.proxy_secret_resolver)
+            return value
+        except ProxyPolicyError as exc:
+            raise TelegramApiError(exc.code, exc.message, False) from None
 
     @staticmethod
     async def _cancelable_sleep(seconds: int, cancel_event: asyncio.Event | None) -> None:

@@ -82,8 +82,31 @@ def test_openapi_frozen_with_readiness_and_events():
         "/components/{componentId}/external-cc-connect",
         "/components/hermes/telegram-configuration-plans",
         "/components/hermes/telegram-configuration",
+        "/observability/links",
+        "/observability/links/{linkId}",
+        "/observability/links/{linkId}/e2e-plans",
+        "/observability/e2e-plans/{planId}",
+        "/observability/e2e-plans/{planId}:confirm",
+        "/observability/e2e-plans/{planId}:cancel",
+        "/observability/e2e-runs",
+        "/observability/e2e-runs/{runId}/response",
+        "/observability/synthetic-e2e:run",
+        "/observability/session-isolation:probe",
+        "/observability/session-isolation",
+        "/telegram/network-policy",
     ]:
         assert path in doc["paths"]
+    assert any(item["name"] == "Observability" for item in doc["tags"])
+    for schema in [
+        "LinkState",
+        "E2ETestPlan",
+        "E2ETestConfirmation",
+        "E2ETestRun",
+        "E2ETestResponseEvidence",
+        "SessionIsolationResult",
+        "ProxyPolicyState",
+    ]:
+        assert schema in doc["components"]["schemas"]
     problem = doc["components"]["schemas"]["Problem"]
     assert "errors" in problem["properties"]
     assert "secret" not in problem["properties"]
