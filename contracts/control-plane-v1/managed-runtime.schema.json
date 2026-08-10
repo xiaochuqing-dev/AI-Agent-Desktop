@@ -481,7 +481,7 @@
       "required": [
         "session_id", "state", "expires_at", "slots", "bound_private_count",
         "bound_group_count", "revision", "created_at", "updated_at", "bind_code",
-        "private_deep_links", "private_commands", "group_commands"
+        "private_deep_links", "group_deep_links", "private_commands", "group_commands"
       ],
       "properties": {
         "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
@@ -500,6 +500,7 @@
         "completed_at": { "type": ["string", "null"], "format": "date-time" },
         "bind_code": { "type": "string", "minLength": 8, "maxLength": 64, "writeOnly": true, "x-display-once": true },
         "private_deep_links": { "type": "object", "additionalProperties": { "type": "string" } },
+        "group_deep_links": { "type": "object", "additionalProperties": { "type": "string" } },
         "private_commands": { "type": "object", "additionalProperties": { "type": "string" } },
         "group_commands": { "type": "object", "additionalProperties": { "type": "string" } }
       }

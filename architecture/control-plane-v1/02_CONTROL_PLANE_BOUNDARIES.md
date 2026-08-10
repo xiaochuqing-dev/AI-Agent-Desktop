@@ -47,6 +47,8 @@ Adapter（当前组件的翻译与防腐层）
 
 禁止反向依赖：Adapter 不 import GUI；外部组件不依赖 Control Plane 领域对象；GUI 不读取 Adapter 私有文件。事件由下向上报告事实，但不改变依赖方向。
 
+当前实现补充：PySide6 GUI 位于 `control-plane/control_plane/gui/`，包含 Demo、HTTP/Bearer 和 Embedded Control Plane 客户端。Demo 只用于显式离线截图/测试，标题栏显示预览模式；默认真实模式使用 Embedded Control Plane，并以 Control Plane snapshot 和 Operation 为事实源。新 GUI 私聊/群自动检测尚未用户 live 验证，状态为 `PENDING USER LIVE VALIDATION`。
+
 ## GUI 关闭后的生命周期
 
 1. GUI 启动时读取仅当前用户可读的服务发现记录并连接 Control Plane；若服务未运行，调用独立 launcher 启动。

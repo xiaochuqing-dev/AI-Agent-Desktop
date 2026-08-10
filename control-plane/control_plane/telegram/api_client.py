@@ -92,7 +92,11 @@ class TelegramBotApiClient:
             {
                 "offset": offset,
                 "timeout": timeout_seconds,
-                "allowed_updates": ["message"],
+                # Binding needs both the explicit private /start message and
+                # the Bot API membership event emitted when a bot is added to
+                # a group or supergroup.  Keeping the list explicit avoids
+                # silently widening the update stream to unrelated events.
+                "allowed_updates": ["message", "my_chat_member"],
             },
             timeout_seconds=max(10, timeout_seconds + 5),
             cancel_event=cancel_event,
@@ -107,6 +111,48 @@ class TelegramBotApiClient:
                 continue
             updates.append(TelegramUpdate(update_id=item["update_id"], payload=item))
         return updates
+
+    async def get_chat(
+        self,
+        token: str,
+        *,
+        chat_id: int,
+        cancel_event: asyncio.Event | None = None,
+    ) -> dict[str, Any]:
+        result = await self._call(
+            "getChat",
+            token,
+            {"chat_id": chat_id},
+            timeout_seconds=10,
+            cancel_event=cancel_event,
+        )
+        if not isinstance(result, dict):
+            raise TelegramApiError(
+                "TELEGRAM_RESPONSE_INVALID", "Telegram getChat returned an invalid response."
+            )
+        return result
+
+    async def get_chat_member(
+        self,
+        token: str,
+        *,
+        chat_id: int,
+        user_id: int,
+        cancel_event: asyncio.Event | None = None,
+    ) -> dict[str, Any]:
+        result = await self._call(
+            "getChatMember",
+            token,
+            {"chat_id": chat_id, "user_id": user_id},
+            timeout_seconds=10,
+            cancel_event=cancel_event,
+        )
+        if not isinstance(result, dict):
+            raise TelegramApiError(
+                "TELEGRAM_RESPONSE_INVALID",
+                "Telegram getChatMember returned an invalid response.",
+            )
+        return result
 
     async def delete_webhook(
         self,

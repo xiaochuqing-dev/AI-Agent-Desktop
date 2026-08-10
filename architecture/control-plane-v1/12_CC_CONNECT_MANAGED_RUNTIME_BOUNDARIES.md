@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施日期：2026-08-05。合法 Claude/Codex Project、Secret 环境注入和真实 cc-connect 进程已在 Windows 11 普通用户下通过持续运行、stop、restart 与 Control Plane 重启 reconcile。整体仍为 PARTIAL：真实 Telegram 为 PENDING USER LIVE VALIDATION，Windows 10 为 PENDING WINDOWS 10 VALIDATION，deep health 为 unsupported。
+实施日期：2026-08-11。合法 Claude/Codex Project、Secret 环境注入和真实 cc-connect 进程已在 Windows 11 普通用户下通过持续运行、stop、restart 与 Control Plane 重启 reconcile。最小 PySide6 GUI 只消费这些管理状态，不改变 cc-connect ownership。整体仍为 PARTIAL：新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，deep health 为 unsupported。
 
 ## 范围与非目标
 

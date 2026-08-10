@@ -4,7 +4,13 @@
 
 目标用户是在一台基本干净的 Windows 电脑上组建个人 AI 开发团队的人。用户只需要准备所选服务的账号或凭据，以及首发消息渠道所需的管理权限；不需要理解安装目录、环境变量、端口、计划任务、配置文件或 Secret 注入。
 
-十分钟是产品目标，不是对网络与上游服务的硬 SLA。每一步都必须可恢复、可跳过非关键项，并保存不含 Secret 的检查点。尚未实现的流程在本文统一标记为“设计目标”。
+十分钟是产品目标，不是对网络与上游服务的硬 SLA。每一步都必须可恢复、可跳过非关键项，并保存不含 Secret 的检查点。当前已实现的最小 GUI 只覆盖固定四步 Onboarding 壳和 Control Plane 客户端；完整流程仍标记为“设计目标”，新 GUI 的真实 Telegram 验收单独标记为 `PENDING USER LIVE VALIDATION`。
+
+## 当前最小 GUI 实现
+
+`control-plane/control_plane/gui/` 已提供 Welcome、Token、PrivateActivation、Group、Completion、Dashboard 和 Diagnostics 页面，以及统一标题栏、StepRail、QR dialog、Telegram `tg://`/HTTPS fallback、Demo、HTTP/Bearer 和 Embedded Control Plane 客户端。当前 GUI 只调用 onboarding snapshot、dashboard snapshot、Telegram credential/verify/binding/poll API；它不读取上游私有目录、Telegram 登录状态或消息正文。
+
+本地 GUI/onboarding 测试通过，但新 GUI 私聊激活与群自动检测尚未由用户现场复测；Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。
 
 ## 首次启动到首次 E2E
 
@@ -105,4 +111,4 @@ GUI 不应显示“HTTP 500”“进程退出码 1”作为唯一说明，也不
 
 ## 当前实现状态声明
 
-以上完整十分钟 GUI 旅程仍是 Control Plane v1 设计目标。当前仓库已实现独立 Control Plane、仅限产品自有 cc-connect 的计划确认与隔离安装、Windows Credential Manager、Telegram 三 Bot 身份和一次性绑定、Update Lease、Claude/Codex 原生配置生成、Secret 子进程注入，以及 start/stop/restart/reconcile、备份、漂移恢复与回滚。正式 GUI、其他组件安装、通用 Owner 切换、Hermes 已安装态配置和完整人类控制仍未实现；真实 Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，Reference Baseline 运行环境未修改。
+以上完整十分钟 GUI 旅程仍是 Control Plane v1 设计目标。当前仓库已实现独立 Control Plane、仅限产品自有 cc-connect 的计划确认与隔离安装、Windows Credential Manager、Telegram 三 Bot 身份和一次性绑定、Update Lease、Claude/Codex 原生配置生成、Secret 子进程注入，以及 start/stop/restart/reconcile、备份、漂移恢复与回滚；最小 PySide6 GUI/四步 Onboarding 壳已实现。正式安装器、其他组件安装、通用 Owner 切换、Hermes 已安装态配置和完整人类控制仍未实现；新 GUI Telegram 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，Reference Baseline 运行环境未修改。

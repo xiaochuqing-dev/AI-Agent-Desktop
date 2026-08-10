@@ -15,7 +15,7 @@ Integration First 集成优先政策
 二、职责边界
 ------------
 
-Hermes 负责编排和 Hermes Bot；Claude Code、Codex 是独立编码 Agent；cc-connect 负责两个编码 Agent 与 Telegram 的核心桥接及 Project/Session；CC Switch 是可选供应商配置入口；Control Plane 负责统一管理；GUI 只消费 Control Plane 契约。
+Hermes 负责编排和 Hermes Bot；Claude Code、Codex 是独立编码 Agent；cc-connect 负责两个编码 Agent 与 Telegram 的核心桥接及 Project/Session；CC Switch 是可选供应商配置入口；Control Plane 负责统一管理；当前 PySide6 GUI 只消费 Control Plane 契约。GUI 的 onboarding snapshot、Telegram binding、Dashboard 和 Diagnostics 都不能绕过 Control Plane 直接读写上游。
 
 三、能力与证据
 --------------
@@ -37,3 +37,8 @@ cc-connect 的已安装版本只从 artifact lock、manifest、current 指针和
 CC Switch 作为 ExternalToolProvider，只基于公开可执行入口做检测和普通打开。其安装、更新、配置和所有权能力无稳定证据时为 unknown，不读私有数据库、不读 Secret、不自动点击 GUI。
 
 external cc-connect 检测区分 installed、process、port、supervisor、configuration 和 owner。PATH 中仅发现外部可执行文件不阻塞产品实例；相同目标端口、相同配置作用域或外部 Supervisor 才构成硬冲突，且产品不停止或修改外部对象。
+
+六、当前 GUI 交付边界
+--------------------
+
+GUI 的最小四步流程、二维码和 Telegram 深链接已实现，版本入口为 `0.2.0-gui`。它支持 Demo 合成模式与本地 HTTP/Bearer、Embedded Control Plane 模式；Demo 模式只服务截图和自动化测试。新 GUI Windows 11 candidate 已通过本地 validator；私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。历史旧入口的真实 Telegram 用户确认不改变这些状态。

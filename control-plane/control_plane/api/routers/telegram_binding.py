@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 
@@ -14,10 +14,12 @@ from ...telegram.models import (
     BindingCancelRequest,
     BindingCreateRequest,
     BindingPollRequest,
+    BindingResumeRequest,
     BindingSession,
     BindingSessionCreated,
     TelegramBotIdentity,
     TelegramBotSlot,
+    TelegramGroupVerification,
     TelegramUpdateLease,
     WebhookDeleteRequest,
 )
@@ -162,6 +164,97 @@ def build_telegram_router(
     @router.get("/bindings/{session_id}", response_model=BindingSession)
     def get_binding(session_id: str, _token: str = Depends(bearer_auth)):
         return redact_value(get_state().telegram_binding.get(session_id).model_dump(mode="json"))
+
+    @router.post(
+        "/bindings/{session_id}:resume",
+        response_model=BindingSessionCreated,
+        status_code=200,
+    )
+    def resume_binding(
+        session_id: str,
+        payload: BindingResumeRequest,
+        _token: str = Depends(bearer_auth),
+    ):
+        lifecycle = get_state().lifecycle.status()
+        if lifecycle.observed_state in {"starting", "running_partial"}:
+            raise OperationExecutionError(
+                "TELEGRAM_BINDING_REQUIRES_STOPPED_RUNTIMES",
+                "Product-managed cc-connect must be stopped before Control Plane acquires getUpdates.",
+                recovery_actions=["stop_product_managed_cc_connect"],
+            )
+        return redact_value(
+            get_state()
+            .telegram_binding.resume(
+                session_id,
+                expires_in_seconds=payload.expires_in_seconds,
+            )
+            .model_dump(mode="json")
+        )
+
+    @router.get(
+        "/bindings/{session_id}/slots/{slot}/group-verification",
+        response_model=TelegramGroupVerification,
+    )
+    def group_verification(
+        session_id: str,
+        slot: TelegramBotSlot,
+        _token: str = Depends(bearer_auth),
+    ):
+        state = get_state()
+        binding = state.telegram_binding.get(session_id)
+        progress = next((item for item in binding.slots if item.slot == slot), None)
+        identity = state.telegram_identities.get(slot)
+        if progress is None or progress.group_chat_id is None or identity is None:
+            raise OperationExecutionError(
+                "TELEGRAM_GROUP_NOT_BOUND",
+                "Telegram group has not been detected for this bot.",
+                recovery_actions=["complete_group_binding"],
+            )
+        chat = state.telegram_identities.get_chat(slot, progress.group_chat_id)
+        membership = state.telegram_identities.get_chat_member(
+            slot, progress.group_chat_id, identity.bot_id
+        )
+        raw_status = str(membership.get("status", "unknown"))
+        allowed_statuses = {
+            "creator",
+            "administrator",
+            "member",
+            "restricted",
+            "left",
+            "kicked",
+            "unknown",
+        }
+        status = raw_status if raw_status in allowed_statuses else "unknown"
+        active = status in {"creator", "administrator", "member", "restricted"}
+        result = TelegramGroupVerification(
+            slot=slot,
+            group_title=str(chat.get("title", ""))[:512] or progress.group_title,
+            group_type=progress.group_type or "group",
+            bot_status=cast(
+                Literal[
+                    "creator",
+                    "administrator",
+                    "member",
+                    "restricted",
+                    "left",
+                    "kicked",
+                    "unknown",
+                ],
+                status,
+            ),
+            can_send_messages=(
+                bool(membership.get("can_send_messages"))
+                if "can_send_messages" in membership
+                else (True if active else False)
+            ),
+            privacy_mode_warning=not identity.can_read_all_group_messages,
+            user_message=(
+                "Bot 已加入群；如需响应普通群消息，请在 BotFather 检查 Privacy Mode。"
+                if active and not identity.can_read_all_group_messages
+                else ("Bot 已加入群。" if active else "Bot 当前不在群内。")
+            ),
+        )
+        return redact_value(result.model_dump(mode="json"))
 
     @router.post("/bindings/{session_id}:cancel", response_model=BindingSession)
     def cancel_binding(

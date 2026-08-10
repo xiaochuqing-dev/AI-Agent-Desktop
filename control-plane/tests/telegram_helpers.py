@@ -55,6 +55,21 @@ class FakeTelegramClient:
         del timeout_seconds, cancel_event
         return [item for item in self.updates[token] if item.update_id >= offset]
 
+    async def get_chat(self, token: str, *, chat_id: int, cancel_event=None) -> dict[str, Any]:
+        del token, cancel_event
+        return {"id": chat_id, "type": "supergroup", "title": "AI 编程组"}
+
+    async def get_chat_member(
+        self,
+        token: str,
+        *,
+        chat_id: int,
+        user_id: int,
+        cancel_event=None,
+    ) -> dict[str, Any]:
+        del token, chat_id, cancel_event
+        return {"status": "member", "user": {"id": user_id}}
+
     async def delete_webhook(
         self,
         token: str,
@@ -96,6 +111,28 @@ def message_update(
             "text": text,
             "from": {"id": sender_id, "is_bot": False},
             "chat": chat,
+        },
+    }
+
+
+def membership_update(
+    *,
+    update_id: int,
+    sender_id: int,
+    chat_id: int,
+    chat_type: str = "supergroup",
+    title: str = "AI 编程组",
+    status: str = "member",
+    membership_date: int | None = None,
+) -> dict[str, Any]:
+    return {
+        "update_id": update_id,
+        "my_chat_member": {
+            "date": membership_date if membership_date is not None else int(time.time()),
+            "from": {"id": sender_id, "is_bot": False},
+            "chat": {"id": chat_id, "type": chat_type, "title": title},
+            "old_chat_member": {"status": "left"},
+            "new_chat_member": {"status": status},
         },
     }
 

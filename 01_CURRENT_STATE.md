@@ -1,7 +1,7 @@
 01 当前状态
 ============
 
-更新时间：2026-08-07
+更新时间：2026-08-11
 
 一、Reference Baseline
 ----------------------
@@ -39,8 +39,11 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 - Claude Code/Codex 两个原生 Project 的计划、revision、备份、原子写入、漂移检测、回滚和 Agent 可执行入口预检
 - external cc-connect 状态拆分；PATH 仅安装不阻塞，目标端口、相同配置作用域或 Supervisor 冲突才硬阻塞
 - Hermes 未安装时准确返回 pending_component_install，不阻塞 Claude/Codex
+- 最小 PySide6 GUI 已实现于 `control-plane/control_plane/gui/`：统一标题栏和 StepRail、Welcome、四步 Onboarding、二维码弹窗、Dashboard、Diagnostics、Demo 合成客户端以及 HTTP/Embedded Control Plane 客户端；版本入口为 `0.2.0-gui`。
+- GUI 只调用 onboarding/dashboard snapshot、Telegram credential/verify/binding/poll 等本地 API；Token 不由 GUI 状态快照保存，二维码只承载短时 deep-link binding payload。
+- 新 GUI 私聊激活与群自动检测的真实用户复测为 `PENDING USER LIVE VALIDATION`；GUI 单元/合成测试通过不等于 Telegram live 通过。
 
-当前不具备：其他组件安装或生命周期接管、自动更新和正式产品 GUI。六链路可观测性、合成 E2E、显式一次性计划、消息关联、Session 隔离探针、代理策略、脱敏验收向导和 Windows x64 候选包已实现。2026-08-07 用户直接在 Telegram 完成六条真实消息链路并明确通过；本轮没有经过向导，因此 Control Plane 的三次 getMe、3/3 绑定和 correlation live 记录仍未补齐。Windows 10 为 PENDING WINDOWS 10 VALIDATION；当前机器上的 Hermes 作为 observed external runtime，锁定上游原生 Group Chat 过滤和 deep health 为 unsupported，management API 监听范围受上游限制为所有网卡。
+当前不具备：其他组件安装或生命周期接管、自动更新、完整十分钟产品体验、MSI/正式安装器和代码签名。新的 Windows GUI candidate 已在 Windows 11 x64 构建并通过本地 validator；已有 dist 目录中的 stage-a 包仍是旧 Tk 验收向导。六链路可观测性、合成 E2E、显式一次性计划、消息关联、Session 隔离探针、代理策略和脱敏验收向导已实现。2026-08-07 用户直接在 Telegram 完成六条旧入口真实消息链路并明确通过；该证据不覆盖新 GUI，Control Plane 的三次 getMe、3/3 绑定和 correlation live 记录仍未补齐。Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；当前机器上的 Hermes 作为 observed external runtime，锁定上游原生 Group Chat 过滤和 deep health 为 unsupported，management API 监听范围受上游限制为所有网卡。
 
 三、Telegram 运行证据
 --------------------
@@ -52,9 +55,9 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 四、产品范围
 ------------
 
-产品已收窄为 Windows 10/11 + Telegram + Hermes/Claude Code/Codex + cc-connect。用户可见三个 Bot，目标验收六条私聊/群聊链路。cc-connect 是 V1 核心桥梁；CC Switch 是推荐但非强制的配置入口；PySide6 是未来 GUI 首选。
+产品已收窄为 Windows 10/11 + Telegram + Hermes/Claude Code/Codex + cc-connect。用户可见三个 Bot，目标验收六条私聊/群聊链路。cc-connect 是 V1 核心桥梁；CC Switch 是推荐但非强制的配置入口；PySide6 是当前 GUI 实现技术。新 GUI 的真实私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`。
 
 五、下一阶段
 ------------
 
-下一阶段是“最小 GUI、十分钟 Onboarding 与 Windows 自包含分发切片”。发布门禁仍需 Windows 10 x64 普通用户实机；如要补齐机器可审计的 live 证据，需另行通过向导完成真实 getMe、3/3 绑定和 correlation 流程。详见 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md。
+下一阶段收口门禁为：新 GUI 私聊/群自动检测的用户现场验证和 Windows 10 x64 普通用户实机验证。`0.2.0-gui` candidate 的本地 manifest/SHA256/无控制台验收已通过；MSI、正式安装器和代码签名为 `DEFERRED`。如要补齐机器可审计的 live 证据，需另行通过向导完成真实 getMe、3/3 绑定和 correlation 流程。详见 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md。

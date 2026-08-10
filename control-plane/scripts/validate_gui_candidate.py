@@ -1,0 +1,492 @@
+"""Validate the Windows GUI candidate produced by ``build_windows_candidate.ps1``.
+
+The validator intentionally performs only local checks.  It never contacts
+Telegram (or any other service); the executable smoke checks are limited to
+the ``--version`` and ``--headless`` paths.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+from collections.abc import Iterable
+from pathlib import Path, PurePosixPath, PureWindowsPath
+
+EXPECTED_MANIFEST = {
+    "schema_version": "1",
+    "candidate_version": "0.2.0-gui",
+    "product": "AI-Agent-Desktop",
+    "platform": "windows",
+    "architecture": "x64",
+    "minimum_os": "Windows 10",
+    "python_embedded": True,
+    "go_embedded": False,
+    "node_embedded": False,
+    "black_window": False,
+    "changes_external_environment": False,
+    "chrome_agent_required": False,
+}
+
+METADATA_FILES = {
+    "candidate-manifest.json",
+    "candidate-manifest.sha256",
+    "candidate-package.sha256",
+    "SHA256SUMS.txt",
+}
+
+REQUIRED_PAYLOAD_FILES = {
+    ".python-version",
+    "AI-Agent-Desktop.exe",
+    "production_only_acceptance.py",
+    "requirements-build.lock",
+    "requirements-gui.lock",
+    "requirements-prod.lock",
+    "USER_VALIDATION_GUIDE.txt",
+    "windows10_user_acceptance.ps1",
+    "cc-connect/cc-connect.exe",
+    "cc-connect/cc-connect-artifact-manifest.json",
+    "cc-connect/cc-connect.sha256",
+}
+
+CHECKSUM_RE = re.compile(r"^([0-9a-fA-F]{64})\s{2}(.+?)\s*$")
+
+# These patterns are deliberately specific.  In particular, do not reject a
+# harmless field or the word ``token`` by itself: the GUI candidate contains
+# synthetic smoke-test names and redaction rule examples.
+SENSITIVE_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
+    ("telegram-bot-token", re.compile(rb"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b")),
+    ("openai-key", re.compile(rb"\bsk-(?!ant-)[A-Za-z0-9_-]{20,}\b")),
+    ("anthropic-key", re.compile(rb"\bsk-ant-[A-Za-z0-9_-]{20,}\b")),
+)
+
+TEXT_FILE_SUFFIXES = frozenset(
+    {
+        ".cfg",
+        ".html",
+        ".ini",
+        ".json",
+        ".lock",
+        ".md",
+        ".ps1",
+        ".py",
+        ".sha256",
+        ".toml",
+        ".txt",
+        ".xml",
+        ".yaml",
+        ".yml",
+    }
+)
+VERIFIED_EXTERNAL_BINARIES = frozenset({"cc-connect/cc-connect.exe"})
+
+
+class ValidationError(RuntimeError):
+    """A candidate failed a release gate."""
+
+
+def _fail(message: str) -> None:
+    raise ValidationError(message)
+
+
+def _normalise_relative(value: str) -> str:
+    """Return a safe, slash-separated relative path for comparisons."""
+
+    if not isinstance(value, str) or not value:
+        _fail("manifest contains an empty or non-string relative path")
+    normalised = value.replace("\\", "/")
+    pure = PurePosixPath(normalised)
+    windows = PureWindowsPath(value)
+    if pure.is_absolute() or windows.is_absolute() or windows.drive or ".." in pure.parts:
+        _fail(f"manifest path escapes candidate root: {value!r}")
+    return "/".join(part for part in pure.parts if part not in ("", "."))
+
+
+def _path_from_relative(root: Path, value: str) -> Path:
+    normalised = _normalise_relative(value)
+    return root.joinpath(*normalised.split("/"))
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _read_json(path: Path) -> dict[str, object]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        _fail(f"cannot read JSON {path.name}: {exc}")
+    if not isinstance(value, dict):
+        _fail(f"JSON root must be an object: {path.name}")
+    return value
+
+
+def _parse_checksum_line(path: Path, expected_name: str) -> str:
+    try:
+        lines = [
+            line.strip() for line in path.read_text(encoding="ascii").splitlines() if line.strip()
+        ]
+    except (OSError, UnicodeError) as exc:
+        _fail(f"cannot read checksum file {path.name}: {exc}")
+    if len(lines) != 1:
+        _fail(f"checksum file must contain exactly one line: {path.name}")
+    match = CHECKSUM_RE.fullmatch(lines[0])
+    if not match or match.group(2).replace("\\", "/") != expected_name:
+        _fail(f"invalid checksum line in {path.name}")
+    return match.group(1).lower()
+
+
+def _parse_sha256sums(path: Path) -> dict[str, str]:
+    try:
+        lines = [line.rstrip("\r\n") for line in path.read_text(encoding="ascii").splitlines()]
+    except (OSError, UnicodeError) as exc:
+        _fail(f"cannot read SHA256SUMS.txt: {exc}")
+    result: dict[str, str] = {}
+    for line in lines:
+        if not line.strip():
+            continue
+        match = CHECKSUM_RE.fullmatch(line)
+        if not match:
+            _fail(f"invalid SHA256SUMS.txt line: {line!r}")
+        relative = _normalise_relative(match.group(2))
+        if relative in result:
+            _fail(f"duplicate SHA256SUMS.txt path: {relative}")
+        result[relative] = match.group(1).lower()
+    if not result:
+        _fail("SHA256SUMS.txt is empty")
+    return result
+
+
+def _validate_manifest_and_hashes(candidate: Path) -> dict[str, object]:
+    manifest_path = candidate / "candidate-manifest.json"
+    manifest_hash_path = candidate / "candidate-manifest.sha256"
+    package_hash_path = candidate / "candidate-package.sha256"
+    sums_path = candidate / "SHA256SUMS.txt"
+    for path in (manifest_path, manifest_hash_path, package_hash_path, sums_path):
+        if not path.is_file():
+            _fail(f"candidate metadata file is missing: {path.name}")
+
+    manifest_hash = _parse_checksum_line(manifest_hash_path, "candidate-manifest.json")
+    actual_manifest_hash = _sha256(manifest_path)
+    if manifest_hash != actual_manifest_hash:
+        _fail("candidate-manifest.sha256 does not match candidate-manifest.json")
+
+    manifest = _read_json(manifest_path)
+    for key, expected in EXPECTED_MANIFEST.items():
+        if manifest.get(key) != expected:
+            _fail(f"manifest field {key!r} must be {expected!r}")
+    for key in (
+        "cc_connect_version",
+        "cc_connect_source_commit",
+        "cc_connect_artifact_sha256",
+        "package_sha256",
+    ):
+        if not isinstance(manifest.get(key), str) or not manifest[key]:
+            _fail(f"manifest field {key!r} is missing or empty")
+
+    raw_entries = manifest.get("files")
+    if not isinstance(raw_entries, list) or not raw_entries:
+        _fail("manifest files must be a non-empty list")
+
+    entries: list[tuple[str, str, int, str]] = []
+    seen: set[str] = set()
+    for raw_entry in raw_entries:
+        if not isinstance(raw_entry, dict):
+            _fail("manifest files contains a non-object entry")
+        raw_path = raw_entry.get("path")
+        relative = _normalise_relative(raw_path) if isinstance(raw_path, str) else ""
+        if not relative or relative in seen:
+            _fail(f"duplicate or invalid manifest path: {raw_path!r}")
+        seen.add(relative)
+        digest = raw_entry.get("sha256")
+        size = raw_entry.get("size")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", digest):
+            _fail(f"invalid SHA256 in manifest entry: {raw_path!r}")
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            _fail(f"invalid size in manifest entry: {raw_path!r}")
+        target = _path_from_relative(candidate, relative)
+        if not target.is_file():
+            _fail(f"manifest file is missing: {relative}")
+        if target.stat().st_size != size:
+            _fail(f"size mismatch for {relative}")
+        actual = _sha256(target)
+        if actual != digest.lower():
+            _fail(f"SHA256 mismatch for {relative}")
+        entries.append((relative, digest.lower(), size, raw_path))
+
+    actual_payload = {
+        path.relative_to(candidate).as_posix()
+        for path in candidate.rglob("*")
+        if path.is_file() and path.relative_to(candidate).as_posix() not in METADATA_FILES
+    }
+    if actual_payload != seen:
+        missing = sorted(seen - actual_payload)
+        extra = sorted(actual_payload - seen)
+        _fail(f"manifest payload set mismatch (missing={missing}, extra={extra})")
+
+    # The builder's canonical basis preserves the PowerShell ``Sort-Object
+    # FullName`` order recorded in the manifest.  Keep that exact order when
+    # recomputing the package digest; normalizing it with Python's sort would
+    # produce a different hash for paths containing punctuation.
+    canonical = "".join(f"{digest}  {raw_path}\n" for _, digest, _, raw_path in entries).encode(
+        "utf-8"
+    )
+    package_hash = hashlib.sha256(canonical).hexdigest()
+    if package_hash != str(manifest["package_sha256"]).lower():
+        _fail("manifest package_sha256 does not match the canonical payload")
+    package_file_hash = _parse_checksum_line(package_hash_path, "payload")
+    if package_file_hash != package_hash:
+        _fail("candidate-package.sha256 does not match the canonical payload")
+
+    sums = _parse_sha256sums(sums_path)
+    actual_sums_paths = {
+        path.relative_to(candidate).as_posix()
+        for path in candidate.rglob("*")
+        if path.is_file() and path.relative_to(candidate).as_posix() != "SHA256SUMS.txt"
+    }
+    if set(sums) != actual_sums_paths:
+        _fail("SHA256SUMS.txt path set does not match candidate files")
+    for relative, expected in sums.items():
+        actual = _sha256(_path_from_relative(candidate, relative))
+        if actual != expected:
+            _fail(f"SHA256SUMS.txt mismatch for {relative}")
+
+    return manifest
+
+
+def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> None:
+    manifest_paths = {
+        _normalise_relative(entry["path"])
+        for entry in manifest["files"]  # type: ignore[index]
+        if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+    }
+    for relative in REQUIRED_PAYLOAD_FILES:
+        if relative not in manifest_paths:
+            _fail(f"required payload file is not listed: {relative}")
+        if not _path_from_relative(candidate, relative).is_file():
+            _fail(f"required payload file is missing: {relative}")
+
+    cc_dir = candidate / "cc-connect"
+    cc_manifest = _read_json(cc_dir / "cc-connect-artifact-manifest.json")
+    cc_exe = cc_dir / "cc-connect.exe"
+    cc_digest = _parse_checksum_line(cc_dir / "cc-connect.sha256", "cc-connect.exe")
+    if cc_digest != _sha256(cc_exe):
+        _fail("cc-connect.sha256 does not match cc-connect.exe")
+    if cc_digest != str(manifest["cc_connect_artifact_sha256"]).lower():
+        _fail("candidate manifest cc_connect_artifact_sha256 mismatch")
+    for key in ("version", "source_commit"):
+        if str(cc_manifest.get(key, "")) != str(manifest[f"cc_connect_{key}"]):
+            _fail(f"cc-connect manifest {key} mismatch")
+
+
+def _run_executable_smoke(executable: Path) -> None:
+    child_env = os.environ.copy()
+    child_env["CONTROL_PLANE_DISABLE_LIVE_TELEGRAM"] = "1"
+    child_env["QT_QPA_PLATFORM"] = "offscreen"
+    for key in tuple(child_env):
+        if key.startswith("TELEGRAM_") or key in {
+            "CONTROL_PLANE_API_TOKEN",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+        }:
+            child_env.pop(key, None)
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    for argument in ("--version", "--headless"):
+        try:
+            result = subprocess.run(
+                [str(executable), argument],
+                cwd=executable.parent,
+                env=child_env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=45,
+                check=False,
+                creationflags=creationflags,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            _fail(f"GUI executable {argument} smoke failed: {type(exc).__name__}")
+        if result.returncode != 0:
+            _fail(f"GUI executable {argument} smoke returned {result.returncode}")
+
+
+def _validate_pe_subsystem(executable: Path) -> None:
+    try:
+        import pefile
+
+        pe = pefile.PE(str(executable), fast_load=True)
+        machine = int(pe.FILE_HEADER.Machine)
+        subsystem = int(pe.OPTIONAL_HEADER.Subsystem)
+        pe.close()
+    except Exception as exc:  # pragma: no cover - exercised on Windows CI
+        _fail(f"cannot parse GUI executable PE headers: {type(exc).__name__}")
+    if machine != 0x8664:  # IMAGE_FILE_MACHINE_AMD64.
+        _fail(f"GUI executable has PE machine 0x{machine:04x}, expected AMD64")
+    if subsystem != 2:  # IMAGE_SUBSYSTEM_WINDOWS_GUI; no console window.
+        _fail(f"GUI executable has PE subsystem {subsystem}, expected 2")
+
+
+def _normalise_archive_name(value: str) -> str:
+    return value.replace("\\", "/").strip("/").lower()
+
+
+def _looks_like_binary_telegram_token(match: re.Match[bytes]) -> bool:
+    """Avoid treating lookup-table bytes as a credential in compiled binaries."""
+
+    secret = match.group(0).split(b":", 1)[1]
+    if len(secret) > 64:
+        return False
+    if b"AcceptanceCanary" in secret or b"NotAReal" in secret:
+        return False
+    if not (
+        any(65 <= value <= 90 for value in secret)
+        and any(97 <= value <= 122 for value in secret)
+        and any(48 <= value <= 57 for value in secret)
+    ):
+        return False
+    for index in range(len(secret) - 7):
+        window = secret[index : index + 8]
+        if all(window[offset + 1] == window[offset] + 1 for offset in range(7)):
+            return False
+        if all(window[offset + 1] == window[offset] - 1 for offset in range(7)):
+            return False
+    return True
+
+
+def _scan_sensitive(
+    label: str, payload: bytes, findings: list[str], *, binary: bool = False
+) -> None:
+    for name, pattern in SENSITIVE_PATTERNS:
+        matches = pattern.finditer(payload)
+        if binary and name == "telegram-bot-token":
+            matches = (match for match in matches if _looks_like_binary_telegram_token(match))
+        if next(matches, None) is not None:
+            findings.append(f"{label}:{name}")
+
+
+def _validate_archive(executable: Path, findings: list[str]) -> None:
+    try:
+        from PyInstaller.archive.readers import CArchiveReader
+
+        reader = CArchiveReader(str(executable))
+    except Exception as exc:  # pragma: no cover - exercised on Windows CI
+        _fail(f"cannot read PyInstaller CArchive: {type(exc).__name__}")
+
+    names = {_normalise_archive_name(name): name for name in reader.toc}
+    required_exact = (
+        "control_plane/gui/assets/app_icon.ico",
+        "control_plane/gui/assets/app_icon.png",
+        "alembic.ini",
+    )
+    for required in required_exact:
+        if required not in names:
+            _fail(f"PyInstaller archive is missing {required}")
+    if not any(name.startswith("alembic/versions/") for name in names):
+        _fail("PyInstaller archive is missing alembic/versions")
+    if not any("/platforms/" in name and name.endswith("/qwindows.dll") for name in names):
+        _fail("PyInstaller archive is missing the Qt Windows platform plugin")
+
+    for original_name in reader.toc:
+        try:
+            reader.extract(original_name)
+        except Exception as exc:
+            _fail(f"cannot extract PyInstaller entry {original_name!r}: {type(exc).__name__}")
+
+    # Python modules live in a nested PYZ archive.  Scan their decompressed
+    # bytecode as well, because secrets can be hidden by the zlib layer.
+    nested_module_names: set[str] = set()
+    for original_name, entry in reader.toc.items():
+        if entry[-1] != "z":
+            continue
+        try:
+            nested = reader.open_embedded_archive(original_name)
+            for module_name in nested.toc:
+                nested_module_names.add(str(module_name).lower())
+                payload = nested.extract(module_name, raw=True)
+                normalised_module = str(module_name).lower()
+                if payload is not None and (
+                    normalised_module == "control_plane"
+                    or normalised_module.startswith("control_plane.")
+                ):
+                    _scan_sensitive(
+                        f"archive:{original_name}:{module_name}", payload, findings, binary=True
+                    )
+        except Exception as exc:
+            _fail(f"cannot read nested PyInstaller archive {original_name!r}: {type(exc).__name__}")
+    if not any(
+        name == "control_plane" or name.startswith("control_plane.") for name in nested_module_names
+    ):
+        _fail("PyInstaller archive is missing embedded Control Plane modules")
+    if not any(name == "control_plane.gui.app" for name in nested_module_names):
+        _fail("PyInstaller archive is missing the formal GUI module")
+    if not (
+        any(name == "qrcode" or name.startswith("qrcode.") for name in nested_module_names)
+        or any(name == "qrcode" or name.startswith("qrcode/") for name in names)
+    ):
+        _fail("PyInstaller archive is missing embedded qrcode modules")
+
+
+def _scan_candidate_files(candidate: Path, findings: list[str]) -> None:
+    for path in sorted(candidate.rglob("*"), key=lambda item: item.as_posix().lower()):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(candidate).as_posix()
+        if relative in VERIFIED_EXTERNAL_BINARIES:
+            continue
+        if path.name != ".python-version" and path.suffix.lower() not in TEXT_FILE_SUFFIXES:
+            continue
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            _fail(f"cannot read candidate file {path.name}: {exc}")
+        _scan_sensitive(f"file:{relative}", payload, findings)
+
+
+def validate(candidate: Path) -> dict[str, object]:
+    candidate = candidate.resolve()
+    if not candidate.is_dir():
+        _fail(f"candidate directory does not exist: {candidate}")
+    manifest = _validate_manifest_and_hashes(candidate)
+    _validate_required_files(candidate, manifest)
+    executable = candidate / "AI-Agent-Desktop.exe"
+    _run_executable_smoke(executable)
+    _validate_pe_subsystem(executable)
+    findings: list[str] = []
+    _scan_candidate_files(candidate, findings)
+    _validate_archive(executable, findings)
+    if findings:
+        _fail("sensitive credential pattern found: " + ", ".join(sorted(set(findings))[:20]))
+    return {
+        "status": "passed",
+        "candidate": str(candidate),
+        "candidate_version": manifest["candidate_version"],
+        "package_sha256": manifest["package_sha256"],
+        "archive_entries": "checked",
+        "real_telegram_access": False,
+    }
+
+
+def main(argv: Iterable[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate an AI-Agent-Desktop GUI candidate directory"
+    )
+    parser.add_argument("--candidate", type=Path, required=True)
+    args = parser.parse_args(argv)
+    try:
+        result = validate(args.candidate)
+    except ValidationError as exc:
+        print(f"GUI candidate validation failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(result, ensure_ascii=True, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

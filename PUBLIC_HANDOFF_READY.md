@@ -1,6 +1,6 @@
 PUBLIC HANDOFF READY
 
-更新时间：2026-08-07
+更新时间：2026-08-11
 
 仓库：https://github.com/xiaochuqing-dev/AI-Agent-Desktop
 Reference Baseline Tag：v0.1-reference-baseline
@@ -13,6 +13,10 @@ PR #1 合并提交：0952c74e95fa8557b78352f8c30d19de0e021fb0
 
 Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnostic、Dry-run、持久化 OperationExecutor/SSE 和脱敏外，Windows Credential Manager、三 Bot 身份/绑定、Update Lease、managed/native 配置分离、Claude/Codex 合法原生配置、revision/回滚、产品自有 cc-connect 生命周期、六链路可观测性、消息关联、Session 隔离探针、代理策略、合成 E2E、一次性计划和验收向导已实现。Fake 与 Windows 11 合成验收通过；2026-08-07 用户直接在 Telegram 验证六条链路并明确通过。Windows 10 和未经向导生成的结构化 live 证据仍未完成，整体为 PARTIAL。
 
+本轮新增最小 PySide6 GUI 与四步 Onboarding：欢迎页、Token、私聊激活、群自动检测、完成配置、Dashboard、Diagnostics、QR 弹窗、Telegram `tg://`/HTTPS fallback 和只读刷新。GUI 版本入口为 `0.2.0-gui`；本地全量为 222 passed、1 skipped、1 warning，这不是用户 live 证据。
+
+新 GUI 私聊激活与群自动检测：`PENDING USER LIVE VALIDATION`。Windows 10 x64：`PENDING WINDOWS 10 VALIDATION`。新的 GUI candidate 已在 Windows 11 x64 构建并通过本地 validator，已有 stage-a `Validation-Wizard` 包不属于本轮 GUI；MSI、正式安装器和代码签名：`DEFERRED`。
+
 产品范围
 
 首发固定为 Windows 10/11 与 Telegram，Agent 为 Hermes、Claude Code、Codex。用户可见三个 Bot，目标为六条私聊/群聊链路。cc-connect 是 V1 核心桥梁，CC Switch 是推荐但非强制的配置入口。采用 Integration First 和唯一 ManagementOwner。
@@ -23,9 +27,13 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 下一阶段
 
-下一阶段为最小 GUI、十分钟 Onboarding 与 Windows 自包含分发。Windows 10 x64 仍待用户实机验证；若要形成机器可审计的 live 证据，应通过向导补做三次 getMe、3/3 绑定和六条 correlation，不得由用户体验结论反推。
+下一阶段为用户真实 GUI Telegram 验收和 Windows 10 x64 实机验证。若要形成机器可审计的 live 证据，应通过新流程补做三次 getMe、3/3 绑定和六条 correlation，不得由历史用户体验结论反推。
 
-最终候选包、manifest、SHA256、锁定 venv、用户验证边界和 CI 结果见 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md。
+历史候选包、manifest、SHA256、锁定 venv、用户验证边界和旧 CI 结果见 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md；本轮 GUI 实施和未完成门禁见 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md。
+
+公开文件保护
+
+本轮文档更新不触碰 `reference-baseline/`、`PUBLIC_FILE_MANIFEST.txt` 或 `SHA256SUMS.txt`。因此公开交付在重新生成并复核这两个校验文件前，不应宣称最终 handoff ready。
 
 最终分支
 

@@ -1,8 +1,15 @@
 GUI 状态体验模型 GUI_STATUS_EXPERIENCE
 
-本文档是正式 GUI 的目标体验。Control Plane 已实现，正式 GUI 尚未实现。
+本文档同时记录正式 GUI 的目标体验与当前最小实现。Control Plane 已实现；当前工作区已有 PySide6 + Qt Widgets + QSS 的最小 GUI/Onboarding slice，但完整发布体验和真实 Telegram 复测尚未完成。
 GUI 是 Control Plane 状态的视图，不是状态所有者。它只通过稳定本地 API 读取 StateSnapshot 和下发 Operation，不直接读取上游目录、进程或配置。
 关闭 GUI 只断开本地客户端，不能停止 Control Plane 或已经运行的 Agent/Channel 服务。
+
+当前实现映射
+------------
+
+`control-plane/control_plane/gui/` 提供 Welcome、统一四步 Wizard Shell、Token 输入、私聊 deep link/QR、群 deep link/检测、完成配置、Dashboard、Diagnostics、刷新和 Demo 合成客户端。`HttpControlPlaneClient` 使用 `/api/v1/onboarding/snapshot`、`/api/v1/dashboard/snapshot`、`/api/v1/telegram/client-availability` 与现有 Telegram credential/verify/binding/poll API；`DemoControlPlaneClient` 只用于截图和自动化测试，不能证明真实 Telegram 能力。
+
+当前证据状态：新 GUI 私聊激活和群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。历史直接 Telegram 六链路确认与新 GUI 证据严格分开。
 
 一、状态数据来源
 
@@ -104,4 +111,4 @@ HTTP 超时或 SSE 断开不等于操作失败，也不取消后台工作。GUI 
 
 五、技术方向
 
-正式 GUI 当前首选 PySide6 + Qt Widgets + QSS。视觉资源、主题和动画只属于表现层；业务规则、状态聚合、凭据和 Provider 调用全部留在 Control Plane。更换 GUI 技术栈不应改变本状态语义。
+正式 GUI 当前实现为 PySide6 + Qt Widgets + QSS。视觉资源、主题和动画只属于表现层；业务规则、状态聚合、凭据和 Provider 调用全部留在 Control Plane。新 GUI 的实现通过本地自动化测试，但未经用户真实 Telegram 复测；更换 GUI 技术栈不应改变本状态语义。

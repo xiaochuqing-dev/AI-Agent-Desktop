@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-agent-desktop:control-plane:v1:onboarding",
+  "title": "AI Agent Desktop Control Plane v1 onboarding and dashboard models",
+  "description": "Redacted, read-only GUI snapshots for onboarding, the dashboard, and Telegram Desktop availability.",
+  "oneOf": [
+    { "$ref": "#/$defs/OnboardingSnapshot" },
+    { "$ref": "#/$defs/DashboardSnapshot" },
+    { "$ref": "#/$defs/TelegramClientAvailability" }
+  ],
+  "$defs": {
+    "Slot": {
+      "type": "string",
+      "enum": ["hermes", "claude", "codex"]
+    },
+    "StepStatus": {
+      "type": "string",
+      "enum": ["pending", "active", "complete", "needs_action", "failed"]
+    },
+    "OverallStatus": {
+      "type": "string",
+      "enum": ["ready", "needs_action", "pending", "degraded"]
+    },
+    "OnboardingAgentSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot", "display_name", "bot_username", "bot_id", "token_ready",
+        "identity_verified", "installed", "connected", "private_status",
+        "group_status", "user_message"
+      ],
+      "properties": {
+        "slot": { "$ref": "#/$defs/Slot" },
+        "display_name": { "type": "string" },
+        "bot_username": { "type": ["string", "null"] },
+        "bot_id": { "type": ["integer", "null"] },
+        "token_ready": { "type": "boolean" },
+        "identity_verified": { "type": "boolean" },
+        "installed": { "type": ["boolean", "null"] },
+        "connected": { "type": ["boolean", "null"] },
+        "private_status": {
+          "type": "string",
+          "enum": ["pending", "bound", "rejected"]
+        },
+        "group_status": {
+          "type": "string",
+          "enum": ["pending", "bound", "rejected"]
+        },
+        "user_message": { "type": "string" }
+      }
+    },
+    "OnboardingBindingSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id", "state", "expires_at", "bound_private_count",
+        "bound_group_count", "group_title", "group_type", "revision"
+      ],
+      "properties": {
+        "session_id": { "type": ["string", "null"] },
+        "state": {
+          "type": "string",
+          "enum": [
+            "not_started", "created", "credentials_verified", "waiting_private",
+            "private_verified", "waiting_group", "partially_bound",
+            "group_consistency_pending", "completed", "canceled", "expired",
+            "conflict", "failed"
+          ]
+        },
+        "expires_at": { "type": ["string", "null"], "format": "date-time" },
+        "bound_private_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "bound_group_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "group_title": { "type": ["string", "null"] },
+        "group_type": {
+          "type": ["string", "null"],
+          "enum": ["group", "supergroup", null]
+        },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "OnboardingChecklistItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "status", "user_message"],
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "status": { "$ref": "#/$defs/StepStatus" },
+        "user_message": { "type": "string" }
+      }
+    },
+    "TelegramClientAvailability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tg_handler_available", "https_deep_link_available", "checked_at",
+        "official_download_url"
+      ],
+      "properties": {
+        "tg_handler_available": { "type": "boolean" },
+        "https_deep_link_available": { "type": "boolean" },
+        "checked_at": { "type": "string", "format": "date-time" },
+        "official_download_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "OnboardingSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision", "observed_at", "current_step", "onboarding_complete",
+        "agents", "binding", "checklist", "telegram_client", "overall_status"
+      ],
+      "properties": {
+        "revision": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "current_step": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "onboarding_complete": { "type": "boolean" },
+        "agents": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/OnboardingAgentSnapshot" }
+        },
+        "binding": { "$ref": "#/$defs/OnboardingBindingSnapshot" },
+        "checklist": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OnboardingChecklistItem" }
+        },
+        "telegram_client": { "$ref": "#/$defs/TelegramClientAvailability" },
+        "overall_status": { "$ref": "#/$defs/OverallStatus" }
+      }
+    },
+    "DashboardAgentSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot", "display_name", "installed", "connected", "status",
+        "user_message"
+      ],
+      "properties": {
+        "slot": { "$ref": "#/$defs/Slot" },
+        "display_name": { "type": "string" },
+        "installed": { "type": ["boolean", "null"] },
+        "connected": { "type": ["boolean", "null"] },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "needs_action", "unknown"]
+        },
+        "user_message": { "type": "string" }
+      }
+    },
+    "DashboardSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision", "observed_at", "overall_status", "telegram_status",
+        "agents", "chat_pills", "recent_issues"
+      ],
+      "properties": {
+        "revision": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "overall_status": { "$ref": "#/$defs/OverallStatus" },
+        "telegram_status": {
+          "type": "string",
+          "enum": ["ready", "needs_action", "unknown"]
+        },
+        "agents": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/DashboardAgentSnapshot" }
+        },
+        "chat_pills": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "recent_issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

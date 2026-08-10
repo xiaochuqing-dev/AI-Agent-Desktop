@@ -1,13 +1,37 @@
-AI-Agent-Desktop 阶段 A Windows x64 用户验收候选包
+AI-Agent-Desktop 0.2.0-gui Windows x64 用户验收指南
 
-启动 AI-Agent-Desktop-Validation-Wizard.exe。向导启动、刷新和合成验收不会访问 Telegram。
-输入 Token 时只使用向导中的安全输入框，不要把 Token 发给支持人员或写入文本文件。
-验证三个 Bot 后，创建绑定会话，按界面显示的私聊和群聊命令逐个操作，再点击检查更新。
-六条链路必须在列表中逐条选择。每条链路先创建计划，再明确确认发送一条短的只读验收消息。
-失败、超时或没有响应时不会自动重试；需要新建计划并重新确认。向导不会读取 Telegram 响应来替代运行时的 Update Lease。
-响应 message_id 只能在运行时提供可靠证据后录入。导出的报告只包含摘要、哈希、状态和消息 ID，不包含正文或 Token。
-清理验收数据按钮只删除候选包中的 validation-data 和脱敏报告，不删除 Windows Credential Manager 凭据。
+一、启动前
 
-候选包中的 AI-Agent-Desktop-Validation-Wizard.exe --serve 可启动 loopback Control Plane；默认不绑定外部地址。
-候选包不要求安装 Python、Go 或 Node，也不修改 PATH、注册表、计划任务、Windows Service 或 Watchdog。
-真实 Telegram 和 Windows 10 状态仍需用户在自己的机器上确认。
+确认候选包包含 AI-Agent-Desktop.exe、candidate-manifest.json、SHA256SUMS.txt 和 cc-connect 目录。
+使用普通 Windows 用户账户运行，不要以管理员身份启动候选包。
+候选包无需安装 Python、Go 或 Node，也不会修改 PATH、注册表、计划任务、Windows Service 或 Watchdog。
+本候选包不是 MSI，当前也没有代码签名。只使用来自受信任 GitHub Actions Artifact 且 SHA256 校验通过的候选包。
+
+二、启动正式 GUI
+
+双击 AI-Agent-Desktop.exe。首次启动显示欢迎页，进入快速配置后，四个步骤始终使用同一个固定界面。
+不要使用 --demo 完成真实验收；--demo 只提供离线合成预览，不能证明 Telegram 已接通。
+顶部刷新按钮只重新读取状态，不修改配置、不重启 Agent，也不发送 Telegram 消息。
+
+三、完成四步快速配置
+
+Step 1：粘贴 Hermes、Claude Code、Codex 三个 Bot Token，并执行验证。Token 只应输入 GUI 的安全输入框，不要写入文本文件、截图、日志或发送给支持人员。
+Step 2：依次点击三个 Bot 的“打开 Telegram”，或扫描对应私聊二维码。在 Telegram 中点击 Start，等待 GUI 自动显示已激活。二维码和链接不包含 Bot Token。
+Step 3：把三个 Bot 加入同一个 Telegram 群，返回 GUI 等待自动检测。此步骤没有群二维码，不要求输入 Group ID，也不会枚举 Telegram 账号中的群列表。若长时间未完成，按界面提示检查 Bot 权限和 Privacy Mode。
+Step 4：等待产品完成本机配置并显示结果。不要手工编辑 cc-connect TOML、SecretRef、端口、User ID、Group ID 或 Update Offset。
+
+四、验收边界
+
+正常流程不会默认发送真实测试消息，也不会读取 Telegram 登录状态、聊天历史或消息正文。
+Dashboard 和 Diagnostics 只能展示 Control Plane 的脱敏状态；失败时记录界面状态和时间，不要提交 Token、完整 Deep Link 或私有路径。
+关闭并重新打开 GUI 后，应从 Control Plane 真实状态恢复；不能用 Demo 绿色状态替代真实结果。
+新 GUI 的私聊激活、同群自动检测和 Windows 10 x64 状态，只有用户实际完成本轮流程后才能记为通过。
+
+五、Windows 10 离线预检
+
+在候选包目录打开 Windows PowerShell，执行：
+
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\windows10_user_acceptance.ps1 -ProductBundle . -OutputPath .\windows10-user-acceptance-redacted.json
+
+该脚本只检查 Windows 10 x64、0.2.0-gui Manifest、AI-Agent-Desktop.exe、--version 和 --headless，不访问真实 Telegram，也不替代上面的四步人工 GUI 验收。
+输出报告不包含 Token 或消息正文。即使离线预检通过，在用户完成四步 GUI 前，状态仍为 PENDING_USER_REAL_MACHINE_VALIDATION。

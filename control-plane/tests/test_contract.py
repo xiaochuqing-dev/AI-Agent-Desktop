@@ -73,6 +73,7 @@ def test_openapi_frozen_with_readiness_and_events():
         "/telegram/update-leases",
         "/telegram/bindings",
         "/telegram/bindings/{sessionId}",
+        "/telegram/bindings/{sessionId}:resume",
         "/telegram/bindings/{sessionId}:cancel",
         "/telegram/bindings/{sessionId}/slots/{slot}:poll",
         "/components/{componentId}/native-configuration/renderer",
@@ -94,8 +95,22 @@ def test_openapi_frozen_with_readiness_and_events():
         "/observability/session-isolation:probe",
         "/observability/session-isolation",
         "/telegram/network-policy",
+        "/onboarding/snapshot",
+        "/dashboard/snapshot",
+        "/telegram/client-availability",
     ]:
         assert path in doc["paths"]
+    assert any(item["name"] == "Onboarding" for item in doc["tags"])
+    expected_gui_refs = {
+        "/onboarding/snapshot": "./onboarding.schema.json#/$defs/OnboardingSnapshot",
+        "/dashboard/snapshot": "./onboarding.schema.json#/$defs/DashboardSnapshot",
+        "/telegram/client-availability": "./onboarding.schema.json#/$defs/TelegramClientAvailability",
+    }
+    for path, expected_ref in expected_gui_refs.items():
+        schema = doc["paths"][path]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]
+        assert schema["$ref"] == expected_ref
     assert any(item["name"] == "Observability" for item in doc["tags"])
     for schema in [
         "LinkState",
@@ -107,6 +122,8 @@ def test_openapi_frozen_with_readiness_and_events():
         "ProxyPolicyState",
     ]:
         assert schema in doc["components"]["schemas"]
+    resume_schema = doc["components"]["schemas"]["BindingResumeRequest"]
+    assert resume_schema["properties"]["runtimes_stopped_confirmation"] == {"const": True}
     problem = doc["components"]["schemas"]["Problem"]
     assert "errors" in problem["properties"]
     assert "secret" not in problem["properties"]
@@ -174,6 +191,29 @@ def test_managed_runtime_schema_has_non_secret_lifecycle_models():
     ]:
         assert field in health["properties"]
 
+    created = models["$defs"]["BindingSessionCreated"]
+    assert "group_deep_links" in created["required"]
+    assert "group_deep_links" in created["properties"]
+
+
+def test_onboarding_schema_has_redacted_gui_snapshots():
+    with open(os.path.join(CONTRACTS, "onboarding.schema.json"), encoding="utf-8") as f:
+        models = json.load(f)
+    for name in [
+        "OnboardingSnapshot",
+        "DashboardSnapshot",
+        "TelegramClientAvailability",
+    ]:
+        assert name in models["$defs"]
+    assert (
+        models["$defs"]["OnboardingSnapshot"]["properties"]["telegram_client"]["$ref"]
+        == "#/$defs/TelegramClientAvailability"
+    )
+    serialized = json.dumps(models).lower()
+    assert '"token"' not in serialized
+    assert '"bind_code"' not in serialized
+    assert '"message_body"' not in serialized
+
 
 def test_contract_validation_resolves_external_refs_from_any_working_directory(tmp_path):
     result = subprocess.run(
@@ -189,3 +229,4 @@ def test_contract_validation_resolves_external_refs_from_any_working_directory(t
     assert "core-models.schema.json" in result.stdout
     assert "event-envelope.schema.json" in result.stdout
     assert "managed-runtime.schema.json" in result.stdout
+    assert "onboarding.schema.json" in result.stdout

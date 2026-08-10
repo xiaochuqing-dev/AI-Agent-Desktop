@@ -17,6 +17,7 @@ JSON_SCHEMA_FILENAMES = (
     "core-models.schema.json",
     "event-envelope.schema.json",
     "managed-runtime.schema.json",
+    "onboarding.schema.json",
 )
 
 

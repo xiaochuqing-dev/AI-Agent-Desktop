@@ -34,12 +34,12 @@ CC Switch
 Control Plane
 -------------
 
-统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前已对产品自有 cc-connect 实现安装、合法 Claude/Codex 原生配置、Secret 注入和生命周期；对 Telegram 实现安全凭据、身份与绑定；Hermes 只生成不接管外部所有权的计划或准确 pending。整体因真实 Telegram 与 Windows 10 未验证仍为 PARTIAL。
+统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前已对产品自有 cc-connect 实现安装、合法 Claude/Codex 原生配置、Secret 注入和生命周期；对 Telegram 实现安全凭据、身份与绑定；Hermes 只生成不接管外部所有权的计划或准确 pending。最小 GUI 通过 onboarding/dashboard/Telegram API 消费这些状态。Windows 11 candidate 已通过本地验证；整体因新 GUI live 与 Windows 10 尚未验证仍为 PARTIAL。
 
 GUI
 ---
 
-未来首选 PySide6，只调用 Control Plane 稳定契约，不直接写 Hermes、cc-connect、Claude Code、Codex、Telegram 或 CC Switch 私有配置。
+当前最小实现为 PySide6 + Qt Widgets + QSS，包含 Welcome、四步 Onboarding、QR、Telegram 深链接、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不直接写 Hermes、cc-connect、Claude Code、Codex、Telegram 或 CC Switch 私有配置。新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 dual_agent 与 cc-connect Patch
 -----------------------------

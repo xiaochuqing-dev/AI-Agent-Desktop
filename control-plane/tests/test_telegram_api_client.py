@@ -73,6 +73,30 @@ def test_get_me_webhook_and_updates_success():
     assert [item.update_id for item in updates] == [9]
 
 
+def test_get_updates_includes_membership_events_and_wraps_chat_checks():
+    seen: list[tuple[str, dict]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        method = request.url.path.rsplit("/", 1)[-1]
+        payload = json.loads(request.content.decode())
+        seen.append((method, payload))
+        result = {
+            "getUpdates": [],
+            "getChat": {"id": -1001, "type": "supergroup", "title": "AI 编程组"},
+            "getChatMember": {"status": "member", "user": {"id": 9001}},
+        }[method]
+        return httpx.Response(200, json={"ok": True, "result": result}, request=request)
+
+    client = TelegramBotApiClient(transport=httpx.MockTransport(handler))
+    asyncio.run(client.get_updates("100001:synthetic", offset=4, timeout_seconds=0))
+    chat = asyncio.run(client.get_chat("100001:synthetic", chat_id=-1001))
+    member = asyncio.run(client.get_chat_member("100001:synthetic", chat_id=-1001, user_id=9001))
+    assert chat["title"] == "AI 编程组"
+    assert member["status"] == "member"
+    updates_payload = next(payload for method, payload in seen if method == "getUpdates")
+    assert updates_payload["allowed_updates"] == ["message", "my_chat_member"]
+
+
 class RaisingTransport(httpx.AsyncBaseTransport):
     def __init__(self, error: Exception) -> None:
         self.error = error

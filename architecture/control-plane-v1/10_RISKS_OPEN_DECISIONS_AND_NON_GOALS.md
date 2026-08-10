@@ -2,7 +2,7 @@
 
 ## 使用规则
 
-“已冻结”表示下一阶段可以直接依赖其语义；“开放”表示实现方式仍需 Architecture Decision Record，但不得改变已冻结 API、状态、安全和替换边界。ADR-001..004 已解决语言框架、事务存储、当前后台宿主和凭据边界。cc-connect 隔离安装、原生配置、产品自有生命周期与固定 Telegram Credential 已落地；外部接管、真实 Telegram live 和 Windows 10 仍受后续门禁约束。
+“已冻结”表示下一阶段可以直接依赖其语义；“开放”表示实现方式仍需 Architecture Decision Record，但不得改变已冻结 API、状态、安全和替换边界。ADR-001..004 已解决语言框架、事务存储、当前后台宿主和凭据边界。cc-connect 隔离安装、原生配置、产品自有生命周期、固定 Telegram Credential 与最小 PySide6 GUI 客户端已落地；新 GUI live、外部接管和 Windows 10 仍受后续门禁约束。
 
 ## 已冻结、不再重复讨论
 
@@ -38,6 +38,7 @@
 | 锁定版 cc-connect management API 暴露到所有网卡 | 中/高 | 端口在非 loopback 地址监听 | 随机高熵 Bearer、受控端口、本机防火墙、健康标 partial；升级前不伪报 loopback-only | 上游 Renderer 升级评审 |
 | 原生 Telegram Schema 无 Group Chat 白名单 | 中/中 | operator 可在其他群触发 Bot | 只允许绑定 operator、公开 unsupported、六链路验收限定目标群；不增加私有 Patch | 真实消息 E2E 前 |
 | 合成 3/3 被误当真实 Telegram 已通过 | 中/高 | 报告缺少真实 getMe/Update 时间与证据 | 强制 PENDING USER LIVE VALIDATION，真实操作只能用户显式启动 | 下一阶段进入门禁 |
+| Demo GUI 自动进度被误当真实 Onboarding 完成 | 中/高 | 预览模式显示 bound/ready 但没有用户操作 | 标题栏显示预览模式；报告区分 Demo、Fake 与用户 live；新 GUI 固定 PENDING USER LIVE VALIDATION | 新 GUI 用户验收前 |
 
 ## 实现前开放决策
 
@@ -92,7 +93,7 @@
 - 讨论模式产品化
 - 新 Channel 与附件能力
 - Provider 进程外隔离或第三方扩展
-- 正式 PySide6 GUI 的视觉系统和安装器体验
+- 完整 PySide6 GUI 的视觉收口、Windows candidate、MSI 和签名体验
 
 延后表示当前 Capability 为 unavailable/experimental，不表示删除 API 资源或改用私有临时接口。
 
@@ -105,7 +106,7 @@
 - 不让 GUI、测试客户端或未来 Channel 绕过 Control Plane 读写上游私有文件。
 - 不为通用模型增加 Telegram 或其他平台专属“可选扩展字段”。
 - 不承诺瞬时强取消、零停机升级、跨平台首发或无人确认的高风险自动修复。
-- 不在当前阶段实现正式 GUI、新 Channel、新 Runtime、复杂讨论、通用配置平台或通用凭据平台。
+- 不在当前阶段实现完整发布级 GUI、MSI/签名、新 Channel、新 Runtime、复杂讨论、通用配置平台或通用凭据平台；最小 PySide6 GUI 壳已实现但仍待真实验收。
 
 ## 需要正式评审确认的优先事项
 

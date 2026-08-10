@@ -65,6 +65,18 @@ class TelegramUpdateLease(StrictModel):
     revision: int = Field(default=0, ge=0)
 
 
+class TelegramGroupVerification(StrictModel):
+    slot: TelegramBotSlot
+    group_title: str | None = None
+    group_type: Literal["group", "supergroup"]
+    bot_status: Literal[
+        "creator", "administrator", "member", "restricted", "left", "kicked", "unknown"
+    ]
+    can_send_messages: bool | None = None
+    privacy_mode_warning: bool
+    user_message: str
+
+
 class BindingState(StrEnum):
     CREATED = "created"
     CREDENTIALS_VERIFIED = "credentials_verified"
@@ -117,11 +129,17 @@ class BindingSessionCreated(BindingSession):
         json_schema_extra={"writeOnly": True, "x-display-once": True},
     )
     private_deep_links: dict[TelegramBotSlot, str]
+    group_deep_links: dict[TelegramBotSlot, str]
     private_commands: dict[TelegramBotSlot, str]
     group_commands: dict[TelegramBotSlot, str]
 
 
 class BindingCreateRequest(StrictModel):
+    expires_in_seconds: int = Field(default=900, ge=120, le=1800)
+    runtimes_stopped_confirmation: Literal[True]
+
+
+class BindingResumeRequest(StrictModel):
     expires_in_seconds: int = Field(default=900, ge=120, le=1800)
     runtimes_stopped_confirmation: Literal[True]
 

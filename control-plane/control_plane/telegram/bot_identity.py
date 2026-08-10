@@ -195,6 +195,66 @@ class TelegramBotIdentityService:
                     recovery_actions=["confirm_and_delete_webhook_outside_runtime_start"],
                 )
 
+    def get_chat(
+        self,
+        slot: TelegramBotSlot,
+        chat_id: int,
+        *,
+        cancel_event: asyncio.Event | None = None,
+    ) -> dict:
+        identity = self.get(slot)
+        if identity is None:
+            raise OperationExecutionError(
+                "TELEGRAM_IDENTITY_NOT_VERIFIED",
+                "Telegram bot identity is not verified.",
+                recovery_actions=["verify_bot_identity"],
+            )
+        try:
+            with self.credentials.resolve_for_operation(identity.credential_reference_id) as token:
+                return asyncio.run(
+                    self.client.get_chat(token, chat_id=chat_id, cancel_event=cancel_event)
+                )
+        except TelegramApiError as exc:
+            raise OperationExecutionError(
+                exc.code,
+                exc.message,
+                retryable=exc.retryable,
+                recovery_actions=["retry_group_check"],
+            ) from None
+
+    def get_chat_member(
+        self,
+        slot: TelegramBotSlot,
+        chat_id: int,
+        user_id: int,
+        *,
+        cancel_event: asyncio.Event | None = None,
+    ) -> dict:
+        identity = self.get(slot)
+        if identity is None:
+            raise OperationExecutionError(
+                "TELEGRAM_IDENTITY_NOT_VERIFIED",
+                "Telegram bot identity is not verified.",
+                recovery_actions=["verify_bot_identity"],
+            )
+        try:
+            with self.credentials.resolve_for_operation(identity.credential_reference_id) as token:
+                return asyncio.run(
+                    self.client.get_chat_member(
+                        token,
+                        chat_id=chat_id,
+                        user_id=user_id,
+                        cancel_event=cancel_event,
+                    )
+                )
+        except TelegramApiError as exc:
+            raise OperationExecutionError(
+                exc.code,
+                exc.message,
+                retryable=exc.retryable,
+                recovery_actions=["retry_group_check"],
+            ) from None
+
     def delete_webhook(
         self,
         slot: TelegramBotSlot,

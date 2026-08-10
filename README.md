@@ -5,6 +5,13 @@ AI Agent Desktop
 
 本仓库是当前公开事实源。产品集成 Hermes、Claude Code、Codex、cc-connect、Telegram，并把 CC Switch 作为推荐但非强制的供应商配置入口。核心价值是减少配置和首次使用摩擦，降低失败率，并统一状态、诊断、更新、回滚与恢复；不重复开发成熟上游。
 
+2026-08-11 实施更新
+-------------------
+
+当前公开 `main` 起点为 `33652568727b6bb4b41ae84b99a1e2332eea6bce`。工作区已加入最小 PySide6 + Qt Widgets + QSS GUI 候选实现（版本 `0.2.0-gui`）：欢迎页、统一四步 Onboarding Shell、Token、私聊激活、同群检测、完成配置、Dashboard、Diagnostics、二维码弹窗、Telegram Desktop 深链接与 HTTPS 下载 fallback。GUI 通过 `/api/v1/onboarding/snapshot`、`/api/v1/dashboard/snapshot` 和现有 Telegram Binding API 读取/提交状态；没有独立复制 Control Plane 业务状态。
+
+这轮 GUI 的自动化/合成测试已通过，但新 GUI 的私聊激活和群自动检测尚未由用户在真实 Telegram 中复测，状态固定为 `PENDING USER LIVE VALIDATION`。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。`AI-Agent-Desktop.exe` / `0.2.0-gui` candidate 已在 Windows 11 x64 构建并通过本地 validator；MSI、安装器体验和代码签名为 `DEFERRED`。历史 2026-08-07 的直接 Telegram 六链路确认仍是旧入口的 `LIVE_VERIFIED` 证据，不得当作新 GUI 流程证据，也不得据此声称 Hermes 或新 GUI 已完成实时验证。
+
 一、当前状态
 ------------
 
@@ -21,7 +28,7 @@ AI Agent Desktop
 - 本轮真实验收绕过向导，未生成三次 getMe、3/3 绑定和六条 correlation 的 Control Plane 持久化证据，不能把用户确认改写为不存在的结构化记录。
 - 整体仍为 PARTIAL：Windows 10 为 PENDING WINDOWS 10 VALIDATION；当前实机为 Windows 11；上游 management API 只能监听所有网卡、原生 Group Chat 过滤和 deep health 为 unsupported。
 - Hermes 在当前机器作为 external runtime 被观测，不由 Control Plane 接管生命周期；本机启动黑窗口问题已在外部运行层修复并由用户复测通过。
-- 候选包内含验收向导（Tk/Windows GUI）；正式产品 GUI 仍以后续 PySide6 + Qt Widgets + QSS 为首选方向。
+- 旧 stage-a 候选包仍是 Tk/Windows 验收向导；当前工作区的正式 GUI 最小切片已使用 PySide6 + Qt Widgets + QSS。新 GUI candidate 已完成 Windows 11 本地构建验证，但用户 live 与 Windows 10 尚未完成，不能标为发布完成。
 
 二、首发产品范围
 ----------------
@@ -52,6 +59,7 @@ AI Agent Desktop
 12. reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md
 13. 05_NEXT_PHASE.md
 14. next-agent/NEXT_AGENT_PROMPT.txt
+15. reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md
 
 五、目录结构
 ------------

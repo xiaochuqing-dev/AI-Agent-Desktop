@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施日期：2026-08-05。代码、Fake Telegram、合成 Token、Windows Credential Manager 和 Windows 11 合法受管运行已通过；整体为 PARTIAL。真实 Telegram 为 PENDING USER LIVE VALIDATION，Windows 10 为 PENDING WINDOWS 10 VALIDATION，Hermes 为 pending_component_install，原生 Group Chat 过滤与 deep health 为 unsupported。
+实施日期：2026-08-11。代码、Fake Telegram、合成 Token、Windows Credential Manager、Windows 11 合法受管运行和最小 PySide6 GUI 客户端已通过本地自动化/合成检查；整体为 PARTIAL。新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，Hermes 为 pending_component_install 或 observed external，原生 Group Chat 过滤与 deep health 为 unsupported。
 
 ## 门禁顺序
 
@@ -54,6 +54,12 @@ Hermes 未安装时保存 pending_component_install 计划，不阻塞 Claude/Co
 
 锁定版 cc-connect management API 无 bind host 字段，实测监听所有网卡，虽有 Bearer 仍只记 partial。Telegram 原生 options 无 Group Chat ID 白名单，只能限制 operator user，状态为 unsupported。上游无正式 deep health endpoint，deep health 为 unsupported。以上限制不通过新增 Patch 规避。
 
+## GUI Onboarding 边界
+
+PySide6 GUI 使用固定四步 Shell：Token、私聊激活、同群检测、剩余配置；私聊步骤展示 Control Plane 生成的短时 deep link 和 QR，群步骤使用 `startgroup`/Telegram 打开 fallback 后轮询绑定状态。GUI 不读取 Telegram 登录状态、tdata、群列表或聊天正文，也不发送默认真实消息。Demo 客户端会生成合成进度，仅用于截图/控件测试，标题栏标识预览模式。新 GUI 真实私聊与群自动检测必须由用户另行复测，不能从 Fake 或旧六链路用户确认推断。
+
 ## 验证证据
 
 锁定 commit 为 fc315d213b49d62e9d90ea4a510189d4115e636f，既有 patchset 为 0.1，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。Windows 11 合成验收完成三 Fake getMe、三私聊、三同群、revision 4、三份备份、漂移恢复、真实进程 start/stop/restart/reconcile、Bearer 200/401、Lease 释放、Secret 扫描与无残留进程。真实 Token 和 Windows 10 证据仍待用户现场完成。
+
+新 GUI 代码与合成测试不改变上述 Telegram 证据等级；`0.2.0-gui` candidate 已在 Windows 11 x64 构建并通过本地 validator，但不能由此推断真实 Telegram 或 Windows 10 已验证。

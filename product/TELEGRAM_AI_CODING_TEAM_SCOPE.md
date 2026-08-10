@@ -9,7 +9,7 @@ Telegram AI 编程团队范围
 二、固定首发范围
 ----------------
 
-Windows 10/11、Telegram、Hermes、Claude Code、Codex、cc-connect，以及推荐但非强制的 CC Switch。PySide6 是未来 GUI 首选，本阶段不实现 GUI。
+Windows 10/11、Telegram、Hermes、Claude Code、Codex、cc-connect，以及推荐但非强制的 CC Switch。当前最小 GUI 使用 PySide6 + Qt Widgets + QSS；完整发布和 Windows 10 验收仍未完成。
 
 三、三个 Bot
 ------------
@@ -31,9 +31,9 @@ Windows 10/11、Telegram、Hermes、Claude Code、Codex、cc-connect，以及推
 五、当前与目标
 --------------
 
-当前 Reference Baseline 已有群聊主要链路和 Hermes 私聊证据，Claude Code/Codex 私聊仍需补齐正式矩阵。Control Plane 已实现三个固定 Bot 的安全凭据、getMe、一次性绑定、User ID/Group ID 自动发现和 3/3 同群一致性，但只通过 Fake Telegram 合成验收；真实 Telegram 为 PENDING USER LIVE VALIDATION。
+当前 Reference Baseline 与 2026-08-07 旧入口用户确认保留历史 Telegram 证据。Control Plane 已实现三个固定 Bot 的安全凭据、getMe、一次性绑定、User ID/Group ID 自动发现和 3/3 同群一致性，但结构化真实向导证据仍未采集。最小 GUI 已提供四步私聊/群 Onboarding、QR、深链接、Dashboard 和 Diagnostics；新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`。
 
-用户只需提供模型账号或 API 凭据、三个 Bot Token，并完成 Telegram 官方要求的首次 /start 与权限设置。Bot 识别、Token 验证、User ID、Group/Chat ID、Claude/Codex Project 和受管启动已具备；Hermes 仍可能 pending_component_install，六链路真实检测和修复留到下一阶段。
+用户只需提供三个 Bot Token，并完成 Telegram 官方要求的首次 /start、建群/加 Bot 与权限设置；模型账号、Hermes 管理和六链路真实消息测试不由本轮 GUI 假装完成。Bot 识别、Token 验证、User ID、Group/Chat ID、Claude/Codex Project 和受管启动在 Control Plane 路径具备；Hermes 仍可能 pending_component_install。Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。
 
 六、验收规则
 ------------

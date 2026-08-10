@@ -1,6 +1,6 @@
 # 08 当前系统 Adapter 映射
 
-实施状态更新（2026-08-05）：除本文件原有只读 Adapter 映射外，当前已有仅限产品自有 cc-connect 的隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Native Config Renderer、运行时 Secret 注入和受管生命周期 Adapter。它不接管下述 Reference Baseline、计划任务、Watchdog、junction 或外部运行服务；`src/` 与既有 5 个 Patch 内容保持冻结。
+实施状态更新（2026-08-11）：除本文件原有只读 Adapter 映射外，当前已有仅限产品自有 cc-connect 的隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Native Config Renderer、运行时 Secret 注入和受管生命周期 Adapter。最小 PySide6 GUI 通过 onboarding/dashboard/Telegram API 作为只读/受控客户端接入，不新增业务所有权。它不接管下述 Reference Baseline、计划任务、Watchdog、junction 或外部运行服务；`src/` 与既有 5 个 Patch 内容保持冻结。
 
 ## 映射原则
 
@@ -198,3 +198,7 @@ read_only_candidate：文件存在、版本、哈希、进程身份、监听可�
 ## 本轮保护结论
 
 本轮没有修改 `src/`、`integrations/cc-connect/patches/`、Reference Baseline 真实配置、PATH、注册表、计划任务、Watchdog、junction 或外部服务。新增能力只作用于产品自有隔离目录；已执行 Fake Telegram 与合成 Token 验收，没有发送真实消息，真实 Telegram 仍为 `PENDING USER LIVE VALIDATION`。
+
+## GUI Adapter 边界
+
+GUI 不是 Adapter，也不是状态所有者。`control_plane/gui/api_client.py` 只封装稳定本地 API；`state_store.py` 只缓存当前快照；`DemoControlPlaneClient` 的自动进度仅用于合成测试。新 GUI 私聊/群自动检测没有用户现场证据，不能从 Fake 或 Demo 结果推断 `LIVE_VERIFIED`；Windows 10 保持 `PENDING WINDOWS 10 VALIDATION`。Windows 11 candidate 已通过本地构建验证，但不改变 live 证据等级。

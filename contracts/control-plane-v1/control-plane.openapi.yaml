@@ -52,6 +52,8 @@ tags:
     description: Secret storage boundaries that never return plaintext values.
   - name: Telegram
     description: Three fixed bot identities, explicit binding sessions, webhook safety, and update-stream ownership.
+  - name: Onboarding
+    description: Redacted, read-only snapshots consumed by the formal desktop onboarding and dashboard GUI.
   - name: Observability
     description: Six independent Telegram link states, explicit one-shot live E2E evidence, and session-isolation probes.
   - name: Native Configuration
@@ -1314,6 +1316,30 @@ paths:
                 $ref: "./managed-runtime.schema.json#/$defs/BindingSession"
         default:
           $ref: "#/components/responses/Problem"
+  "/telegram/bindings/{sessionId}:resume":
+    parameters:
+      - $ref: "#/components/parameters/TelegramBindingSessionId"
+    post:
+      tags: [Telegram]
+      operationId: resumeTelegramBindingSession
+      summary: Resume an active binding session and display one freshly issued code.
+      description: Reuses the persisted slot progress and rotates only the one-time HMAC-backed code. Plaintext code and deep links are returned once and are never persisted.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindingResumeRequest"
+      responses:
+        "200":
+          description: Resumed binding session with a one-time code and fresh deep links.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/BindingSessionCreated"
+        default:
+          $ref: "#/components/responses/Problem"
   "/telegram/bindings/{sessionId}:cancel":
     parameters:
       - $ref: "#/components/parameters/TelegramBindingSessionId"
@@ -2240,6 +2266,54 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ProxyPolicyState" }
         default: { $ref: "#/components/responses/Problem" }
+  /onboarding/snapshot:
+    get:
+      tags: [Onboarding]
+      operationId: getOnboardingSnapshot
+      summary: Read the resumable four-step onboarding snapshot.
+      description: Returns redacted Control Plane state for the GUI without binding codes, tokens, Telegram message bodies, or private filesystem paths.
+      x-stability: stable
+      responses:
+        "200":
+          description: Current onboarding progress and Telegram client availability.
+          content:
+            application/json:
+              schema:
+                $ref: "./onboarding.schema.json#/$defs/OnboardingSnapshot"
+        default:
+          $ref: "#/components/responses/Problem"
+  /dashboard/snapshot:
+    get:
+      tags: [Onboarding]
+      operationId: getDashboardSnapshot
+      summary: Read the minimal post-onboarding dashboard snapshot.
+      description: Returns user-facing health summaries and redacted issue text; the GUI remains a client of Control Plane state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Current dashboard summary.
+          content:
+            application/json:
+              schema:
+                $ref: "./onboarding.schema.json#/$defs/DashboardSnapshot"
+        default:
+          $ref: "#/components/responses/Problem"
+  /telegram/client-availability:
+    get:
+      tags: [Onboarding]
+      operationId: getTelegramClientAvailability
+      summary: Read whether Telegram deep links can be opened on this machine.
+      description: This read-only probe does not inspect Telegram tdata, sessions, databases, or login state.
+      x-stability: stable
+      responses:
+        "200":
+          description: Telegram URI-handler and HTTPS fallback availability.
+          content:
+            application/json:
+              schema:
+                $ref: "./onboarding.schema.json#/$defs/TelegramClientAvailability"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     localBearer:
@@ -2885,6 +2959,18 @@ components:
         confirmation:
           const: true
     BindingCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [runtimes_stopped_confirmation]
+      properties:
+        expires_in_seconds:
+          type: integer
+          minimum: 120
+          maximum: 1800
+          default: 900
+        runtimes_stopped_confirmation:
+          const: true
+    BindingResumeRequest:
       type: object
       additionalProperties: false
       required: [runtimes_stopped_confirmation]

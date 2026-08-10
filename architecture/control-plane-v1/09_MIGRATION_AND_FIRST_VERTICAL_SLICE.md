@@ -1,6 +1,6 @@
 # 09 迁移与第一个最小纵向切片
 
-实施状态更新（2026-08-05）：只读 Readiness、cc-connect 锁定产物隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Claude/Codex 原生配置、运行时 Secret 注入和产品自有 cc-connect 生命周期已实现。Alembic 是唯一升级路径。外部生命周期接管、Hermes 已安装态配置、真实 Telegram 与 Windows 10 验证仍未完成；总体状态保持 PARTIAL。
+实施状态更新（2026-08-11）：只读 Readiness、cc-connect 锁定产物隔离安装、managed/native 配置分离、Windows Credential Manager、Telegram 三 Bot 身份与绑定、Claude/Codex 原生配置、运行时 Secret 注入、产品自有 cc-connect 生命周期、最小 PySide6 GUI/四步 Onboarding 和 Windows 11 candidate 本地验证已实现。Alembic 是唯一升级路径。新 GUI 私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，外部生命周期接管、Hermes 已安装态配置和 Windows 10 仍未完成；总体状态保持 PARTIAL。
 
 ## 迁移目标
 
@@ -17,7 +17,7 @@
 | 2 配置与凭据 | ManagementOwner、原子配置、CredentialBackend | Secret 安全评审、备份和冲突演练通过 | 配置读回、Owner 冲突、凭据不泄露测试 | 恢复旧配置；凭据引用回切；不删旧有效凭据 |
 | 3 安装与更新 | 断点安装、更新、备份、回滚、迁移 | 包来源、签名、提权边界和磁盘恢复已评审 | 干净 Windows 沙箱首次安装与失败恢复 | 版本级回滚点和安装 journal |
 | 4 人类控制 | 持久化 receipt、暂停、恢复、取消、插话、改派 | Provider 对每项能力给出可靠 ack 与取消等级 | 冻结 E2E 仍通过；新增竞态与幂等测试 | 按 capability 关闭控制入口，保留当前路由 |
-| 5 正式 GUI 与扩展 | PySide6 GUI、完整十分钟体验；之后才评估新 Channel | API 客户端兼容和无头运行已验证 | GUI 关闭后台继续；所有状态和恢复动作可见 | GUI 可独立回退，不降级 Control Plane API |
+| 5 正式 GUI 与扩展 | 最小 PySide6 GUI/四步 Onboarding 已落地；完整十分钟体验、candidate 和新 Channel 仍后置 | GUI/onboarding 自动化通过；真实 GUI Telegram 和 Windows 10 待验证 | GUI 关闭后台继续；所有状态和恢复动作可见 | GUI 可独立回退，不降级 Control Plane API |
 
 阶段编号表达依赖，不要求一次发布包含整个阶段。每次增量都必须有 feature flag 或可撤销的所有权切换。
 
@@ -29,7 +29,7 @@
 
 本机组件发现 -> 安装、配置、授权、运行与健康状态 -> 版本和能力 -> 配置只读校验 -> 启动、停止、重启 -> 健康检查 -> 脱敏日志与用户可理解错误。
 
-该切片实现 Control Plane 服务和 Adapter 契约的最小代码，不实现正式 GUI。验收客户端可以是契约测试工具或最小开发壳，但不能绕过 API 直接读写上游。
+该切片实现 Control Plane 服务、Adapter 契约和最小 PySide6 GUI 客户端。GUI 不能绕过 API 直接读写上游；Demo/截图模式不作为真实 Telegram 证据。
 
 ### 1. 发现本机组件
 
@@ -122,7 +122,7 @@
 
 ## 首片非目标
 
-- 正式 PySide6 GUI 大开发
+- 完整正式 GUI 视觉/安装器体验、MSI 和代码签名（最小 GUI 壳已实现）
 - 新 Channel、新 Agent Runtime 或新编排器
 - 通用多组件安装器、自动更新和跨机迁移实现
 - 通用多组件配置写入、Owner 自动切换和跨机真实凭据迁移

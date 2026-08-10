@@ -23,4 +23,4 @@ Adapter 只声明上游真实具备且有证据的能力。上游不足时返回
 三、当前非范围
 --------------
 
-正式 GUI、通用安装器、无人确认的真实 Telegram 操作、六链路自动验收、Provider 编辑页面、真实凭据迁移与多组件安装均不属于当前阶段。已实现的三 Bot 绑定只限固定 Telegram slot、显式 Operation、Fake/合成验收和用户后续 live 验证，不扩展为通用 Bot 平台。
+完整正式发布 GUI、通用安装器、无人确认的真实 Telegram 操作、六链路自动验收、Provider 编辑页面、真实凭据迁移与多组件安装均不属于当前阶段。当前仅实现 PySide6 最小 GUI/四步 Onboarding 壳和 Control Plane 客户端；新 GUI 私聊/群自动检测仍待用户 live 验证，不能扩展为通用 Bot 平台或伪造 Hermes/消息证据。

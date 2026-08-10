@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 
 $ControlPlaneRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $ControlPlaneRoot "dist\AI-Agent-Desktop-stage-a-windows-x64"
+    $OutputDir = Join-Path $ControlPlaneRoot "dist\AI-Agent-Desktop-gui-windows-x64"
 }
 $OutputDir = [IO.Path]::GetFullPath($OutputDir)
 $CcConnectBundle = [IO.Path]::GetFullPath($CcConnectBundle)
@@ -56,23 +56,28 @@ New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
     --clean `
     --onefile `
     --windowed `
-    --name "AI-Agent-Desktop-Validation-Wizard" `
+    --name "AI-Agent-Desktop" `
     --distpath $BuildRoot `
     --workpath (Join-Path $BuildRoot "work") `
     --specpath (Join-Path $BuildRoot "spec") `
     --paths $ControlPlaneRoot `
     --add-data "$ControlPlaneRoot\alembic;alembic" `
     --add-data "$ControlPlaneRoot\alembic.ini;." `
+    --add-data "$ControlPlaneRoot\control_plane\gui\assets;control_plane/gui/assets" `
+    --icon "$ControlPlaneRoot\control_plane\gui\assets\app_icon.ico" `
     --collect-all control_plane `
+    --collect-all PySide6 `
+    --collect-all qrcode `
     --hidden-import control_plane.main `
-    --hidden-import control_plane.validation.wizard `
+    --hidden-import control_plane.gui `
+    --hidden-import control_plane.gui.app `
     --hidden-import keyring.backends.Windows `
-    (Join-Path $PSScriptRoot "candidate_entry.py")
+    (Join-Path $PSScriptRoot "gui_candidate_entry.py")
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
-$Built = Join-Path $BuildRoot "AI-Agent-Desktop-Validation-Wizard.exe"
+$Built = Join-Path $BuildRoot "AI-Agent-Desktop.exe"
 if (-not (Test-Path -LiteralPath $Built -PathType Leaf)) { throw "PyInstaller output missing: $Built" }
-Copy-Item -LiteralPath $Built -Destination (Join-Path $OutputDir "AI-Agent-Desktop-Validation-Wizard.exe") -Force
+Copy-Item -LiteralPath $Built -Destination (Join-Path $OutputDir "AI-Agent-Desktop.exe") -Force
 
 $CcOutput = Join-Path $OutputDir "cc-connect"
 New-Item -ItemType Directory -Force -Path $CcOutput | Out-Null
@@ -89,6 +94,7 @@ if ($LASTEXITCODE -ne 0) { throw "copied cc-connect artifact verification failed
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "production_only_acceptance.py") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-prod.lock") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-build.lock") -Destination $OutputDir -Force
+Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-gui.lock") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot ".python-version") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows10_user_acceptance.ps1") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "USER_VALIDATION_GUIDE.txt") -Destination $OutputDir -Force
@@ -103,7 +109,7 @@ function Get-FileEntry {
     }
 }
 
-$CandidateVersion = "0.1.0-stage-a"
+$CandidateVersion = "0.2.0-gui"
 $CcManifest = Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect-artifact-manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $CcSha = (Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect.sha256") -Raw -Encoding UTF8).Trim().Split(' ')[0].ToLowerInvariant()
 $PayloadFiles = @(Get-ChildItem -LiteralPath $OutputDir -Recurse -File | Where-Object {

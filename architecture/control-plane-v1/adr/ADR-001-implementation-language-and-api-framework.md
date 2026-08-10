@@ -7,7 +7,7 @@ ADR-001 Control Plane 实现语言与 Web/API 框架
 上下文
 ------
 
-Control Plane v1 需要一个独立运行、绑定 loopback 的本地服务,承载 HTTP/JSON + SSE 本地 API、Operation 状态机、Provider/Adapter 边界、只读发现与脱敏诊断。未来 GUI 首选 PySide6。
+Control Plane v1 需要一个独立运行、绑定 loopback 的本地服务,承载 HTTP/JSON + SSE 本地 API、Operation 状态机、Provider/Adapter 边界、只读发现与脱敏诊断。当前最小 GUI 已按 PySide6 + Qt Widgets + QSS 实现；完整发布体验仍需独立门禁。
 
 提示词默认推荐方向:Python 3.12+、FastAPI/Starlette、Pydantic v2、SQLite、psutil、packaging、platformdirs、结构化日志成熟库,后续使用成熟 Windows Service Wrapper。
 

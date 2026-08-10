@@ -1,6 +1,6 @@
 # 05 本地 API 与事件契约
 
-实施状态更新（2026-08-05）：产品自有 `cc-connect` 已实现 install-plan、install、uninstall、restore、managed-versions、Native Config plan/apply/state/rollback、Telegram Credential/Bot/Binding/Lease，以及 start/stop/restart/status/reconcile。确认仍绑定 plan_id、plan_digest、confirmation=true 与 Idempotency-Key；Secret 写入不持久化原始请求体。其他组件安装和生命周期写操作仍返回 CAPABILITY_UNSUPPORTED。
+实施状态更新（2026-08-11）：产品自有 `cc-connect` 已实现 install-plan、install、uninstall、restore、managed-versions、Native Config plan/apply/state/rollback、Telegram Credential/Bot/Binding/Lease，以及 start/stop/restart/status/reconcile。最小 PySide6 GUI 已使用本地 onboarding/dashboard snapshot 和 Telegram binding API；确认仍绑定 plan_id、plan_digest、confirmation=true 与 Idempotency-Key；Secret 写入不持久化原始请求体。其他组件安装和生命周期写操作仍返回 CAPABILITY_UNSUPPORTED。
 
 ## 传输取舍
 
@@ -82,6 +82,16 @@ v1 默认且唯一必需传输是 loopback HTTP/1.1 + JSON；事件使用同一�
 | POST `/channels/{channelId}:validate` | 只读校验；不发送消息 | 202 Operation |
 | POST `/channels/{channelId}:connect` | 连接目标状态 | 202 Operation |
 | POST `/channels/{channelId}:disconnect` | 断开目标状态 | 202 Operation |
+
+### 最小 Onboarding 与 GUI 快照
+
+| 方法与路径 | 语义 | 结果 |
+|---|---|---|
+| GET `/onboarding/snapshot` | 读取当前四步向导、三 Bot、绑定进度、清单和 Telegram 客户端可用性 | 脱敏 `OnboardingSnapshot` |
+| GET `/dashboard/snapshot` | 读取完成后 Dashboard 的 Agent、六个聊天胶囊和待处理事项 | 脱敏 `DashboardSnapshot` |
+| GET `/telegram/client-availability` | 只读检测 `tg://` handler 与 HTTPS fallback 可用性 | `TelegramClientAvailability` |
+
+这些端点不发送消息、不读取 Telegram 登录状态或聊天正文；新 GUI 私聊/群自动检测仍需用户真实复测。
 
 ### 生命周期、健康、诊断与日志
 

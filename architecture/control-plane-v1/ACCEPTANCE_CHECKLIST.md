@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-05）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 Windows Credential Manager、三 Bot 合成绑定、managed/native 分离、合法 Claude/Codex 原生配置和产品自有生命周期；真实 Telegram 与 Windows 10 尚待验证，整体为 PARTIAL。
+实施状态更新（2026-08-11）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 Windows Credential Manager、三 Bot 合成绑定、managed/native 分离、合法 Claude/Codex 原生配置、产品自有生命周期和最小 PySide6 GUI/四步 Onboarding；新 GUI 私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
@@ -58,7 +58,7 @@
 | PASS | 每个配置 scope 唯一写入权 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | CC Switch 是可选高级入口，不阻塞新手首用 | [配置与凭据](06_MODEL_CONFIGURATION_AND_CREDENTIALS.md) |
 | PASS | PySide6 首选已同步到产品决策和宪法，且未污染核心契约 | [最新决策](../../03_LATEST_PRODUCT_DECISIONS.md)、[产品宪法](../../product/PRODUCT_CONSTITUTION.md) |
-| PASS | 已实现 Control Plane 与 cc-connect 隔离安装、最小配置和产品自有生命周期；未实现正式 GUI、通用安装器或外部接管 | Git 变更范围与阶段报告 |
+| PARTIAL | 已实现 Control Plane、cc-connect 隔离安装、最小配置、产品自有生命周期和最小 PySide6 GUI；未实现完整十分钟发布体验、MSI/签名或外部接管 | Git 变更范围与阶段报告 |
 
 ## D 安全与公开仓库边界
 
@@ -110,9 +110,10 @@
 | PASS | Hermes 缺失准确 pending_component_install，不阻塞 Claude/Codex | Hermes planner 测试与 Windows 验收 |
 | PENDING | 三个真实 Token 的 getMe、三私聊/三同群 live 绑定 | PENDING USER LIVE VALIDATION |
 | PENDING | Windows 10 x64 普通用户打包实机验证 | PENDING WINDOWS 10 VALIDATION |
-| N/A | 六链路真实消息 E2E 与正式 GUI | DEFERRED 到下一切片 |
+| PENDING | 新 GUI 私聊/群自动检测真实用户验收 | `PENDING USER LIVE VALIDATION` |
+| N/A | 六链路真实消息 E2E（新 GUI 入口） | 用户显式确认后另行执行；不得由旧入口结论反推 |
 | N/A | 原生 Group Chat 过滤与 deep health | 锁定上游 unsupported；未增加 Patch |
 
 ## 当前结论
 
-设计、机器契约、代码、Fake 与 Windows 11 合成安全验证通过。阶段整体为 PARTIAL，不得在真实 Telegram 和 Windows 10 证据完成前标为 COMPLETE。
+设计、机器契约、代码、Fake 与 Windows 11 合成安全验证通过；本地 GUI/onboarding pytest 通过。新 GUI Telegram live、Windows 10 candidate 验证、MSI/签名仍未完成，阶段整体为 PARTIAL，不得标为 COMPLETE。

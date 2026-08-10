@@ -1,6 +1,10 @@
 下一 Agent 提示词
 
-你接手 AI-Agent-Desktop 仓库。开始前核对 main、最新 GitHub Actions、reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json、architecture/control-plane-v1/13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md 和 contracts/control-plane-v1。
+你接手 AI-Agent-Desktop 仓库。开始前核对 main、最新 GitHub Actions、reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md、reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md、05_NEXT_PHASE.md、integrations/cc-connect/manifests/artifact-lock.json、architecture/control-plane-v1/13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md 和 contracts/control-plane-v1。
+
+当前 Git 事实
+
+公开 `main` 起点为 33652568727b6bb4b41ae84b99a1e2332eea6bce。当前工作区可能包含未提交的 GUI/Telegram onboarding 变更；先读取 `git status`，不要覆盖其他人的改动，不要 reset、force push、删除历史、创建分支或 PR。
 
 产品范围固定
 
@@ -8,38 +12,46 @@
 
 已交付事实
 
-Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRun、Diagnostic、持久化 OperationExecutor/SSE 和 Alembic。cc-connect Windows amd64 锁定基线为 fc315d213b49d62e9d90ea4a510189d4115e636f + 既有 Patchset 0.1 + Go 1.26.5，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。本阶段没有升级上游或增加 Patch。
+Control Plane 已有 loopback + Bearer、7 个只读 Adapter、Readiness、DryRun、Diagnostic、持久化 OperationExecutor/SSE 和 Alembic。cc-connect Windows amd64 锁定基线为 fc315d213b49d62e9d90ea4a510189d4115e636f + 既有 Patchset 0.1 + Go 1.26.5，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。本阶段不得升级上游或增加 Patch。
 
 Windows CredentialBackend 已真实落到 keyring.backends.Windows.WinVaultKeyring，支持 put、replace、status、resolve_for_operation、delete、metadata 和 revision，不允许明文文件回退。公开 CredentialRef 固定为 telegram/hermes-bot-token、telegram/claude-bot-token、telegram/codex-bot-token。
 
-已实现 TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处理、Update Lease、一次性 HMAC bind code、offset 防重放、同一 User/Group 的三私聊/三群聊 3/3 绑定。Fake Telegram 合成验收通过。六 LinkState、不可变一次性 E2E 计划、消息关联、Session 隔离探针、direct/environment/explicit 代理策略、Alembic 0005、Observability API 和自包含 Windows 验收向导也已交付。
+TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处理、Update Lease、一次性 HMAC bind code、offset 防重放、同一 User/Group 的三私聊/三群聊 3/3 绑定已实现并通过 Fake Telegram 合成验收。六 LinkState、一次性 E2E 计划、消息关联、Session 隔离探针、代理策略、Alembic 和旧 Windows 验收向导也已交付。
 
-2026-08-07 用户直接在 Telegram 验证 Hermes、Claude Code、Codex 的私聊与群聊六条链路，并明确确认无问题、可以通过。该轮未使用向导，不得虚构三次真实 getMe、3/3 bound、plan/run 或 correlation 持久化记录；用户体验 LIVE_VERIFIED 与 Control Plane 结构化证据边界必须继续分开。
+当前 GUI 事实
 
-产品管理状态与原生配置已分离为 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。Renderer 固定为 cc-connect-fc315d2-native-v1，只输出锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。Claude/Codex 配置支持 plan、revision、备份、原子写入、漂移检测和回滚。
+control-plane/control_plane/gui/ 已实现 PySide6 6.7.2 + Qt Widgets + QSS 的最小 GUI：Welcome、固定四步 Wizard Shell、Token、私聊激活、同群检测、Completion、Dashboard、Diagnostics、QR dialog、Telegram tg:///HTTPS fallback、Demo/HTTP/Embedded Control Plane 客户端。入口版本为 0.2.0-gui；requirements-gui.lock 固定 PySide6 6.7.2、qrcode 8.2、Pillow 11.3.0。
 
-合法 cc-connect 真实进程已在 Windows 11 普通用户、非系统盘、中文空格括号路径下通过 start、stop、restart、Control Plane 重启 reconcile、PID/exe SHA/config revision/端口所有权、startup stable window 和 management Bearer 200/401。启动子进程保留必要非敏感 PATH，但不修改系统或用户 PATH。external PATH 仅安装不阻塞，目标端口、相同配置作用域或 Supervisor 冲突才阻塞。
+GUI 通过 /api/v1/onboarding/snapshot、/api/v1/dashboard/snapshot、/api/v1/telegram/client-availability 以及现有 credentials、telegram verify、binding、poll API 工作。GUI 不读取 Telegram tdata、登录状态、群列表、聊天正文或上游私有配置。Demo 模式只用于截图和自动化测试，标题栏必须显示预览状态，Demo 结果不算真实证据。
 
-准确限制
+当前证据与硬状态
 
-整体阶段为 PARTIAL。六条 Telegram 用户体验链路为 LIVE_VERIFIED；Windows 10 为 PENDING WINDOWS 10 VALIDATION；向导真实 getMe、3/3 和 correlation 证据未采集。Hermes 在当前机器作为 observed external runtime，但 Control Plane 不接管。锁定上游 management API 无 bind host 字段，实测监听所有网卡；原生 Telegram options 无 Group Chat ID 白名单；deep health 无官方端点，这三项不得虚报，且不得为此增加 Patch。Python/keyring 无法保证物理内存完全清零。
+新 GUI 私聊激活和群自动检测：PENDING USER LIVE VALIDATION。必须由用户在真实 Telegram 重新走新 GUI 并明确确认后才能改变。
 
-下一阶段准确名称
+Windows 10 x64：PENDING WINDOWS 10 VALIDATION。Windows 11 的既有 Control Plane/cc-connect 合成证据不能替代 Windows 10。
 
-最小 GUI、十分钟 Onboarding 与 Windows 自包含分发切片。
+MSI、正式安装器/卸载器、Start Menu/快捷方式发布、代码签名和证书：DEFERRED。不要把旧 `control-plane/dist/AI-Agent-Desktop-stage-a-*` Tk Validation-Wizard 包描述成新 GUI candidate。
 
-进入门禁
+历史边界
 
-保持六条用户体验链路稳定；任何行为变化都必须重新请用户验收。Windows 10 x64 需单独实机验证。如需机器可审计的 live 证据，另行通过向导完成三个真实 getMe、同一 User/Group 的 3/3 绑定和六条 correlation；Fake 结果或用户口头结论均不能伪装成这些记录。
+2026-08-07 用户直接在旧入口 Telegram 验证 Hermes、Claude Code、Codex 私聊/群聊六链路并确认通过；这可保持历史 LIVE_VERIFIED，但没有新 GUI 入口、三次结构化 getMe、3/3 binding 或 correlation 持久化记录。不得伪报 Hermes 实时消息、新 GUI live、真实 Token 或新 GUI Windows 打包已验证。
 
-下一阶段只允许
+Hermes 仍为 observed external/read-only 或 pending_component_install，不由 Control Plane 静默接管 Provider、配置或生命周期。锁定上游 management API 监听所有网卡、原生 Group Chat 白名单和 deep health 保持 partial/unsupported，不为此增加 Patch。
 
-基于稳定 Control Plane 契约实现最小正式 GUI、十分钟 Onboarding、状态面板、一键诊断、有限修复和可回滚 Windows 分发；补齐 Windows 10 实机证据。不得让 GUI 读取上游私有数据库、Secret 或消息正文。
+当前本地验证
+
+当前工作区 control-plane/.venv 全量 pytest 为 222 passed、1 skipped、1 warning；GUI/onboarding 定向测试为 23 passed，candidate validator 回归另有 2 passed。ruff check、ruff format --check、mypy、契约验证和本地 candidate validator 均通过。新 GUI candidate 已在 Windows 11 x64 构建；远端 CI 仍以最新 GitHub Actions run 为准。
+
+下一步允许
+
+下一步请用户真实走私聊/群自动检测，最后在 Windows 10 x64 普通用户环境验收。app_icon PNG/ICO 透明 alpha 与黑底边缘、Windows 11 candidate、--version、--headless、offscreen smoke、PE GUI subsystem、Qt 资源、manifest、SHA256、Secret 扫描和无真实 Telegram 访问检查均已完成。
+
+如要形成机器可审计 Telegram live 证据，必须用户显式发起新三 Bot getMe、同一 User/Group 的 3/3 binding 和六链路 correlation；Fake、Demo、旧日志摘要或用户口头结论都不能代替。
 
 禁止事项
 
-不要升级 cc-connect 或增加 Patch；不要修改 Reference Baseline、计划任务、Watchdog、PATH、注册表或外部配置；不要静默 deleteWebhook 或接管 external 生命周期；不要安装/升级 Hermes；不要发送默认测试消息；不要跳到正式 GUI、Provider 编辑器、新 Channel、通用 Bot/Vault/进程平台。
+不要升级 cc-connect 或增加 Patch；不要修改 Reference Baseline、计划任务、Watchdog、PATH、注册表、junction、外部配置、真实 Bot/Provider 配置；不要静默 deleteWebhook 或接管 external 生命周期；不要安装/升级 Hermes；不要发送默认真实测试消息；不要创建通用 Bot/Vault/进程平台、Provider 编辑器、新 Channel、MSI 或签名流程。
 
-证据规则
+文档与保护文件
 
-安装、配置、认证、运行、健康和更新保持正交。无法证明返回 unknown，能力不足返回 unsupported，真实门禁缺失返回 PENDING。真实消息失败不得自动重复。所有报告、日志、Operation、SSE、SQLite 和配置继续禁止 Secret 与消息正文。
+所有报告、日志、Operation、SSE、SQLite、配置、候选包和 GUI 快照继续禁止 Secret、绑定码明文和消息正文。不要修改 reference-baseline/、PUBLIC_FILE_MANIFEST.txt 或 SHA256SUMS.txt；若公开文件集合发生变化，交由发布负责人单独重新生成并复核。

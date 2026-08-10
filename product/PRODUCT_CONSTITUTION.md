@@ -13,7 +13,7 @@
 二、固定首发范围
 ----------------
 
-首发平台为 Windows 10/11，首发 Channel 为 Telegram。首发 Agent 为 Hermes、Claude Code、Codex；cc-connect 是 Claude Code/Codex 与 Telegram 的 V1 核心桥梁；CC Switch 是推荐但非强制的供应商配置入口；PySide6 是未来 GUI 首选。
+首发平台为 Windows 10/11，首发 Channel 为 Telegram。首发 Agent 为 Hermes、Claude Code、Codex；cc-connect 是 Claude Code/Codex 与 Telegram 的 V1 核心桥梁；CC Switch 是推荐但非强制的供应商配置入口；PySide6 + Qt Widgets + QSS 是当前最小 GUI 实现。
 
 用户可见三个 Bot：Hermes Bot、Claude Code Bot、Codex Bot。产品目标固定为 Hermes、Claude Code、Codex 各自私聊与群聊共六条链路。
 
@@ -33,7 +33,7 @@
 - cc-connect：Claude Code/Codex 与 Telegram 的核心桥接和 Project/Session 承载。
 - CC Switch：推荐的供应商、模型和 API 配置入口，非新手强制依赖。
 - Control Plane：安装、发现、配置权、状态、生命周期、诊断、更新、回滚与统一操作。
-- GUI：未来只通过 Control Plane 契约工作，不直接写上游私有配置。
+- GUI：当前最小实现只通过 Control Plane 契约工作，不直接写上游私有配置；关闭 GUI 不停止后台。
 
 五、未来用户职责与自动化
 ----------------------
@@ -45,7 +45,7 @@
 六、当前实现边界
 ----------------
 
-Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及合法 cc-connect 受管生命周期。Fake Telegram 和合成 Token 验收已通过；真实 Telegram live 绑定、六链路消息 E2E、Windows 10 实机和 GUI 尚未完成，整体状态为 PARTIAL。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram 已验证。
+Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及合法 cc-connect 受管生命周期。最小 PySide6 GUI、四步 Onboarding、Dashboard、Diagnostics、QR 和 Telegram 深链接入口也已实现，并通过本地自动化/合成测试；真实 Telegram 用户尚未复测新 GUI 私聊/群自动检测，状态为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram 或 Hermes 已验证。
 
 七、不得走偏
 ------------

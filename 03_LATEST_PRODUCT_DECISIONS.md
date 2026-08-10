@@ -1,7 +1,7 @@
 03 最新产品决策
 ================
 
-更新时间：2026-08-07
+更新时间：2026-08-11
 
 1. 产品正式定位为“面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心”。
 2. 首发平台固定为 Windows 10/11，首发 Channel 固定为 Telegram，本阶段不扩展其他渠道。
@@ -11,8 +11,8 @@
 6. CC Switch 是推荐但非强制的供应商、模型和 API 配置入口，不进入新手必选条件。
 7. 采用 Integration First：不重写 Hermes、Claude Code、Codex、cc-connect，不自研替代桥梁或完整 Provider 管理器。
 8. 每个配置作用域同一时刻只能有一个 ManagementOwner；本产品与 CC Switch 不得同时写同一作用域。
-9. GUI 与 Control Plane 独立；GUI 未来只调用稳定契约，不直接读写上游私有配置。
-10. 正式 GUI 未来首选 PySide6 + Qt Widgets + QSS；当前 Tk 验收向导只是自包含验证入口，不等同于正式产品 GUI。
+9. GUI 与 Control Plane 独立；当前 PySide6 GUI 只调用稳定契约，不直接读写上游私有配置。
+10. 最小正式 GUI 已采用 PySide6 + Qt Widgets + QSS；旧 Tk 验收向导仍只作为历史自包含验证入口，不等同于新 GUI 的 live 验收。
 11. Control Plane v1 契约和四项 ADR 已冻结，基础运行代码已经存在。
 12. 当前能力包含只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断，以及 cc-connect 锁定产物隔离安装、原生配置 revision/回滚、所有权交接和产品管理生命周期。
 13. 找到可执行文件、配置文件或 Token 引用均不足以证明运行、配置有效、认证有效或健康；没有直接证据时返回 unknown。
@@ -25,6 +25,8 @@
 20. PATH 中仅安装外部 cc-connect 不阻塞产品实例；目标端口、相同配置作用域或外部 Supervisor 冲突才硬阻塞，证据不足返回 unknown。
 21. 锁定上游原生配置不支持 Group Chat 白名单字段，management API 只能监听所有网卡，deep health 也无官方端点；这些能力保持 unsupported/partial，不增加 Patch。
 22. Hermes 未安装时仍准确标记 pending_component_install；当前机器已观测到 Hermes external runtime，但 Control Plane 不接管其 Provider、配置或生命周期。
-23. 六链路可观测性、一次性 E2E 计划和自包含验收向导已实现；六条真实用户体验链路已通过。正式 GUI 尚未实现，Windows 10 x64 为 PENDING WINDOWS 10 VALIDATION。
-24. 下一阶段固定为“最小 GUI、十分钟 Onboarding 与 Windows 自包含分发切片”，继续保持 Integration First 和唯一 ManagementOwner。
-25. 用户可直接在 Telegram 做最终体验验收；若未使用向导，报告只能记录用户确认与只读日志元数据，不能生成或补写 Control Plane 结构化 live 证据。
+23. 六链路可观测性、一次性 E2E 计划、自包含验收向导和最小 PySide6 GUI 已实现。旧入口六条真实用户体验链路仍记为历史 `LIVE_VERIFIED`；新 GUI 私聊激活与群自动检测必须单独由用户复测，状态为 `PENDING USER LIVE VALIDATION`。
+24. `0.2.0-gui` Windows candidate 已在 Windows 11 x64 构建并通过本地候选验证器；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/正式安装器/签名为 `DEFERRED`。
+25. Hermes 仍是 external/read-only 边界；本轮不声称 Hermes 实时消息、Hermes 新 GUI 流程或真实 Token 已验证。
+26. 当前收口工作继续保持 Integration First 和唯一 ManagementOwner，下一步只做用户验证、候选包验证和文档证据，不扩展 Agent、Channel 或上游 Patch。
+27. 用户可直接在 Telegram 做最终体验验收；若未使用向导，报告只能记录用户确认与只读日志元数据，不能生成或补写 Control Plane 结构化 live 证据。

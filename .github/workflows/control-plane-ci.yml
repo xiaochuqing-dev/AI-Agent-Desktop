@@ -205,6 +205,19 @@ jobs:
           python -m pip install --require-hashes -r ./control-plane/requirements-dev.lock
           python -m pip install --no-deps --no-build-isolation -e ./control-plane
 
+      - name: Install locked GUI dependencies
+        shell: pwsh
+        run: python -m pip install --require-hashes -r ./control-plane/requirements-gui.lock
+
+      - name: Run offscreen GUI smoke tests
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          CONTROL_PLANE_DISABLE_LIVE_TELEGRAM: "1"
+        run: |
+          python -c "from PySide6.QtWidgets import QApplication; app = QApplication([]); app.processEvents(); print('PySide6 offscreen import passed')"
+          python -m pytest -q ./control-plane/tests/test_gui.py
+
       - name: Verify Windows Credential Manager backend
         shell: pwsh
         run: >-
@@ -236,6 +249,47 @@ jobs:
         shell: powershell
         run: |
           powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\control-plane\scripts\windows10_user_acceptance.ps1" -OutputPath "$env:CC_CONNECT_ARTIFACT\windows10-user-acceptance-wrapper.json"
+
+      - name: Build formal GUI candidate
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $candidate = Join-Path $env:RUNNER_TEMP "AI-Agent-Desktop GUI candidate"
+          $python = (Get-Command python.exe -ErrorAction Stop).Source
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\control-plane\scripts\build_windows_candidate.ps1" `
+            -CcConnectBundle $env:CC_CONNECT_ARTIFACT `
+            -OutputDir $candidate `
+            -Clean `
+            -PythonExe $python
+          if ($LASTEXITCODE -ne 0) { throw "GUI candidate build failed" }
+          "AI_AGENT_DESKTOP_GUI_CANDIDATE=$candidate" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Run GUI candidate Windows acceptance wrapper
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $reportPath = Join-Path $env:RUNNER_TEMP "gui-candidate-windows-acceptance.json"
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\control-plane\scripts\windows10_user_acceptance.ps1" `
+            -ProductBundle $env:AI_AGENT_DESKTOP_GUI_CANDIDATE `
+            -OutputPath $reportPath
+          $report = Get-Content -LiteralPath $reportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+          if (-not [bool]$report.candidate_smoke_passed) { throw "GUI candidate wrapper smoke failed" }
+          if ([bool]$report.real_telegram_access) { throw "GUI candidate wrapper accessed real Telegram" }
+
+      - name: Validate formal GUI candidate
+        shell: pwsh
+        env:
+          CONTROL_PLANE_DISABLE_LIVE_TELEGRAM: "1"
+        run: python ./control-plane/scripts/validate_gui_candidate.py --candidate "$env:AI_AGENT_DESKTOP_GUI_CANDIDATE"
+
+      - name: Upload verified GUI candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: ai-agent-desktop-0.2.0-gui-windows-x64
+          path: ${{ runner.temp }}/AI-Agent-Desktop GUI candidate
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
 
       - name: Upload verified distributable bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0

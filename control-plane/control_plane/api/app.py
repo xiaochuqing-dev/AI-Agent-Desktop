@@ -84,6 +84,7 @@ from .routers import (
     build_lifecycle_router,
     build_native_configuration_router,
     build_observability_router,
+    build_onboarding_router,
     build_telegram_router,
 )
 
@@ -1134,5 +1135,6 @@ def create_app(
     app.include_router(build_telegram_router(get_state, _bearer_auth))
     app.include_router(build_native_configuration_router(get_state, _bearer_auth))
     app.include_router(build_observability_router(get_state, _bearer_auth))
+    app.include_router(build_onboarding_router(get_state, _bearer_auth))
 
     return app

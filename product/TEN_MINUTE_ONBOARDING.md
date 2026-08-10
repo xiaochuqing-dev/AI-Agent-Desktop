@@ -1,7 +1,7 @@
 十分钟安装引导 TEN_MINUTE_ONBOARDING
 ====================================
 
-本文档描述正式产品目标。安装器和三 Bot 合成绑定能力已实现；真实 Telegram live 验证与 GUI 尚未实现。
+本文档描述正式产品目标和 2026-08-11 的最小实现。三 Bot 合成绑定与最小 PySide6 GUI 已实现；新 GUI 的真实 Telegram 私聊/群自动检测尚未验证，Windows 10 也未验证。
 
 一、用户准备
 ------------
@@ -13,12 +13,14 @@
 二、目标流程
 ------------
 
-1. Control Plane 只读检测系统、组件、版本、配置所有权和现有生命周期所有者。
-2. 用户选择官方登录、本产品管理的 API 凭据或可选 CC Switch 路线。
-3. 产品安全保存 Secret 引用并生成 Hermes 与 cc-connect 候选配置。
-4. 产品识别三个 Bot，获取 User ID 与 Group/Chat ID，建立绑定与白名单，创建 cc-connect Project。
-5. 产品处理端口、Hook、Session 与后台启动，并逐项检测六条目标链路。
-6. GUI 显示每条链路的证据、最近验证时间、失败位置与恢复动作。
+当前最小 GUI 使用一个欢迎页和固定四步 Shell：
+
+1. 录入 Hermes、Claude Code、Codex 三个 Bot Token；真实模式写入 Windows Credential Manager，并复用 Control Plane getMe 验证 Bot 身份。
+2. 为三个 Bot 生成短时私聊 deep link，用户通过桌面 Telegram 或手机 QR 打开私聊并点击 Start；GUI 轮询 Control Plane 绑定状态，不要求用户输入 User ID。
+3. 用户创建或打开一个群并把三个 Bot 加入同一个群；GUI 使用 Telegram group deep link/startgroup 辅助打开，并通过 Binding API 检测三 Bot 是否进入同一群，不要求 Group ID，也不读取群列表。
+4. GUI 显示剩余配置检查、Dashboard 和 Diagnostics；真实消息测试仍需要用户明确确认，不会默认发送。
+
+完整产品目标仍包括组件安装、官方登录、配置所有权、Hermes/cc-connect 候选配置、运行环境准备和六链路证据展示；当前最小 GUI 尚未完成所有这些自动化。
 
 三、六条目标链路
 ----------------
@@ -33,4 +35,11 @@ Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 
 五、当前阶段
 ------------
 
-当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、Claude/Codex 原生配置和产品自有 cc-connect 运行。真实 Telegram live 绑定、Hermes 安装/受管配置、六链路真实消息检测和 GUI 仍为后续目标；Fake 合成验收不能替代用户现场步骤。
+当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、Claude/Codex 原生配置、产品自有 cc-connect 运行和最小 PySide6 GUI。当前工作区 pytest 为 222 passed、1 skipped、1 warning，其中 GUI/onboarding 定向测试 23 passed，candidate validator 回归另有 2 passed。
+
+这些自动化结果只证明代码与合成合同。新 GUI 私聊激活和群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；MSI/正式安装器/代码签名为 `DEFERRED`。Hermes 仍为 external/read-only，不得声称本轮完成了 Hermes 实时消息或自动配置验证。历史 2026-08-07 六链路直接 Telegram 用户确认不覆盖新 GUI。
+
+六、恢复与预览模式
+------------------
+
+GUI 启动后从 Control Plane 快照恢复步骤，不把纯 GUI 内存 bool 当作事实源。默认正式模式使用 Embedded Control Plane；已有 loopback API Token 与地址时使用 HTTP/Bearer 客户端。只有显式 `--demo` 才进入带明显“预览模式”标识的合成客户端；Demo 只用于截图和控件测试，不写入真实 Token，也不构成 live 验收。Control Plane 不可达时，正式连接模式返回用户可理解的错误和重试入口。

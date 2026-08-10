@@ -56,16 +56,7 @@ class TelegramBindingService:
         self.client = client or identities.client
 
     def create(self, *, expires_in_seconds: int) -> BindingSessionCreated:
-        identities = self.identities.require_all_verified()
-        for slot in SLOTS:
-            lease = self.leases.get(slot)
-            if lease.owner != UpdateOwner.NONE:
-                raise OperationExecutionError(
-                    "TELEGRAM_UPDATE_OWNER_NOT_RELEASED",
-                    f"Telegram bot slot {slot} is already owned by another update consumer.",
-                    recovery_actions=["stop_corresponding_runtime", "release_update_owner"],
-                )
-        self.credentials.ensure_internal_runtime_credentials()
+        identities = self._require_binding_prerequisites()
         code = secrets.token_urlsafe(9).replace("-", "A").replace("_", "B")
         session_id = f"binding-{secrets.token_hex(8)}"
         now = utcnow()
@@ -114,16 +105,133 @@ class TelegramBindingService:
             self._audit(
                 session, session_id, None, "binding.created", {"expires_at": expires_at.isoformat()}
             )
+        return self._created_response(session_id, identities, code)
+
+    def resume(self, session_id: str, *, expires_in_seconds: int) -> BindingSessionCreated:
+        """Rotate the one-time code for an active binding session.
+
+        The persisted session and slot records are deliberately reused.  Only
+        the HMAC digest, expiry, update timestamp, and revision change; the
+        plaintext code and rendered links exist solely in this response.
+        """
+
+        identities = self._require_binding_prerequisites()
+        now = utcnow()
+        code = secrets.token_urlsafe(9).replace("-", "A").replace("_", "B")
+        terminal_error: tuple[str, str] | None = None
+        with self.db.session() as session:
+            record = session.get(TelegramBindingSessionRecord, session_id)
+            if record is None:
+                raise OperationExecutionError(
+                    "TELEGRAM_BINDING_NOT_FOUND", "Telegram binding session was not found."
+                )
+            self._expire_if_needed(session, record)
+            terminal_errors = {
+                BindingState.COMPLETED.value: (
+                    "TELEGRAM_BINDING_ALREADY_COMPLETED",
+                    "Telegram binding session is already completed.",
+                ),
+                BindingState.CANCELED.value: (
+                    "TELEGRAM_BINDING_CANCELED",
+                    "Telegram binding session has been canceled.",
+                ),
+                BindingState.EXPIRED.value: (
+                    "TELEGRAM_BINDING_EXPIRED",
+                    "Telegram binding session has expired; create a new session.",
+                ),
+                BindingState.CONFLICT.value: (
+                    "TELEGRAM_BINDING_CONFLICT",
+                    "Telegram binding session has a consistency conflict.",
+                ),
+                BindingState.FAILED.value: (
+                    "TELEGRAM_BINDING_FAILED",
+                    "Telegram binding session has failed.",
+                ),
+            }
+            terminal_error = terminal_errors.get(record.state)
+            if terminal_error is None:
+                slots = list(
+                    session.scalars(
+                        select(TelegramBindingSlotRecord)
+                        .where(TelegramBindingSlotRecord.session_id == session_id)
+                        .order_by(TelegramBindingSlotRecord.slot)
+                    )
+                )
+                progress_by_slot = {item.slot: item for item in slots}
+                for identity in identities:
+                    progress = progress_by_slot.get(identity.slot)
+                    if progress is None or (
+                        progress.bot_id != identity.bot_id
+                        or progress.username.casefold() != identity.username.casefold()
+                        or progress.credential_revision != identity.credential_revision
+                    ):
+                        raise OperationExecutionError(
+                            "TELEGRAM_BINDING_IDENTITY_CHANGED",
+                            "A Telegram bot identity or credential changed since this binding session was created.",
+                            recovery_actions=["create_new_binding_session", "verify_bot_identity"],
+                        )
+                with self.credentials.resolve_for_operation(INTERNAL_BINDING_HMAC_REFERENCE) as key:
+                    record.code_digest = self._code_digest(key, session_id, code)
+                record.expires_at = now + timedelta(seconds=expires_in_seconds)
+                record.updated_at = now
+                record.revision += 1
+                self._audit(
+                    session,
+                    session_id,
+                    None,
+                    "binding.resumed",
+                    {"expires_at": record.expires_at.isoformat(), "revision": record.revision},
+                )
+        if terminal_error is not None:
+            raise OperationExecutionError(
+                terminal_error[0],
+                terminal_error[1],
+                recovery_actions=["create_new_binding_session"],
+            )
+        return self._created_response(session_id, identities, code)
+
+    # Alias retained for callers that use the more explicit security term.
+    reissue = resume
+
+    def _require_binding_prerequisites(self):
+        identities = self.identities.require_all_verified()
+        for slot in SLOTS:
+            lease = self.leases.get(slot)
+            if lease.owner != UpdateOwner.NONE:
+                raise OperationExecutionError(
+                    "TELEGRAM_UPDATE_OWNER_NOT_RELEASED",
+                    f"Telegram bot slot {slot} is already owned by another update consumer.",
+                    recovery_actions=["stop_corresponding_runtime", "release_update_owner"],
+                )
+        self.credentials.ensure_internal_runtime_credentials()
+        return identities
+
+    def _created_response(self, session_id: str, identities, code: str) -> BindingSessionCreated:
         model = self.get(session_id)
+        # The one-time session code remains write-only, while the user-facing
+        # links carry an explicit slot marker.  Plaintext code/link values are
+        # never persisted or written to audit records.
         private_links = {
-            item.slot: f"https://t.me/{quote(item.username, safe='')}" for item in identities
+            item.slot: (
+                f"https://t.me/{quote(item.username, safe='')}?start=bind_{item.slot}_{code}"
+            )
+            for item in identities
         }
-        private_commands = {item.slot: f"/bind {code}" for item in identities}
-        group_commands = {item.slot: f"/bind@{item.username} {code}" for item in identities}
+        private_commands = {item.slot: f"/bind bind_{item.slot}_{code}" for item in identities}
+        group_links = {
+            item.slot: (
+                f"https://t.me/{quote(item.username, safe='')}?startgroup=bind_{item.slot}_{code}"
+            )
+            for item in identities
+        }
+        group_commands = {
+            item.slot: f"/bind@{item.username} bind_{item.slot}_{code}" for item in identities
+        }
         return BindingSessionCreated(
             **model.model_dump(),
             bind_code=code,
             private_deep_links=private_links,
+            group_deep_links=group_links,
             private_commands=private_commands,
             group_commands=group_commands,
         )
@@ -261,6 +369,9 @@ class TelegramBindingService:
         self, session_id: str, slot: TelegramBotSlot, update_id: int, payload: dict[str, Any]
     ) -> None:
         message = payload.get("message")
+        membership = payload.get("my_chat_member")
+        if isinstance(membership, dict):
+            self._process_membership_update(session_id, slot, update_id, membership)
         if not isinstance(message, dict):
             return
         text = message.get("text")
@@ -288,6 +399,15 @@ class TelegramBindingService:
                 BindingState.FAILED.value,
             }:
                 return
+            if progress.last_update_id is not None and update_id <= progress.last_update_id:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.stale_message_update_ignored",
+                    {"update_id": update_id},
+                )
+                return
             progress.last_update_id = max(progress.last_update_id or 0, update_id)
             progress.updated_at = utcnow()
             created_epoch = int(
@@ -302,16 +422,41 @@ class TelegramBindingService:
                     {"update_id": update_id},
                 )
                 return
-            expected_code = self._extract_code(text, chat_type, progress.username)
+            expected_code, embedded_slot = self._extract_code(text, chat_type, progress.username)
+            group_start_fallback = self._is_group_start_fallback(text, chat_type, progress.username)
             if expected_code is None:
-                return
-            with self.credentials.resolve_for_operation(INTERNAL_BINDING_HMAC_REFERENCE) as key:
-                digest = self._code_digest(key, session_id, expected_code)
-            if not hmac.compare_digest(digest, binding.code_digest):
-                self._audit(
-                    session, session_id, slot, "binding.code_rejected", {"update_id": update_id}
-                )
-                return
+                if not group_start_fallback:
+                    return
+                if progress.private_status != "bound":
+                    self._audit(
+                        session,
+                        session_id,
+                        slot,
+                        "binding.group_start_before_private_rejected",
+                        {"update_id": update_id},
+                    )
+                    return
+            else:
+                if embedded_slot is not None and embedded_slot != slot:
+                    self._audit(
+                        session,
+                        session_id,
+                        slot,
+                        "binding.private_wrong_slot_rejected",
+                        {"update_id": update_id},
+                    )
+                    return
+                with self.credentials.resolve_for_operation(INTERNAL_BINDING_HMAC_REFERENCE) as key:
+                    digest = self._code_digest(key, session_id, expected_code)
+                if not hmac.compare_digest(digest, binding.code_digest):
+                    self._audit(
+                        session,
+                        session_id,
+                        slot,
+                        "binding.code_rejected",
+                        {"update_id": update_id},
+                    )
+                    return
             if chat_type == "private":
                 if progress.private_status == "bound":
                     self._audit(
@@ -380,23 +525,218 @@ class TelegramBindingService:
             self._recalculate(session, binding)
 
     @staticmethod
-    def _extract_code(text: str, chat_type: str, username: str) -> str | None:
+    def _extract_code(
+        text: str, chat_type: str, username: str
+    ) -> tuple[str | None, TelegramBotSlot | None]:
         parts = text.strip().split()
         if len(parts) != 2:
-            return None
+            return None, None
         command, code = parts
         command_lower = command.casefold()
         if chat_type == "private":
             if command_lower == "/bind":
-                return code
+                value = code.removeprefix("bind_") if code.startswith("bind_") else code
+                for candidate in SLOTS:
+                    prefix = f"{candidate}_"
+                    if value.startswith(prefix):
+                        return value.removeprefix(prefix), candidate
+                return value, None
             if command_lower == f"/bind@{username}".casefold():
-                return code
+                value = code.removeprefix("bind_") if code.startswith("bind_") else code
+                for candidate in SLOTS:
+                    prefix = f"{candidate}_"
+                    if value.startswith(prefix):
+                        return value.removeprefix(prefix), candidate
+                return value, None
             if command_lower == "/start" and code.startswith("bind_"):
-                return code.removeprefix("bind_")
-            return None
-        if chat_type in {"group", "supergroup"} and command_lower == f"/bind@{username}".casefold():
-            return code
-        return None
+                value = code.removeprefix("bind_")
+                for candidate in SLOTS:
+                    prefix = f"{candidate}_"
+                    if value.startswith(prefix):
+                        return value.removeprefix(prefix), candidate
+                # Accept the pre-GUI form during a controlled migration.
+                return value, None
+            return None, None
+        if chat_type in {"group", "supergroup"}:
+            if command_lower == f"/bind@{username}".casefold():
+                value = code.removeprefix("bind_") if code.startswith("bind_") else code
+                for candidate in SLOTS:
+                    prefix = f"{candidate}_"
+                    if value.startswith(prefix):
+                        return value.removeprefix(prefix), candidate
+                return value, None
+            if command_lower in {
+                "/start",
+                f"/start@{username}".casefold(),
+            } and code.startswith("bind_"):
+                value = code.removeprefix("bind_")
+                for candidate in SLOTS:
+                    prefix = f"{candidate}_"
+                    if value.startswith(prefix):
+                        return value.removeprefix(prefix), candidate
+        return None, None
+
+    @staticmethod
+    def _is_group_start_fallback(text: str, chat_type: str, username: str) -> bool:
+        """Accept Telegram's payload-less startgroup fallback for the bound operator.
+
+        The caller additionally requires that this slot completed private binding,
+        and the normal group path verifies the sender against the session operator.
+        """
+        if chat_type not in {"group", "supergroup"}:
+            return False
+        command = text.strip().casefold()
+        return command in {"/start", f"/start@{username}".casefold()}
+
+    def _process_membership_update(
+        self,
+        session_id: str,
+        slot: TelegramBotSlot,
+        update_id: int,
+        membership: dict[str, Any],
+    ) -> None:
+        """Consume Telegram's official my_chat_member event for group binding.
+
+        The event is only accepted after the slot's private chat is bound and
+        only when Telegram reports the operator as the actor.  No user account
+        data or chat history is read; only the safe group metadata needed for
+        the 3/3 same-group check is retained.
+        """
+        chat = membership.get("chat")
+        sender = membership.get("from")
+        new_member = membership.get("new_chat_member")
+        if (
+            not isinstance(chat, dict)
+            or not isinstance(sender, dict)
+            or not isinstance(new_member, dict)
+        ):
+            return
+        chat_type = str(chat.get("type", ""))
+        try:
+            sender_id = int(sender["id"])
+            chat_id = int(chat["id"])
+            membership_date = int(membership["date"])
+        except (KeyError, TypeError, ValueError):
+            return
+        status = str(new_member.get("status", ""))
+        member_user = new_member.get("user")
+        try:
+            member_id = int(member_user["id"]) if isinstance(member_user, dict) else None
+        except (KeyError, TypeError, ValueError):
+            member_id = None
+        with self.db.session() as session:
+            binding = session.get(TelegramBindingSessionRecord, session_id)
+            progress = session.get(TelegramBindingSlotRecord, (session_id, slot))
+            if binding is None or progress is None:
+                return
+            self._expire_if_needed(session, binding)
+            if binding.state in {
+                BindingState.CANCELED.value,
+                BindingState.EXPIRED.value,
+                BindingState.COMPLETED.value,
+                BindingState.FAILED.value,
+            }:
+                return
+            if progress.last_update_id is not None and update_id <= progress.last_update_id:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.stale_membership_update_ignored",
+                    {"update_id": update_id},
+                )
+                return
+            progress.last_update_id = max(progress.last_update_id or 0, update_id)
+            progress.updated_at = utcnow()
+            created_epoch = int(
+                binding.created_at.replace(tzinfo=binding.created_at.tzinfo or UTC).timestamp()
+            )
+            if membership_date + 5 < created_epoch:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.old_membership_update_ignored",
+                    {"update_id": update_id},
+                )
+                return
+            if member_id is not None and member_id != progress.bot_id:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.membership_wrong_bot_rejected",
+                    {"update_id": update_id},
+                )
+                return
+            if progress.private_status != "bound":
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.group_before_private_rejected",
+                    {"update_id": update_id},
+                )
+                return
+            if binding.operator_user_id is None or sender_id != binding.operator_user_id:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.group_membership_wrong_operator_rejected",
+                    {"update_id": update_id},
+                )
+                return
+            if chat_type == "channel":
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.channel_rejected",
+                    {"update_id": update_id},
+                )
+                return
+            if chat_type not in {"group", "supergroup"}:
+                return
+            if status in {"left", "kicked"}:
+                progress.group_status = "rejected"
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.group_membership_left",
+                    {"update_id": update_id},
+                )
+                binding.updated_at = utcnow()
+                binding.revision += 1
+                self._recalculate(session, binding)
+                return
+            if status not in {"member", "administrator", "creator"}:
+                return
+            if progress.group_status == "bound" and progress.group_chat_id == chat_id:
+                self._audit(
+                    session,
+                    session_id,
+                    slot,
+                    "binding.group_membership_replay_ignored",
+                    {"update_id": update_id},
+                )
+                return
+            progress.group_status = "bound"
+            progress.group_chat_id = chat_id
+            progress.group_title = str(chat.get("title", ""))[:512] or None
+            progress.group_type = chat_type
+            progress.group_update_id = update_id
+            self._audit(
+                session,
+                session_id,
+                slot,
+                "binding.group_membership_bound",
+                {"update_id": update_id},
+            )
+            binding.updated_at = utcnow()
+            binding.revision += 1
+            self._recalculate(session, binding)
 
     def _recalculate(self, session, binding: TelegramBindingSessionRecord) -> None:
         slots = list(
