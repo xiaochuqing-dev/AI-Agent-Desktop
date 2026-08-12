@@ -11,7 +11,7 @@
 ## 范围与 Git
 
 - Start SHA：`df345946ce2e0526ed2f57a32ba3182a6918f053`
-- End feature SHA：最终提交后由 Git 记录；报告不制造自引用 SHA
+- End feature SHA：`ee4343e7f2cd99b93e02fd5c6768f73d50c384b2`
 - 主线：main only
 - 分支/PR：未创建
 - Reference Baseline、`src/`、5 个 cc-connect Patch：未修改
@@ -126,7 +126,21 @@ PyInstaller 已移除过度 `collect-all`，只收集 Control Plane 数据与必
 - candidate validator：passed
 - Windows wrapper smoke：passed
 
-最终 GitHub Actions Run ID：提交并推送后回填到 GitHub Actions 事实记录；不得在运行前虚构。本轮 CI Artifact 名为 `ai-agent-desktop-0.3.0-prebeta-windows-x64`。
+功能提交 GitHub Actions：
+
+- Run ID：`31636567632`
+- Head SHA：`ee4343e7f2cd99b93e02fd5c6768f73d50c384b2`
+- 结论：success
+- Platform-independent core compatibility：success
+- Production dependency and import acceptance：success
+- Windows-first quality gates：success
+- Locked cc-connect Windows artifact and isolated acceptance：success
+- GUI Artifact：`ai-agent-desktop-0.3.0-prebeta-windows-x64`
+- GUI Artifact ID：`9157449259`
+- GUI Artifact digest：`sha256:c5ca4b0ed29bcce80d6ea1a4cfb8f918da60044c5d9d8fef19cdc88b0343a25d`
+- cc-connect Artifact：`cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64`
+- cc-connect Artifact ID：`9157450718`
+- cc-connect Artifact digest：`sha256:5574b3594b7bdce06ad117ca11c3c1eaadb0139c49b8c0894ea67c66400e5b64`
 
 ## 安全与无副作用
 

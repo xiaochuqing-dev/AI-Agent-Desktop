@@ -17,6 +17,8 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 本机 Agent Detection：Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，`LOCAL_VERIFIED`。新 GUI Telegram：`PENDING USER LIVE VALIDATION`。Windows 10 x64：`PENDING WINDOWS 10 VALIDATION`。最终 Windows 11 candidate 为 `control-plane/dist/AI-Agent-Desktop-0.3.0-prebeta-windows-x64-final3-20260813`，EXE 66.05 MiB，SHA256 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`，validator 与 ordinary-user smoke 通过；MSI、正式安装器和代码签名：`DEFERRED`。
 
+功能提交 `ee4343e7f2cd99b93e02fd5c6768f73d50c384b2` 的 GitHub Actions Run `31636567632` 已完成，四个 Job 全部 success。GUI Artifact ID 为 `9157449259`，digest 为 `sha256:c5ca4b0ed29bcce80d6ea1a4cfb8f918da60044c5d9d8fef19cdc88b0343a25d`；cc-connect Artifact ID 为 `9157450718`，digest 为 `sha256:5574b3594b7bdce06ad117ca11c3c1eaadb0139c49b8c0894ea67c66400e5b64`。
+
 产品范围
 
 首发固定为 Windows 10/11 与 Telegram，Agent 为 Hermes、Claude Code、Codex。用户可见三个 Bot，目标为六条私聊/群聊链路。cc-connect 是 V1 核心桥梁，CC Switch 是推荐但非强制的配置入口。采用 Integration First 和唯一 ManagementOwner。
@@ -29,11 +31,11 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 下一阶段为用户用 final3 candidate 做真实 GUI Telegram 验收，再做 Windows 10 x64 普通用户实机验证；通过后进入 Installer、卸载、快捷方式、Release Asset 与签名准备。历史 2026-08-07 六链路只保留为旧入口 `LIVE_VERIFIED`。
 
-历史候选包、manifest、SHA256、锁定 venv、用户验证边界和旧 CI 结果见 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md；本轮 GUI 实施和未完成门禁见 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md。
+历史候选包、manifest、SHA256、锁定 venv、用户验证边界和旧 CI 结果见 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md；本轮 GUI Pre-Beta 实施、功能 CI 和未完成门禁见 reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md。
 
 公开文件保护
 
-本轮未触碰 `reference-baseline/` 或 5 个 cc-connect Patch。`PUBLIC_FILE_MANIFEST.txt` 与 `SHA256SUMS.txt` 在最终文档完成后重新生成。
+本轮未触碰 `reference-baseline/` 或 5 个 cc-connect Patch。`PUBLIC_FILE_MANIFEST.txt` 保持 310 项，`SHA256SUMS.txt` 已按最终文档重新计算。
 
 最终分支
 
