@@ -11,7 +11,7 @@ from control_plane.credentials.windows_backend import InMemorySecretBackend
 from control_plane.infrastructure.config import Settings
 
 from .conftest import wait_for_operation
-from .fakes import make_fake_adapters
+from .fakes import make_fake_adapters, make_fake_agent_detection
 from .telegram_helpers import SLOTS, TOKENS, FakeTelegramClient
 
 CONTRACT_PATH = (
@@ -44,6 +44,28 @@ def test_onboarding_and_dashboard_snapshots_are_read_only_contracts(client):
     validator.validate(availability.json())
 
 
+def test_onboarding_requires_agents_and_runtime_not_only_binding_and_config(client):
+    body = client.get("/api/v1/onboarding/snapshot").json()
+    assert all(agent["installed"] is True for agent in body["agents"])
+    assert all(agent["acceptable"] is True for agent in body["agents"])
+    connected = {agent["slot"]: agent["connected"] for agent in body["agents"]}
+    assert connected == {"hermes": None, "claude": False, "codex": False}
+    assert body["runtime"]["ready"] is False
+    assert body["onboarding_complete"] is False
+    assert (
+        next(item for item in body["checklist"] if item["key"] == "runtime")["status"] != "complete"
+    )
+
+
+def test_explicit_agent_refresh_is_redacted_and_stable_contract(client):
+    response = client.get("/api/v1/agents?refresh=true")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 3
+    assert all(item["acceptable"] is True for item in body)
+    assert "executable_path" not in response.text
+
+
 def test_resume_endpoint_reissues_links_without_snapshot_or_database_leak(tmp_path, monkeypatch):
     bearer = "resume-api-token-0123456789"
     monkeypatch.setenv("CONTROL_PLANE_API_TOKEN", bearer)
@@ -53,6 +75,7 @@ def test_resume_endpoint_reissues_links_without_snapshot_or_database_leak(tmp_pa
         credential_backend=InMemorySecretBackend(),
         telegram_client=FakeTelegramClient(),  # type: ignore[arg-type]
         hermes_path_lookup=lambda _name: None,
+        agent_detection_service=make_fake_agent_detection(),
     )
     with TestClient(app, base_url="http://127.0.0.1") as client:
         client.headers["Authorization"] = f"Bearer {bearer}"

@@ -3,12 +3,12 @@
 
 本仓库是当前公开事实源。请按以下顺序阅读。
 
-2026-08-11 状态提示
+2026-08-13 状态提示
 -------------------
 
-当前 `main` 起点为 `33652568727b6bb4b41ae84b99a1e2332eea6bce`。最小 PySide6 GUI 与四步 Onboarding 已落到 `control-plane/control_plane/gui/`，入口版本为 `0.2.0-gui`；它通过本地 Control Plane API 工作，并带有 Demo/合成模式用于离线截图和自动化测试。新 GUI 私聊与群自动检测尚未经过用户真实 Telegram 复测，统一记为 `PENDING USER LIVE VALIDATION`。
+本轮起点为 `df345946ce2e0526ed2f57a32ba3182a6918f053`。PySide6 四步 GUI 已升级为 `0.3.0-prebeta`：真实 Agent Detection、严格 cc-connect Runtime Readiness、Binding/Chat Health 分离、六链路 Live E2E 确认入口和准确的 Dashboard/Diagnostics 已接入。新 GUI Telegram 仍统一记为 `PENDING USER LIVE VALIDATION`。
 
-Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`。新的 GUI Windows candidate 已在 Windows 11 x64 构建并通过 manifest、SHA256、PE GUI subsystem、离线 smoke、Qt/内嵌模块和敏感信息验证；旧 stage-a 验收包仍不能冒充新包。MSI、正式安装器和代码签名均为 `DEFERRED`。2026-08-07 直接 Telegram 六链路确认是历史入口证据，与新 GUI 证据分开记录。
+本机 Agent 实测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。最终 candidate 在 Windows 11 x64 完成 validator 与 ordinary-user smoke，EXE SHA256 为 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`。Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。2026-08-07 直接 Telegram 六链路是旧入口历史证据。
 
 一、产品与当前状态
 ------------------
@@ -36,13 +36,14 @@ Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`。新的 GUI Windows candi
 9. control-plane/README.md
 10. reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md
 11. reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md
+12. reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md
 
 src/ 与 integrations/cc-connect/patches/ 是 Reference Baseline 的当前证据。control-plane/ 是已实现的独立基础运行代码区，不覆盖或接管 Reference Baseline 的现有服务。
 
 三、当前实现边界
 ----------------
 
-Control Plane 已提供只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager 凭据、三 Bot getMe 与绑定、Update Lease、managed/native 配置分离、锁定 Renderer、Claude/Codex 原生配置计划/备份/回滚、六链路可观测性、一次性 E2E 计划、Session 隔离探针、代理策略和自包含验收向导。当前工作区另有最小 PySide6 GUI、四步 Onboarding、Dashboard、Diagnostics、二维码与 Telegram 深链接实现。GUI 自动化/合成门禁已通过，但新 GUI 私聊和群自动检测仍为 `PENDING USER LIVE VALIDATION`；旧的 2026-08-07 直接 Telegram 用户确认不生成新 GUI 的结构化 live 记录。Windows 10 仍未实机验证，整体状态为 PARTIAL。
+Control Plane 已提供上述能力，并新增三个独立 Agent Detector、TTL/显式刷新缓存、Onboarding/Dashboard Agent 读模型、严格 Runtime Ready 聚合和 GUI Live E2E 接线。Bot getMe 只证明 Telegram Identity，不再决定 Agent installed/connected；cc-connect 配置存在也不再等同运行完成。240 passed、1 skipped 及静态/契约门禁是本地自动化证据，不替代真实 Telegram 或 Windows 10 实机证据，整体仍为 PARTIAL。
 
 四、下一阶段
 ------------

@@ -2266,12 +2266,39 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ProxyPolicyState" }
         default: { $ref: "#/components/responses/Problem" }
+  /agents:
+    get:
+      tags: [Onboarding]
+      operationId: listDetectedAgents
+      summary: Read the three redacted Windows Agent detection results.
+      description: Executes a bounded read-only refresh only when refresh=true; executable paths and private configuration are omitted.
+      parameters:
+        - name: refresh
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Hermes, Claude Code, and Codex detection snapshots.
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 3
+                maxItems: 3
+                items: { $ref: "#/components/schemas/AgentDetectionSnapshot" }
+        default: { $ref: "#/components/responses/Problem" }
   /onboarding/snapshot:
     get:
       tags: [Onboarding]
       operationId: getOnboardingSnapshot
       summary: Read the resumable four-step onboarding snapshot.
       description: Returns redacted Control Plane state for the GUI without binding codes, tokens, Telegram message bodies, or private filesystem paths.
+      parameters:
+        - name: refresh_agents
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
       x-stability: stable
       responses:
         "200":
@@ -2288,6 +2315,11 @@ paths:
       operationId: getDashboardSnapshot
       summary: Read the minimal post-onboarding dashboard snapshot.
       description: Returns user-facing health summaries and redacted issue text; the GUI remains a client of Control Plane state.
+      parameters:
+        - name: refresh_agents
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
       x-stability: stable
       responses:
         "200":
@@ -2475,12 +2507,52 @@ components:
       minLength: 1
       maxLength: 128
       pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    AgentDetectionSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - agent_id
+        - display_name
+        - status
+        - installed
+        - version
+        - detection_source
+        - probe_status
+        - observed_at
+        - diagnostic_code
+        - user_message
+        - official_install_url
+        - acceptable
+        - revision
+      properties:
+        agent_id: { type: string, enum: [hermes, claude, codex] }
+        display_name: { type: string }
+        status:
+          type: string
+          enum: [installed, not_found, found_but_unhealthy, version_unknown, detection_error]
+        installed:
+          anyOf: [{ type: boolean }, { type: "null" }]
+        version:
+          anyOf: [{ type: string }, { type: "null" }]
+        detection_source:
+          type: string
+          enum: [path, known_location, not_found, error]
+        probe_status:
+          type: string
+          enum: [not_run, healthy, version_unknown, failed, timeout, launch_error]
+        observed_at: { type: string, format: date-time }
+        diagnostic_code:
+          anyOf: [{ type: string }, { type: "null" }]
+        user_message: { type: string }
+        official_install_url: { type: string, format: uri }
+        acceptable: { type: boolean }
+        revision: { type: string, pattern: "^sha256:[a-f0-9]{64}$" }
     LinkId:
       type: string
       enum: [hermes.private, hermes.group, claude.private, claude.group, codex.private, codex.group]
     LinkStatus:
       type: string
-      enum: [unknown, not_configured, credential_missing, identity_unverified, binding_pending, runtime_stopped, runtime_conflict, ready_for_live_test, live_test_running, healthy, degraded, failed, unsupported, pending_user_validation]
+      enum: [unknown, not_configured, credential_missing, identity_unverified, binding_pending, runtime_stopped, runtime_conflict, ready_for_live_test, live_test_running, healthy, degraded, failed, unsupported, pending_user_validation, stale]
     EvidenceLevel:
       type: string
       enum: [inferred, synthetic, observed, live_verified]
@@ -2515,6 +2587,9 @@ components:
           anyOf: [{ type: string }, { type: "null" }]
         runtime_owner: { type: string, default: unknown }
         runtime_state: { type: string, default: unknown }
+        artifact_id:
+          anyOf: [{ type: string }, { type: "null" }]
+        ownership_revision: { type: string, default: unknown }
         configuration_revision: { type: integer, minimum: 0, default: 0 }
         update_lease_owner: { type: string, default: unknown }
         send_status: { type: string, default: unknown }

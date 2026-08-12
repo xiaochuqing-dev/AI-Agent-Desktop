@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "0.2.0-gui"
+VERSION = "0.3.0-prebeta"
 
 
 def ensure_standard_streams() -> None:

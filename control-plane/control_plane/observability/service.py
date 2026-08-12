@@ -288,6 +288,7 @@ class LiveE2ETestService:
         binding: Any | None = None,
         lifecycle: Any | None = None,
         configuration: Any | None = None,
+        native_configuration: Any | None = None,
         telegram_client: Any | None = None,
         sender: Callable[..., dict[str, Any]] | None = None,
         response_receiver: Callable[..., dict[str, Any] | None] | None = None,
@@ -299,6 +300,7 @@ class LiveE2ETestService:
         self.binding = binding
         self.lifecycle = lifecycle
         self.configuration = configuration
+        self.native_configuration = native_configuration
         self.telegram_client = telegram_client
         self.sender = sender
         self.response_receiver = response_receiver
@@ -336,6 +338,16 @@ class LiveE2ETestService:
                             "runtime_state": inferred.runtime_state,
                             "update_lease_owner": inferred.update_lease_owner,
                             "last_probe_at": self.clock(),
+                        }
+                    )
+                elif stored.evidence_level == EvidenceLevel.LIVE_VERIFIED:
+                    state = inferred.model_copy(
+                        update={
+                            "status": LinkStatus.STALE,
+                            "evidence_level": EvidenceLevel.OBSERVED,
+                            "diagnostic_code": "CHAT_EVIDENCE_STALE",
+                            "recovery_actions": ["create_new_explicit_e2e_plan"],
+                            "last_live_verified_at": stored.last_live_verified_at,
                         }
                     )
                 current.state_json = state.model_dump_json()
@@ -885,12 +897,27 @@ class LiveE2ETestService:
         state.operator_identity_hash = identity_hash(record.operator_user_id)
         state.group_identity_hash = identity_hash(slot.group_chat_id)
         state.configuration_revision = self._configuration_revision()
-        state.runtime_owner, state.runtime_state = self._runtime_state(link_id)
+        (
+            state.runtime_owner,
+            state.runtime_state,
+            state.artifact_id,
+            state.ownership_revision,
+        ) = self._runtime_state(link_id)
         state.update_lease_owner = self._update_lease_owner(link_id.bot_slot)
         if state.runtime_state in {"stopped", "not_installed"}:
             state.status = LinkStatus.RUNTIME_STOPPED
             state.diagnostic_code = "RUNTIME_STOPPED"
             state.recovery_actions = ["start_runtime"]
+            return state
+        if state.runtime_owner == "product" and state.runtime_state == "conflict":
+            state.status = LinkStatus.RUNTIME_CONFLICT
+            state.diagnostic_code = "CC_CONNECT_RUNTIME_NOT_READY"
+            state.recovery_actions = ["reconcile_lifecycle", "inspect_process_identity"]
+            return state
+        if state.runtime_owner == "product" and state.runtime_state != "running_partial":
+            state.status = LinkStatus.RUNTIME_STOPPED
+            state.diagnostic_code = "CC_CONNECT_RUNTIME_NOT_READY"
+            state.recovery_actions = ["start_runtime", "reconcile_lifecycle"]
             return state
         state.status = LinkStatus.READY_FOR_LIVE_TEST
         state.evidence_level = EvidenceLevel.OBSERVED
@@ -911,6 +938,8 @@ class LiveE2ETestService:
             and left.configuration_revision == right.configuration_revision
             and left.runtime_owner == right.runtime_owner
             and left.runtime_state == right.runtime_state
+            and left.artifact_id == right.artifact_id
+            and left.ownership_revision == right.ownership_revision
             and left.update_lease_owner == right.update_lease_owner
         )
 
@@ -933,6 +962,13 @@ class LiveE2ETestService:
             return record, slot
 
     def _configuration_revision(self) -> int:
+        if self.native_configuration is not None:
+            try:
+                state = self.native_configuration.state()
+                if getattr(state, "status", None) == "valid":
+                    return int(getattr(state, "revision", 0) or 0)
+            except Exception:
+                pass
         if self.configuration is None:
             return 0
         try:
@@ -941,17 +977,24 @@ class LiveE2ETestService:
         except Exception:
             return 0
 
-    def _runtime_state(self, link_id: LinkId) -> tuple[str, str]:
+    def _runtime_state(self, link_id: LinkId) -> tuple[str, str, str | None, str]:
         if link_id.bot_slot == "hermes":
-            return "external", "unknown"
+            return "external", "unknown", None, "external"
         if self.lifecycle is None:
-            return "product", "unknown"
+            return "product", "unknown", None, "unknown"
         try:
             status = self.lifecycle.status()
             observed = str(getattr(status, "observed_state", "unknown"))
-            return "product", observed.removeprefix("RuntimeState.").lower()
+            management = str(getattr(status, "management_owner", "unknown"))
+            lifecycle = str(getattr(status, "lifecycle_owner", "unknown"))
+            return (
+                "product",
+                observed.removeprefix("RuntimeState.").lower(),
+                getattr(status, "artifact_id", None),
+                f"{management}:{lifecycle}",
+            )
         except Exception:
-            return "product", "unknown"
+            return "product", "unknown", None, "unknown"
 
     def _update_lease_owner(self, slot: str) -> str:
         try:

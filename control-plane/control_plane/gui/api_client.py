@@ -49,6 +49,21 @@ class GuiApiClient(ABC):
         """Return the dashboard read model without changing Control Plane state."""
         return self.snapshot()
 
+    def refresh_snapshot(self) -> dict[str, Any]:
+        """Run read-only probes, including an explicit Agent detection refresh."""
+        return self.snapshot()
+
+    def live_links(self) -> list[dict[str, Any]]:
+        return []
+
+    def run_live_test(self, *, confirmation: bool) -> list[dict[str, Any]]:
+        if not confirmation:
+            raise GuiApiError("发送真实测试消息前需要明确确认。", code="E2E_CONFIRMATION_REQUIRED")
+        raise GuiApiError("当前客户端不支持真实聊天验证。", code="E2E_UNAVAILABLE")
+
+    def open_cc_switch(self) -> dict[str, Any]:
+        raise GuiApiError("没有检测到可打开的 CC Switch。", code="CC_SWITCH_NOT_INSTALLED")
+
 
 class HttpControlPlaneClient(GuiApiClient):
     """Small synchronous client used from the GUI worker thread.
@@ -128,7 +143,14 @@ class HttpControlPlaneClient(GuiApiClient):
         raise GuiApiError("操作等待超时，请点击刷新后重试。", code="OPERATION_TIMEOUT")
 
     def snapshot(self) -> dict[str, Any]:
-        return self._request("GET", "/api/v1/onboarding/snapshot").json()
+        snapshot = self._request("GET", "/api/v1/onboarding/snapshot").json()
+        self._last_snapshot = snapshot
+        return snapshot
+
+    def refresh_snapshot(self) -> dict[str, Any]:
+        snapshot = self._request("GET", "/api/v1/onboarding/snapshot?refresh_agents=true").json()
+        self._last_snapshot = snapshot
+        return snapshot
 
     def dashboard_snapshot(self) -> dict[str, Any]:
         return self._request("GET", "/api/v1/dashboard/snapshot").json()
@@ -198,14 +220,86 @@ class HttpControlPlaneClient(GuiApiClient):
         return deepcopy(self.binding)
 
     def complete_configuration(self) -> dict[str, Any]:
-        if not self.binding or not self.binding.get("session_id"):
+        binding_session_id = (self.binding or {}).get("session_id")
+        if not binding_session_id:
+            latest = getattr(self, "_last_snapshot", None) or self.snapshot()
+            binding_session_id = (latest.get("binding") or {}).get("session_id")
+        if not binding_session_id:
             raise GuiApiError(
                 "请先完成 Telegram 私聊和群聊绑定。", code="TELEGRAM_BINDING_NOT_COMPLETE"
             )
         self._ensure_cc_connect_installed()
         self._ensure_product_ownership()
-        self._ensure_native_configuration(str(self.binding["session_id"]))
-        return self.snapshot()
+        self._ensure_native_configuration(str(binding_session_id))
+        detections = self.refresh_snapshot().get("agents", [])
+        missing = [
+            item.get("display_name", item.get("slot", "Agent"))
+            for item in detections
+            if not item.get("acceptable")
+        ]
+        if missing:
+            raise GuiApiError(
+                "请先安装或修复这些 Agent：" + "、".join(str(item) for item in missing),
+                code="AGENT_NOT_READY",
+            )
+        self._ensure_runtime_ready()
+        snapshot = self.snapshot()
+        if not snapshot.get("onboarding_complete"):
+            raise GuiApiError(
+                "基础配置尚未通过全部真实性检查，请查看详细诊断。",
+                code="ONBOARDING_NOT_READY",
+            )
+        return snapshot
+
+    def _ensure_runtime_ready(self) -> None:
+        native = self._request("GET", "/api/v1/components/cc-connect/native-configuration").json()
+        revision = int(native.get("revision") or 0)
+        if native.get("status") != "valid" or revision < 1:
+            raise GuiApiError("连接配置尚未有效。", code="CC_CONNECT_CONFIGURATION_NOT_READY")
+        current = self._request("GET", "/api/v1/components/cc-connect/lifecycle").json()
+        if not self._runtime_ready(current, revision):
+            action = "restart" if current.get("observed_state") == "running_partial" else "start"
+            operation = self._request(
+                "POST",
+                f"/api/v1/components/cc-connect:{action}",
+                json_body={"configuration_revision": revision, "confirmation": True},
+                headers={"Idempotency-Key": self._key(f"runtime-{action}")},
+            ).json()
+            self._wait_operation(operation["operation_id"], timeout=120)
+        reconcile = self._request(
+            "POST",
+            "/api/v1/components/cc-connect:reconcile",
+            json_body={"configuration_revision": revision, "confirmation": True},
+            headers={"Idempotency-Key": self._key("runtime-reconcile")},
+        ).json()
+        self._wait_operation(reconcile["operation_id"], timeout=45)
+        status = self._request("GET", "/api/v1/components/cc-connect/lifecycle").json()
+        if not self._runtime_ready(status, revision):
+            raise GuiApiError(
+                "cc-connect 没有通过 PID、可执行文件、配置版本、端口和稳定窗口检查。",
+                code="CC_CONNECT_RUNTIME_NOT_READY",
+            )
+
+    @staticmethod
+    def _runtime_ready(status: dict[str, Any], expected_revision: int) -> bool:
+        health = status.get("health") or {}
+        identity = status.get("identity") or {}
+        verification = status.get("identity_verification") or {}
+        pid = status.get("pid")
+        return bool(
+            status.get("observed_state") == "running_partial"
+            and status.get("configuration_revision") == expected_revision
+            and pid
+            and identity.get("pid") == pid
+            and identity.get("configuration_revision") == expected_revision
+            and verification.get("status") == "verified"
+            and health.get("process_identity_verified")
+            and health.get("artifact_integrity_verified")
+            and health.get("configuration_revision_verified")
+            and health.get("port_owned_by_process")
+            and health.get("startup_stable_for_window")
+            and not health.get("fatal_log_detected")
+        )
 
     def _ensure_cc_connect_installed(self) -> None:
         versions = self._request("GET", "/api/v1/components/cc-connect/managed-versions").json()
@@ -276,7 +370,8 @@ class HttpControlPlaneClient(GuiApiClient):
 
     def _ensure_native_configuration(self, session_id: str) -> None:
         state = self._request("GET", "/api/v1/components/cc-connect/native-configuration").json()
-        if state.get("status") == "valid":
+        managed_state = state.get("managed_state") or {}
+        if state.get("status") == "valid" and managed_state.get("binding_session_id") == session_id:
             return
         base = self.data_dir or Path.cwd()
         claude_root = base / "workspaces" / "claude"
@@ -309,6 +404,59 @@ class HttpControlPlaneClient(GuiApiClient):
 
     def diagnostics(self) -> list[dict[str, Any]]:
         return self._request("GET", "/api/v1/diagnostics").json()
+
+    def live_links(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/api/v1/observability/links").json()
+
+    def run_live_test(self, *, confirmation: bool) -> list[dict[str, Any]]:
+        if not confirmation:
+            raise GuiApiError("发送真实测试消息前需要明确确认。", code="E2E_CONFIRMATION_REQUIRED")
+        results: list[dict[str, Any]] = []
+        for link in self.live_links():
+            link_id = str(link["link_id"])
+            try:
+                plan = self._request(
+                    "POST",
+                    f"/api/v1/observability/links/{link_id}/e2e-plans",
+                    json_body={"expires_in_seconds": 300},
+                ).json()
+                confirmation_body = {
+                    "plan_id": plan["plan_id"],
+                    "plan_digest": plan["plan_digest"],
+                    "link_id": plan["link_id"],
+                    "credential_revision": plan["expected_credential_revision"],
+                    "binding_session_id": plan["expected_binding_session_id"],
+                    "binding_revision": plan["expected_binding_revision"],
+                    "configuration_revision": plan["expected_configuration_revision"],
+                    "confirmation": True,
+                }
+                run = self._request(
+                    "POST",
+                    f"/api/v1/observability/e2e-plans/{plan['plan_id']}:confirm",
+                    json_body=confirmation_body,
+                    headers={"Idempotency-Key": self._key(f"e2e-{link_id}")},
+                ).json()
+                results.append(run)
+            except GuiApiError as exc:
+                results.append(
+                    {
+                        "link_id": link_id,
+                        "lifecycle": "failed",
+                        "evidence_level": "observed",
+                        "diagnostic_code": exc.code,
+                        "user_message": str(exc),
+                        "message_count": 1,
+                        "automatic_retry": False,
+                    }
+                )
+        return results
+
+    def open_cc_switch(self) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/api/v1/external-tools/cc-switch:launch",
+            json_body={"confirmation": True},
+        ).json()
 
 
 class EmbeddedControlPlaneClient(HttpControlPlaneClient):
@@ -422,6 +570,7 @@ class DemoControlPlaneClient(GuiApiClient):
         self._group_count = 0
         self._tokens_ready = False
         self._complete = False
+        self._live_verified = False
 
     @property
     def binding(self) -> dict[str, Any] | None:
@@ -442,8 +591,15 @@ class DemoControlPlaneClient(GuiApiClient):
                     "bot_id": 9100 + index if self._tokens_ready else None,
                     "token_ready": self._tokens_ready,
                     "identity_verified": self._tokens_ready,
-                    "installed": None,
+                    "installed": self._complete,
                     "connected": None,
+                    "version": "demo-1.0" if self._complete else None,
+                    "detection_status": "installed" if self._complete else "not_found",
+                    "probe_status": "healthy" if self._complete else "not_run",
+                    "detection_source": "known_location" if self._complete else "not_found",
+                    "diagnostic_code": None,
+                    "official_install_url": "https://example.invalid/install",
+                    "acceptable": self._complete,
                     "private_status": "bound" if index < self._private_count else "pending",
                     "group_status": "bound" if index < self._group_count else "pending",
                     "user_message": "已准备好" if self._tokens_ready else "请输入这个 Bot 的 Token",
@@ -507,6 +663,45 @@ class DemoControlPlaneClient(GuiApiClient):
                     "user_message": "可以开始使用",
                 },
             ],
+            "runtime": {
+                "ready": self._complete,
+                "observed_state": "running_partial" if self._complete else "stopped",
+                "pid_verified": self._complete,
+                "executable_verified": self._complete,
+                "configuration_revision_verified": self._complete,
+                "port_owned_by_process": self._complete,
+                "startup_stable_for_window": self._complete,
+                "configuration_revision": 1 if self._complete else 0,
+                "diagnostic_code": None if self._complete else "CC_CONNECT_RUNTIME_NOT_READY",
+                "user_message": "演示运行环境已准备" if self._complete else "演示运行环境未准备",
+            },
+            "chat_health": "live_verified"
+            if self._live_verified
+            else ("ready_for_test" if self._complete else "unknown"),
+            "chat_links": [
+                {
+                    "link_id": f"{slot}.{kind}",
+                    "slot": slot,
+                    "scope": kind,
+                    "binding_status": "bound" if self._group_count == 3 else "pending",
+                    "health_status": "live_verified"
+                    if self._live_verified
+                    else ("ready_for_test" if self._complete else "unknown"),
+                    "user_message": "已验证"
+                    if self._live_verified
+                    else ("已绑定，等待聊天验证" if self._complete else "尚未绑定"),
+                    "evidence_level": "live_verified" if self._live_verified else "observed",
+                    "diagnostic_code": None,
+                    "correlation_id": None,
+                    "request_message_id": None,
+                    "response_message_id": None,
+                    "latency_ms": None,
+                }
+                for slot in SLOTS
+                for kind in ("private", "group")
+            ],
+            "cc_switch_installed": False,
+            "cc_switch_openable": False,
             "telegram_client": {
                 "tg_handler_available": True,
                 "https_deep_link_available": True,
@@ -523,17 +718,26 @@ class DemoControlPlaneClient(GuiApiClient):
             "observed_at": snapshot["observed_at"],
             "overall_status": snapshot["overall_status"],
             "telegram_status": "ready" if self._private_count == 3 else "needs_action",
+            "runtime": snapshot["runtime"],
+            "chat_health": snapshot["chat_health"],
             "agents": [
                 {
                     "slot": agent["slot"],
                     "display_name": agent["display_name"],
                     "installed": agent["installed"],
                     "connected": agent["connected"],
-                    "status": "ready" if agent["identity_verified"] else "needs_action",
+                    "version": agent["version"],
+                    "detection_status": agent["detection_status"],
+                    "probe_status": agent["probe_status"],
+                    "official_install_url": agent["official_install_url"],
+                    "status": "ready" if agent["acceptable"] else "needs_action",
                     "user_message": agent["user_message"],
                 }
                 for agent in snapshot["agents"]
             ],
+            "chat_links": snapshot["chat_links"],
+            "cc_switch_installed": snapshot["cc_switch_installed"],
+            "cc_switch_openable": snapshot["cc_switch_openable"],
             "chat_pills": [
                 "Hermes 私聊",
                 "Hermes 群聊",
@@ -599,8 +803,25 @@ class DemoControlPlaneClient(GuiApiClient):
         return result
 
     def complete_configuration(self) -> dict[str, Any]:
+        self._tokens_ready = True
         self._complete = True
         return self.snapshot()
+
+    def run_live_test(self, *, confirmation: bool) -> list[dict[str, Any]]:
+        if not confirmation:
+            raise GuiApiError("发送真实测试消息前需要明确确认。", code="E2E_CONFIRMATION_REQUIRED")
+        self._live_verified = True
+        return [
+            {
+                "link_id": f"{slot}.{kind}",
+                "lifecycle": "succeeded",
+                "evidence_level": "live_verified",
+                "message_count": 1,
+                "automatic_retry": False,
+            }
+            for slot in SLOTS
+            for kind in ("private", "group")
+        ]
 
     def diagnostics(self) -> list[dict[str, Any]]:
         if self._complete:

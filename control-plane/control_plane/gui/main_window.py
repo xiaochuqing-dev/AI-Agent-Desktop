@@ -3,14 +3,15 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QIcon, QPainterPath, QRegion
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, QPainterPath, QRegion
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -52,12 +53,12 @@ class HelpRail(QWidget):
         root.setSpacing(14)
         self.primary = GlassCard()
         self.primary_layout = QVBoxLayout(self.primary)
-        self.primary_layout.setContentsMargins(20, 18, 20, 18)
-        self.primary_layout.setSpacing(10)
+        self.primary_layout.setContentsMargins(18, 14, 18, 14)
+        self.primary_layout.setSpacing(7)
         self.secondary = GlassCard()
         self.secondary_layout = QVBoxLayout(self.secondary)
-        self.secondary_layout.setContentsMargins(20, 18, 20, 18)
-        self.secondary_layout.setSpacing(8)
+        self.secondary_layout.setContentsMargins(18, 14, 18, 14)
+        self.secondary_layout.setSpacing(6)
         root.addWidget(self.primary)
         root.addWidget(self.secondary)
         root.addStretch(1)
@@ -110,12 +111,12 @@ class HelpRail(QWidget):
             (
                 "★  这一页发生了什么",
                 [
-                    ("自动生成所需配置", "不显示底层术语"),
-                    ("自动检查是否连接成功", "失败会给出下一步"),
-                    ("完成后即可开始使用", "真实消息仍需明确确认"),
+                    ("生成连接配置", "按当前绑定自动生成"),
+                    ("检查 Agent 与 Runtime", "状态异常会提示处理"),
+                    ("聊天验证需确认", "不会自动发送消息"),
                 ],
                 "?  如果遇到问题",
-                "可以点击刷新、返回上一步或打开详细诊断。不会自动修改系统设置。",
+                "可以刷新、返回或打开详细诊断。不会自动发送消息。",
             ),
         ][index]
         title, items, secondary_title, secondary_body = content
@@ -246,9 +247,14 @@ class MainWindow(QMainWindow):
         self.wizard.group.add_requested.connect(self.open_group)
         self.wizard.group.detect_requested.connect(self.poll_binding)
         self.wizard.completion.start_requested.connect(self.show_dashboard)
+        self.wizard.completion.live_test_requested.connect(self.confirm_live_test)
+        self.wizard.completion.skip_live_test_requested.connect(self.skip_live_test)
+        self.wizard.completion.install_guide_requested.connect(self.open_external_url)
+        self.wizard.completion.cc_switch_requested.connect(self.open_cc_switch)
         self.dashboard.reconfigure_requested.connect(lambda: self.show_wizard(0))
         self.dashboard.diagnostics_requested.connect(self.show_diagnostics)
         self.dashboard.refresh_requested.connect(self.refresh_all)
+        self.dashboard.live_test_requested.connect(self.confirm_live_test)
         self.diagnostics_page.back_requested.connect(self.show_dashboard)
 
     def initial_refresh(self) -> None:
@@ -528,8 +534,60 @@ class MainWindow(QMainWindow):
 
     def _configuration_complete(self, snapshot: dict[str, Any]) -> None:
         self.apply_snapshot(snapshot)
-        self.wizard.completion.set_ready()
-        self.show_toast("剩余配置已完成。")
+        self.wizard.completion.set_ready(
+            chat_verified=snapshot.get("chat_health") == "live_verified"
+        )
+        self.wizard.next.setText("🚀  开始使用")
+        self.show_toast("基础配置已完成。聊天验证仍需你明确确认。")
+
+    def confirm_live_test(self) -> None:
+        if not self._snapshot.get("onboarding_complete"):
+            self.show_toast("请先完成 Agent、配置和运行环境检查。", error=True)
+            return
+        answer = QMessageBox.question(
+            self,
+            "确认真实聊天验证",
+            "将分别向三个 Bot 的私聊和群聊发送一条短测试消息，共 6 条。\n\n"
+            "每条链路最多发送 1 条，不会自动重复发送。是否继续？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self.show_toast("已取消，没有发送测试消息。")
+            return
+        self.wizard.completion.set_live_test_running()
+
+        def done(snapshot: dict[str, Any]) -> None:
+            self.apply_snapshot(snapshot)
+            health = snapshot.get("chat_health")
+            if health == "live_verified":
+                self.wizard.completion.set_ready(chat_verified=True)
+                self.show_toast("六条聊天链路已验证。")
+            else:
+                self.wizard.completion.set_failure(
+                    "聊天验证尚未全部完成。不会自动重发，请查看各链路状态后按需重新确认。"
+                )
+                self.show_toast("聊天验证未全部通过，不会自动重发。", error=True)
+
+        self._run(lambda: self.store.run_live_test(confirmation=True), done)
+
+    def skip_live_test(self) -> None:
+        if self._snapshot.get("onboarding_complete"):
+            self.show_toast("基础配置已完成；聊天保持“待验证”，以后可从 Dashboard 验证。")
+            self.show_dashboard()
+
+    def open_external_url(self, url: str) -> None:
+        if not QDesktopServices.openUrl(QUrl(url)):
+            self.show_toast("无法打开安装说明，请稍后重试。", error=True)
+
+    def open_cc_switch(self) -> None:
+        if self._snapshot.get("cc_switch_openable"):
+            self._run(
+                self.client.open_cc_switch,
+                lambda _result: self.show_toast("已打开 CC Switch。"),
+            )
+            return
+        self.open_external_url("https://github.com/farion1231/cc-switch/releases")
 
     def show_dashboard(self) -> None:
         self.binding_poll_timer.stop()

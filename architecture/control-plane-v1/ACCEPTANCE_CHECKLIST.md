@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-11）：本清单原有条目记录设计包验收，不代表所有运行能力已实现。当前已实现 Windows Credential Manager、三 Bot 合成绑定、managed/native 分离、合法 Claude/Codex 原生配置、产品自有生命周期和最小 PySide6 GUI/四步 Onboarding；新 GUI 私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
+实施状态更新（2026-08-13）：当前已实现 Windows Credential Manager、三 Bot 绑定、真实 Agent Detection、managed/native 分离、合法 Claude/Codex 原生配置、严格 Runtime Readiness 和 `0.3.0-prebeta` PySide6 GUI/Live E2E；新 GUI Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
@@ -111,7 +111,7 @@
 | PENDING | 三个真实 Token 的 getMe、三私聊/三同群 live 绑定 | PENDING USER LIVE VALIDATION |
 | PENDING | Windows 10 x64 普通用户打包实机验证 | PENDING WINDOWS 10 VALIDATION |
 | PENDING | 新 GUI 私聊/群自动检测真实用户验收 | `PENDING USER LIVE VALIDATION` |
-| N/A | 六链路真实消息 E2E（新 GUI 入口） | 用户显式确认后另行执行；不得由旧入口结论反推 |
+| PENDING | 六链路真实消息 E2E（新 GUI 入口） | 用户显式确认后另行执行；每条最多一条且无自动重试 |
 | N/A | 原生 Group Chat 过滤与 deep health | 锁定上游 unsupported；未增加 Patch |
 
 ## 当前结论

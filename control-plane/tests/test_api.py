@@ -54,7 +54,11 @@ def test_discovery_and_readiness(client):
 
     diagnostics = client.get("/api/v1/diagnostics")
     assert diagnostics.status_code == 200
-    assert diagnostics.json() == report["blockers"] + report["warnings"]
+    diagnostic_codes = {item["code"] for item in diagnostics.json()}
+    assert {item["code"] for item in report["blockers"] + report["warnings"]}.issubset(
+        diagnostic_codes
+    )
+    assert "CC_CONNECT_RUNTIME_NOT_READY" in diagnostic_codes
 
     rc = client.get("/api/v1/components")
     assert rc.status_code == 200

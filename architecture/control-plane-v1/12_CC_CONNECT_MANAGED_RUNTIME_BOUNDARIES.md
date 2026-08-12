@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施日期：2026-08-11。合法 Claude/Codex Project、Secret 环境注入和真实 cc-connect 进程已在 Windows 11 普通用户下通过持续运行、stop、restart 与 Control Plane 重启 reconcile。最小 PySide6 GUI 只消费这些管理状态，不改变 cc-connect ownership。整体仍为 PARTIAL：新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，deep health 为 unsupported。
+实施更新：2026-08-13。GUI Step 4 已正式调用安装/Owner/原生配置/start/reconcile，并只在 PID、artifact/exe、configuration revision、port ownership、startup stability 和 fatal-log 证据满足时标记 Runtime Ready。Claude/Codex connected 还要求各自 Agent detector acceptable；Hermes external runtime 不映射为受管 connected。整体仍为 PARTIAL：新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 ## 范围与非目标
 

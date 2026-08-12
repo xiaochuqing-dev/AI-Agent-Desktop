@@ -2,17 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ai-agent-desktop:control-plane:v1:onboarding",
   "title": "AI Agent Desktop Control Plane v1 onboarding and dashboard models",
-  "description": "Redacted, read-only GUI snapshots for onboarding, the dashboard, and Telegram Desktop availability.",
+  "description": "Redacted, read-only GUI snapshots for onboarding, Agent detection, runtime readiness, chat evidence, and Telegram Desktop availability.",
   "oneOf": [
     { "$ref": "#/$defs/OnboardingSnapshot" },
     { "$ref": "#/$defs/DashboardSnapshot" },
     { "$ref": "#/$defs/TelegramClientAvailability" }
   ],
   "$defs": {
-    "Slot": {
-      "type": "string",
-      "enum": ["hermes", "claude", "codex"]
-    },
+    "Slot": { "type": "string", "enum": ["hermes", "claude", "codex"] },
     "StepStatus": {
       "type": "string",
       "enum": ["pending", "active", "complete", "needs_action", "failed"]
@@ -21,13 +18,33 @@
       "type": "string",
       "enum": ["ready", "needs_action", "pending", "degraded"]
     },
+    "DetectionStatus": {
+      "type": "string",
+      "enum": [
+        "installed", "not_found", "found_but_unhealthy", "version_unknown",
+        "detection_error"
+      ]
+    },
+    "ProbeStatus": {
+      "type": "string",
+      "enum": ["not_run", "healthy", "version_unknown", "failed", "timeout", "launch_error"]
+    },
+    "DetectionSource": {
+      "type": "string",
+      "enum": ["path", "known_location", "not_found", "error"]
+    },
+    "ChatHealthStatus": {
+      "type": "string",
+      "enum": ["unknown", "ready_for_test", "live_verified", "failed", "stale"]
+    },
     "OnboardingAgentSnapshot": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "slot", "display_name", "bot_username", "bot_id", "token_ready",
-        "identity_verified", "installed", "connected", "private_status",
-        "group_status", "user_message"
+        "identity_verified", "installed", "connected", "version", "detection_status",
+        "probe_status", "detection_source", "diagnostic_code", "official_install_url",
+        "acceptable", "private_status", "group_status", "user_message"
       ],
       "properties": {
         "slot": { "$ref": "#/$defs/Slot" },
@@ -38,14 +55,15 @@
         "identity_verified": { "type": "boolean" },
         "installed": { "type": ["boolean", "null"] },
         "connected": { "type": ["boolean", "null"] },
-        "private_status": {
-          "type": "string",
-          "enum": ["pending", "bound", "rejected"]
-        },
-        "group_status": {
-          "type": "string",
-          "enum": ["pending", "bound", "rejected"]
-        },
+        "version": { "type": ["string", "null"] },
+        "detection_status": { "$ref": "#/$defs/DetectionStatus" },
+        "probe_status": { "$ref": "#/$defs/ProbeStatus" },
+        "detection_source": { "$ref": "#/$defs/DetectionSource" },
+        "diagnostic_code": { "type": ["string", "null"] },
+        "official_install_url": { "type": "string", "format": "uri" },
+        "acceptable": { "type": "boolean" },
+        "private_status": { "type": "string", "enum": ["pending", "bound", "rejected"] },
+        "group_status": { "type": "string", "enum": ["pending", "bound", "rejected"] },
         "user_message": { "type": "string" }
       }
     },
@@ -71,10 +89,7 @@
         "bound_private_count": { "type": "integer", "minimum": 0, "maximum": 3 },
         "bound_group_count": { "type": "integer", "minimum": 0, "maximum": 3 },
         "group_title": { "type": ["string", "null"] },
-        "group_type": {
-          "type": ["string", "null"],
-          "enum": ["group", "supergroup", null]
-        },
+        "group_type": { "type": ["string", "null"], "enum": ["group", "supergroup", null] },
         "revision": { "type": "integer", "minimum": 0 }
       }
     },
@@ -87,6 +102,51 @@
         "label": { "type": "string" },
         "status": { "$ref": "#/$defs/StepStatus" },
         "user_message": { "type": "string" }
+      }
+    },
+    "RuntimeReadinessSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready", "observed_state", "pid_verified", "executable_verified",
+        "configuration_revision_verified", "port_owned_by_process",
+        "startup_stable_for_window", "configuration_revision", "diagnostic_code",
+        "user_message"
+      ],
+      "properties": {
+        "ready": { "type": "boolean" },
+        "observed_state": { "type": "string" },
+        "pid_verified": { "type": "boolean" },
+        "executable_verified": { "type": "boolean" },
+        "configuration_revision_verified": { "type": "boolean" },
+        "port_owned_by_process": { "type": "boolean" },
+        "startup_stable_for_window": { "type": "boolean" },
+        "configuration_revision": { "type": "integer", "minimum": 0 },
+        "diagnostic_code": { "type": ["string", "null"] },
+        "user_message": { "type": "string" }
+      }
+    },
+    "ChatLinkSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link_id", "slot", "scope", "binding_status", "health_status",
+        "user_message", "evidence_level", "diagnostic_code", "correlation_id",
+        "request_message_id", "response_message_id", "latency_ms"
+      ],
+      "properties": {
+        "link_id": { "type": "string" },
+        "slot": { "$ref": "#/$defs/Slot" },
+        "scope": { "type": "string", "enum": ["private", "group"] },
+        "binding_status": { "type": "string", "enum": ["pending", "bound", "conflict", "expired"] },
+        "health_status": { "$ref": "#/$defs/ChatHealthStatus" },
+        "user_message": { "type": "string" },
+        "evidence_level": { "type": "string" },
+        "diagnostic_code": { "type": ["string", "null"] },
+        "correlation_id": { "type": ["string", "null"] },
+        "request_message_id": { "type": ["integer", "null"], "minimum": 0 },
+        "response_message_id": { "type": ["integer", "null"], "minimum": 0 },
+        "latency_ms": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
     "TelegramClientAvailability": {
@@ -107,8 +167,9 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "revision", "observed_at", "current_step", "onboarding_complete",
-        "agents", "binding", "checklist", "telegram_client", "overall_status"
+        "revision", "observed_at", "current_step", "onboarding_complete", "agents",
+        "binding", "checklist", "runtime", "chat_health", "chat_links",
+        "cc_switch_installed", "cc_switch_openable", "telegram_client", "overall_status"
       ],
       "properties": {
         "revision": { "type": "string" },
@@ -116,16 +177,19 @@
         "current_step": { "type": "integer", "minimum": 0, "maximum": 4 },
         "onboarding_complete": { "type": "boolean" },
         "agents": {
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
+          "type": "array", "minItems": 3, "maxItems": 3,
           "items": { "$ref": "#/$defs/OnboardingAgentSnapshot" }
         },
         "binding": { "$ref": "#/$defs/OnboardingBindingSnapshot" },
-        "checklist": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/OnboardingChecklistItem" }
+        "checklist": { "type": "array", "items": { "$ref": "#/$defs/OnboardingChecklistItem" } },
+        "runtime": { "$ref": "#/$defs/RuntimeReadinessSnapshot" },
+        "chat_health": { "$ref": "#/$defs/ChatHealthStatus" },
+        "chat_links": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": { "$ref": "#/$defs/ChatLinkSnapshot" }
         },
+        "cc_switch_installed": { "type": ["boolean", "null"] },
+        "cc_switch_openable": { "type": "boolean" },
         "telegram_client": { "$ref": "#/$defs/TelegramClientAvailability" },
         "overall_status": { "$ref": "#/$defs/OverallStatus" }
       }
@@ -134,7 +198,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "slot", "display_name", "installed", "connected", "status",
+        "slot", "display_name", "installed", "connected", "version",
+        "detection_status", "probe_status", "official_install_url", "status",
         "user_message"
       ],
       "properties": {
@@ -142,10 +207,11 @@
         "display_name": { "type": "string" },
         "installed": { "type": ["boolean", "null"] },
         "connected": { "type": ["boolean", "null"] },
-        "status": {
-          "type": "string",
-          "enum": ["ready", "needs_action", "unknown"]
-        },
+        "version": { "type": ["string", "null"] },
+        "detection_status": { "$ref": "#/$defs/DetectionStatus" },
+        "probe_status": { "type": "string" },
+        "official_install_url": { "type": "string", "format": "uri" },
+        "status": { "type": "string", "enum": ["ready", "needs_action", "unknown"] },
         "user_message": { "type": "string" }
       }
     },
@@ -153,31 +219,29 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "revision", "observed_at", "overall_status", "telegram_status",
-        "agents", "chat_pills", "recent_issues"
+        "revision", "observed_at", "overall_status", "telegram_status", "runtime",
+        "chat_health", "agents", "chat_links", "chat_pills", "cc_switch_installed",
+        "cc_switch_openable", "recent_issues"
       ],
       "properties": {
         "revision": { "type": "string" },
         "observed_at": { "type": "string", "format": "date-time" },
         "overall_status": { "$ref": "#/$defs/OverallStatus" },
-        "telegram_status": {
-          "type": "string",
-          "enum": ["ready", "needs_action", "unknown"]
-        },
+        "telegram_status": { "type": "string", "enum": ["ready", "needs_action", "unknown"] },
+        "runtime": { "$ref": "#/$defs/RuntimeReadinessSnapshot" },
+        "chat_health": { "$ref": "#/$defs/ChatHealthStatus" },
         "agents": {
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
+          "type": "array", "minItems": 3, "maxItems": 3,
           "items": { "$ref": "#/$defs/DashboardAgentSnapshot" }
         },
-        "chat_pills": {
-          "type": "array",
-          "items": { "type": "string" }
+        "chat_links": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": { "$ref": "#/$defs/ChatLinkSnapshot" }
         },
-        "recent_issues": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
+        "chat_pills": { "type": "array", "items": { "type": "string" } },
+        "cc_switch_installed": { "type": ["boolean", "null"] },
+        "cc_switch_openable": { "type": "boolean" },
+        "recent_issues": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

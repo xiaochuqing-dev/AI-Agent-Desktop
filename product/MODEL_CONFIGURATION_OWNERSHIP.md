@@ -25,4 +25,4 @@ CC Switch 是推荐但非强制的供应商配置入口。新手无需安装 CC 
 
 当前最小 GUI 中，用户只输入三个 Telegram Bot Token，并在 Telegram 客户端完成 Start、建群/加 Bot 等官方操作；不输入 User ID 或 Group/Chat ID。Token 通过 Control Plane 写入 Windows Credential Manager，GUI 快照、日志和二维码不保存明文。
 
-Claude/Codex 原生配置、受控端口和后台启动仍由 Control Plane 的受管路径处理；Hermes 仍为 external/read-only，模型官方登录、Hermes 安装/配置和六链路真实消息 E2E 不由本轮 GUI 自动完成。新 GUI 私聊与群自动检测为 `PENDING USER LIVE VALIDATION`。
+Claude/Codex 原生配置、受控端口和后台启动仍由 Control Plane 的受管路径处理；Hermes 仍为 external/read-only。Agent Detector 不读取模型官方登录或 Secret，installed/healthy 不等于 authenticated。六链路真实消息 E2E 由用户明确确认后逐条执行，不会默认发送。新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`。

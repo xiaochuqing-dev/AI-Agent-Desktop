@@ -12,6 +12,9 @@ from pathlib import Path
 
 import psutil
 
+from ..agent_detection import ClaudeCodeDetector, CodexDetector, HermesDetector
+from ..agent_detection.detectors import AgentDetector
+from ..agent_detection.models import AgentDetectionResult, ProbeStatus
 from ..domain.models import (
     AuthenticationState,
     Capability,
@@ -269,6 +272,79 @@ def _read_only_capability(cap_id: str) -> Capability:
     )
 
 
+def _agent_component(result: AgentDetectionResult, *, component_id: str) -> Component:
+    if result.installed is True:
+        installation = InstallationState.INSTALLED
+    elif result.installed is False:
+        installation = InstallationState.NOT_INSTALLED
+    else:
+        installation = InstallationState.UNKNOWN
+    # Executable/version discovery does not prove runtime health.
+    health = HealthState.UNKNOWN
+    executable_status = (
+        ConditionStatus.TRUE
+        if result.installed is True
+        else (ConditionStatus.FALSE if result.installed is False else ConditionStatus.UNKNOWN)
+    )
+    probe_status = (
+        ConditionStatus.TRUE
+        if result.probe_status == ProbeStatus.HEALTHY
+        else (
+            ConditionStatus.UNKNOWN
+            if result.probe_status in {ProbeStatus.NOT_RUN, ProbeStatus.VERSION_UNKNOWN}
+            else ConditionStatus.FALSE
+        )
+    )
+    return Component(
+        component_id=component_id,
+        kind="agent" if component_id != "hermes" else "orchestration",
+        display_name=result.display_name,
+        version=result.version,
+        state=_snapshot(
+            installation=installation,
+            health=health,
+            user_status=(
+                UserStatus.NOT_INSTALLED
+                if result.installed is False
+                else (
+                    UserStatus.PARTIALLY_DEGRADED
+                    if result.installed and not result.acceptable
+                    else UserStatus.UNKNOWN
+                )
+            ),
+            conditions=[
+                Condition(
+                    type="ExecutableDetected",
+                    status=executable_status,
+                    reason=result.diagnostic_code
+                    or ("EXECUTABLE_FOUND" if result.installed else "EXECUTABLE_NOT_FOUND"),
+                    message=result.user_message,
+                    observed_generation=1,
+                    last_transition_time=result.observed_at,
+                ),
+                Condition(
+                    type="VersionProbeHealthy",
+                    status=probe_status,
+                    reason=result.diagnostic_code
+                    or (
+                        "VERSION_PARSED"
+                        if result.probe_status == ProbeStatus.HEALTHY
+                        else "VERSION_UNKNOWN"
+                    ),
+                    message=(
+                        f"版本: {result.version}"
+                        if result.version
+                        else "版本探测没有返回可识别版本"
+                    ),
+                    observed_generation=1,
+                    last_transition_time=result.observed_at,
+                ),
+            ],
+        ),
+        provider_refs=[],
+    )
+
+
 class WindowsSystemDiscoveryAdapter(DiscoveryAdapter):
     adapter_id = "windows-system-discovery"
     component_kinds = ["system"]
@@ -319,41 +395,11 @@ class HermesDiscoveryAdapter(DiscoveryAdapter):
     adapter_id = "hermes-discovery"
     component_kinds = ["orchestration"]
 
+    def __init__(self, detector: AgentDetector | None = None) -> None:
+        self.detector = detector or HermesDetector()
+
     def discover(self) -> list[Component]:
-        exe: str | None = shutil.which("hermes") or _hermes_exe_candidate()
-        version, reliable = None, False
-        installed = exe is not None and os.path.isfile(exe)
-        config_exists = _hermes_config_exists()
-        if installed and exe is not None:
-            version, reliable = _version_of(exe, ["--version"])
-        return [
-            Component(
-                component_id="hermes",
-                kind="orchestration",
-                display_name="Hermes",
-                version=version,
-                state=_snapshot(
-                    installation=InstallationState.INSTALLED
-                    if installed
-                    else InstallationState.NOT_INSTALLED,
-                    configuration=ConfigurationState.UNKNOWN
-                    if config_exists
-                    else ConfigurationState.MISSING,
-                    runtime=RuntimeState.UNKNOWN,
-                    user_status=(
-                        UserStatus.INSTALLED_UNCONFIGURED
-                        if installed and not config_exists
-                        else (UserStatus.UNKNOWN if installed else UserStatus.NOT_INSTALLED)
-                    ),
-                    conditions=[
-                        _executable_condition("Hermes", installed),
-                        _configuration_artifact_condition("Hermes", config_exists),
-                        *_version_condition(version, reliable),
-                    ],
-                ),
-                provider_refs=[],
-            )
-        ]
+        return [_agent_component(self.detector.detect(), component_id="hermes")]
 
     def capabilities(self) -> list[Capability]:
         return [_read_only_capability("lifecycle.discover.v1")]
@@ -408,30 +454,11 @@ class ClaudeCodeDiscoveryAdapter(DiscoveryAdapter):
     adapter_id = "claude-code-discovery"
     component_kinds = ["agent"]
 
+    def __init__(self, detector: AgentDetector | None = None) -> None:
+        self.detector = detector or ClaudeCodeDetector()
+
     def discover(self) -> list[Component]:
-        exe = shutil.which("claude")
-        version, reliable = None, False
-        if exe is not None:
-            version, reliable = _version_of(exe, ["--version"])
-        return [
-            Component(
-                component_id="claude-code",
-                kind="agent",
-                display_name="Claude Code",
-                version=version,
-                state=_snapshot(
-                    installation=InstallationState.INSTALLED
-                    if exe
-                    else InstallationState.NOT_INSTALLED,
-                    user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
-                    conditions=[
-                        _executable_condition("Claude Code", exe is not None),
-                        *_version_condition(version, reliable),
-                    ],
-                ),
-                provider_refs=[],
-            )
-        ]
+        return [_agent_component(self.detector.detect(), component_id="claude-code")]
 
     def capabilities(self) -> list[Capability]:
         return [_read_only_capability("lifecycle.discover.v1")]
@@ -441,30 +468,11 @@ class CodexDiscoveryAdapter(DiscoveryAdapter):
     adapter_id = "codex-discovery"
     component_kinds = ["agent"]
 
+    def __init__(self, detector: AgentDetector | None = None) -> None:
+        self.detector = detector or CodexDetector()
+
     def discover(self) -> list[Component]:
-        exe = shutil.which("codex")
-        version, reliable = None, False
-        if exe is not None:
-            version, reliable = _version_of(exe, ["--version"])
-        return [
-            Component(
-                component_id="codex",
-                kind="agent",
-                display_name="Codex",
-                version=version,
-                state=_snapshot(
-                    installation=InstallationState.INSTALLED
-                    if exe
-                    else InstallationState.NOT_INSTALLED,
-                    user_status=UserStatus.NOT_INSTALLED if not exe else UserStatus.UNKNOWN,
-                    conditions=[
-                        _executable_condition("Codex", exe is not None),
-                        *_version_condition(version, reliable),
-                    ],
-                ),
-                provider_refs=[],
-            )
-        ]
+        return [_agent_component(self.detector.detect(), component_id="codex")]
 
     def capabilities(self) -> list[Capability]:
         return [_read_only_capability("lifecycle.discover.v1")]

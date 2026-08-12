@@ -1,7 +1,7 @@
 01 当前状态
 ============
 
-更新时间：2026-08-11
+更新时间：2026-08-13
 
 一、Reference Baseline
 ----------------------
@@ -39,11 +39,15 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 - Claude Code/Codex 两个原生 Project 的计划、revision、备份、原子写入、漂移检测、回滚和 Agent 可执行入口预检
 - external cc-connect 状态拆分；PATH 仅安装不阻塞，目标端口、相同配置作用域或 Supervisor 冲突才硬阻塞
 - Hermes 未安装时准确返回 pending_component_install，不阻塞 Claude/Codex
-- 最小 PySide6 GUI 已实现于 `control-plane/control_plane/gui/`：统一标题栏和 StepRail、Welcome、四步 Onboarding、二维码弹窗、Dashboard、Diagnostics、Demo 合成客户端以及 HTTP/Embedded Control Plane 客户端；版本入口为 `0.2.0-gui`。
+- PySide6 GUI 已实现于 `control-plane/control_plane/gui/`：统一标题栏和 StepRail、Welcome、四步 Onboarding、二维码弹窗、Dashboard、Diagnostics、Demo 合成客户端以及 HTTP/Embedded Control Plane 客户端。
+- GUI 当前版本为 `0.3.0-prebeta`。Agent Detection 由 `control_plane/agent_detection/` 实现，Hermes、Claude Code、Codex 使用独立规则、共享安全 Windows discovery/version probe，并接入 Onboarding、Dashboard、Diagnostics 和全局刷新。
+- 本机真实检测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，状态均 healthy；这是 `LOCAL_VERIFIED`，不等于认证或聊天 live。
+- Step 4 会确保 cc-connect 安装、Owner、原生配置、start/reconcile，并严格核验 PID、exe、configuration revision、port ownership、startup stability 和 fatal log；未 ready 不得完成 Onboarding。
+- Telegram Binding、Chat Live Health 与历史 evidence revision 已分离。GUI Live E2E 需要用户确认六条消息，每条最多一次、失败不自动重试；可跳过并从 Dashboard 后续执行。
 - GUI 只调用 onboarding/dashboard snapshot、Telegram credential/verify/binding/poll 等本地 API；Token 不由 GUI 状态快照保存，二维码只承载短时 deep-link binding payload。
 - 新 GUI 私聊激活与群自动检测的真实用户复测为 `PENDING USER LIVE VALIDATION`；GUI 单元/合成测试通过不等于 Telegram live 通过。
 
-当前不具备：其他组件安装或生命周期接管、自动更新、完整十分钟产品体验、MSI/正式安装器和代码签名。新的 Windows GUI candidate 已在 Windows 11 x64 构建并通过本地 validator；已有 dist 目录中的 stage-a 包仍是旧 Tk 验收向导。六链路可观测性、合成 E2E、显式一次性计划、消息关联、Session 隔离探针、代理策略和脱敏验收向导已实现。2026-08-07 用户直接在 Telegram 完成六条旧入口真实消息链路并明确通过；该证据不覆盖新 GUI，Control Plane 的三次 getMe、3/3 绑定和 correlation live 记录仍未补齐。Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；当前机器上的 Hermes 作为 observed external runtime，锁定上游原生 Group Chat 过滤和 deep health 为 unsupported，management API 监听范围受上游限制为所有网卡。
+当前不具备：其他组件安装或生命周期接管、自动更新、正式 Installer、代码签名。最终 candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.3.0-prebeta-windows-x64-final3-20260813`，Windows 11 x64 validator 与 ordinary-user version/headless smoke 通过；EXE 66.05 MiB，SHA256 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`。本地质量门禁为 240 passed、1 skipped，Ruff、format、mypy 104 files 和契约验证通过。Windows 10 仍为 `PENDING WINDOWS 10 VALIDATION`。
 
 三、Telegram 运行证据
 --------------------
@@ -60,4 +64,4 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 五、下一阶段
 ------------
 
-下一阶段收口门禁为：新 GUI 私聊/群自动检测的用户现场验证和 Windows 10 x64 普通用户实机验证。`0.2.0-gui` candidate 的本地 manifest/SHA256/无控制台验收已通过；MSI、正式安装器和代码签名为 `DEFERRED`。如要补齐机器可审计的 live 证据，需另行通过向导完成真实 getMe、3/3 绑定和 correlation 流程。详见 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md。
+下一阶段收口门禁为：用最终 `0.3.0-prebeta` candidate 完成新 GUI 三 Bot私聊/同群/可选六链路用户现场验证，再在 Windows 10 x64 普通用户实机重复；之后才进入 Installer、卸载、快捷方式、Release Asset 与签名准备。详见 `reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md`。

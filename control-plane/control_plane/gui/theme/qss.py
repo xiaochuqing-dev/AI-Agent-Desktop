@@ -115,6 +115,17 @@ def build_stylesheet() -> str:
     }
     QPushButton#InlineButton { min-height: 42px; padding: 0 15px; }
     QPushButton#SecondaryButton:hover, QPushButton#InlineButton:hover { background: rgba(255, 255, 255, 225); }
+    QPushButton#CompactInlineButton {
+        background: rgba(255, 255, 255, 180);
+        border: 1px solid rgba(255, 255, 255, 210);
+        border-radius: 8px;
+        min-height: 26px;
+        max-height: 26px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 0 9px;
+    }
+    QPushButton#CompactInlineButton:hover { background: rgba(255, 255, 255, 225); }
     QPushButton#TelegramButton {
         color: white;
         min-height: 48px;

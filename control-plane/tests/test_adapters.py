@@ -1,4 +1,37 @@
 from control_plane.adapters import discovery as disc
+from control_plane.agent_detection.models import (
+    AgentDetectionResult,
+    DetectionSource,
+    DetectionStatus,
+    ProbeStatus,
+)
+
+
+class FakeDetector:
+    def __init__(self, slot, name, *, installed=False, version=None):
+        self.agent_id = slot
+        self.name = name
+        self.installed = installed
+        self.version = version
+
+    def detect(self):
+        return AgentDetectionResult(
+            agent_id=self.agent_id,
+            display_name=self.name,
+            status=DetectionStatus.INSTALLED if self.installed else DetectionStatus.NOT_FOUND,
+            installed=self.installed,
+            version=self.version,
+            executable_path_internal="C:/fake.exe" if self.installed else None,
+            detection_source=(
+                DetectionSource.PATH if self.installed else DetectionSource.NOT_FOUND
+            ),
+            probe_status=ProbeStatus.HEALTHY if self.installed else ProbeStatus.NOT_RUN,
+            observed_at=disc.utcnow(),
+            diagnostic_code=None if self.installed else "AGENT_NOT_FOUND",
+            user_message="detected" if self.installed else "missing",
+            official_install_url="https://example.invalid/install",
+            revision="sha256:" + "1" * 64,
+        )
 
 
 def _patch_missing(monkeypatch):
@@ -15,14 +48,15 @@ def _patch_missing(monkeypatch):
 
 def test_not_installed_when_missing(monkeypatch):
     _patch_missing(monkeypatch)
-    for cls in [
-        disc.HermesDiscoveryAdapter,
-        disc.CcConnectDiscoveryAdapter,
-        disc.ClaudeCodeDiscoveryAdapter,
-        disc.CodexDiscoveryAdapter,
-        disc.CcSwitchDiscoveryAdapter,
-    ]:
-        comps = cls().discover()
+    adapters = [
+        disc.HermesDiscoveryAdapter(FakeDetector("hermes", "Hermes")),
+        disc.CcConnectDiscoveryAdapter(),
+        disc.ClaudeCodeDiscoveryAdapter(FakeDetector("claude", "Claude Code")),
+        disc.CodexDiscoveryAdapter(FakeDetector("codex", "Codex")),
+        disc.CcSwitchDiscoveryAdapter(),
+    ]
+    for adapter in adapters:
+        comps = adapter.discover()
         assert len(comps) == 1
         assert comps[0].state.installation.value == "not_installed"
 
@@ -48,7 +82,9 @@ def test_installed_when_found(monkeypatch, tmp_path):
     monkeypatch.setattr(disc.os.path, "isfile", lambda p: True)
     monkeypatch.setattr(disc, "_version_of", lambda *a, **k: ("v1.2.3", True))
     monkeypatch.setattr(disc, "_hermes_config_exists", lambda: True)
-    a = disc.HermesDiscoveryAdapter()
+    a = disc.HermesDiscoveryAdapter(
+        FakeDetector("hermes", "Hermes", installed=True, version="v1.2.3")
+    )
     c = a.discover()[0]
     assert c.state.installation.value == "installed"
     assert c.version == "v1.2.3"
@@ -56,7 +92,7 @@ def test_installed_when_found(monkeypatch, tmp_path):
     assert c.state.runtime.value == "unknown"
     assert c.state.health.value == "unknown"
     assert c.state.user_status.value == "unknown"
-    assert any(x.reason == "CONFIGURATION_ARTIFACT_FOUND_UNVALIDATED" for x in c.state.conditions)
+    assert any(x.type == "ExecutableDetected" for x in c.state.conditions)
 
 
 def test_config_artifacts_never_claim_running_or_healthy(monkeypatch, tmp_path):
@@ -69,7 +105,9 @@ def test_config_artifacts_never_claim_running_or_healthy(monkeypatch, tmp_path):
     monkeypatch.setattr(disc, "_cc_connect_tokens_env_exists", lambda: True)
 
     adapters = [
-        disc.HermesDiscoveryAdapter(),
+        disc.HermesDiscoveryAdapter(
+            FakeDetector("hermes", "Hermes", installed=True, version="v1.2.3")
+        ),
         disc.CcConnectDiscoveryAdapter(),
         disc.TelegramConfigDiscoveryAdapter(),
     ]

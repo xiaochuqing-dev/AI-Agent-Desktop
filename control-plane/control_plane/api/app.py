@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from ..adapters.discovery import default_adapters
+from ..agent_detection import AgentDetectionService
 from ..application.discovery_service import DiscoveryService
 from ..application.event_log import CursorExpired, EventLog
 from ..application.operation_store import (
@@ -61,6 +62,7 @@ from ..lifecycle.managed_process import ManagedProcessService
 from ..lifecycle.models import LifecycleActionRequest
 from ..lifecycle.port_ownership import PortOwnershipInspector
 from ..network.proxy import ProxyPolicy
+from ..observability.models import LinkStatus
 from ..observability.service import LiveE2ETestService
 from ..operations import (
     ExecutionContext,
@@ -103,10 +105,12 @@ class AppState:
         credential_backend: SecretBackend | None = None,
         telegram_client: TelegramBotApiClient | None = None,
         hermes_path_lookup=None,
+        agent_detection_service: AgentDetectionService | None = None,
     ) -> None:
         self.settings = settings
         self.db = Database(settings)
         self.events = EventLog()
+        self.agent_detection = agent_detection_service or AgentDetectionService()
         if adapters is None:
             self.registry = default_adapters()
         else:
@@ -194,6 +198,7 @@ class AppState:
             binding=self.telegram_binding,
             lifecycle=self.lifecycle,
             configuration=self.configuration,
+            native_configuration=self.native_configuration,
             telegram_client=self.telegram_client,
         )
         self.cc_connect_updates = CcConnectArtifactProvider(self.db, self.version_store)
@@ -401,6 +406,7 @@ def init_state(
     credential_backend: SecretBackend | None = None,
     telegram_client: TelegramBotApiClient | None = None,
     hermes_path_lookup=None,
+    agent_detection_service: AgentDetectionService | None = None,
 ) -> None:
     global _STATE
     _STATE = AppState(
@@ -410,6 +416,7 @@ def init_state(
         credential_backend,
         telegram_client,
         hermes_path_lookup,
+        agent_detection_service,
     )
 
 
@@ -467,6 +474,7 @@ def create_app(
     credential_backend: SecretBackend | None = None,
     telegram_client: TelegramBotApiClient | None = None,
     hermes_path_lookup=None,
+    agent_detection_service: AgentDetectionService | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     init_state(
@@ -476,6 +484,7 @@ def create_app(
         credential_backend,
         telegram_client,
         hermes_path_lookup,
+        agent_detection_service,
     )
 
     @asynccontextmanager
@@ -1039,7 +1048,85 @@ def create_app(
         for op in ops:
             if op.status == OperationStatus.SUCCEEDED and op.result:
                 report = ReadinessReport.model_validate(op.result)
-                return redact_value([*persisted, *report.blockers, *report.warnings])
+                persisted.extend([*report.blockers, *report.warnings])
+                break
+        now = datetime.now(UTC)
+        for result in st.agent_detection.get_all().values():
+            if result.acceptable:
+                continue
+            persisted.append(
+                Diagnostic(
+                    diagnostic_id=f"agent-{result.agent_id}-{result.revision[-12:]}",
+                    severity=(
+                        DiagnosticSeverity.WARNING
+                        if result.installed is not False
+                        else DiagnosticSeverity.ERROR
+                    ),
+                    code=result.diagnostic_code or "AGENT_DETECTION_ERROR",
+                    summary=f"{result.display_name} detection requires attention",
+                    user_message=result.user_message,
+                    suggested_actions=["refresh_agent_detection", "open_official_install_guide"],
+                    technical_details={
+                        "agent_id": result.agent_id,
+                        "status": result.status.value,
+                        "probe_status": result.probe_status.value,
+                        "version": result.version,
+                    },
+                    redaction_applied=True,
+                    created_at=now,
+                    correlation_id="agent-detection",
+                    target_ref=ResourceRef(kind="component", id=result.agent_id),
+                )
+            )
+        runtime = st.lifecycle.status()
+        runtime_health = runtime.health
+        runtime_ready = bool(
+            runtime.observed_state == "running_partial"
+            and runtime.pid
+            and runtime_health.process_identity_verified
+            and runtime_health.artifact_integrity_verified
+            and runtime_health.configuration_revision_verified
+            and runtime_health.port_owned_by_process
+            and runtime_health.startup_stable_for_window
+            and not runtime_health.fatal_log_detected
+        )
+        if not runtime_ready:
+            persisted.append(
+                Diagnostic(
+                    diagnostic_id=f"cc-connect-runtime-{int(runtime.updated_at.timestamp())}",
+                    severity=DiagnosticSeverity.WARNING,
+                    code="CC_CONNECT_RUNTIME_NOT_READY",
+                    summary="cc-connect runtime is not ready",
+                    user_message="cc-connect 尚未通过 PID、可执行文件、配置版本、端口和稳定窗口检查。",
+                    suggested_actions=["complete_configuration", "inspect_runtime_status"],
+                    technical_details={
+                        "observed_state": runtime.observed_state,
+                        "configuration_revision": runtime.configuration_revision,
+                    },
+                    redaction_applied=True,
+                    created_at=now,
+                    correlation_id="onboarding-runtime",
+                    target_ref=ResourceRef(kind="component", id="cc-connect"),
+                )
+            )
+        for link in st.observability.list_links():
+            if link.status != LinkStatus.STALE:
+                continue
+            persisted.append(
+                Diagnostic(
+                    diagnostic_id=f"chat-stale-{link.link_id.value.replace('.', '-')}",
+                    severity=DiagnosticSeverity.WARNING,
+                    code="CHAT_EVIDENCE_STALE",
+                    summary="Live chat evidence is stale",
+                    user_message=f"{link.link_id.value} 之前验证过，但当前环境已变化，需要重新确认。",
+                    suggested_actions=["create_new_explicit_e2e_plan"],
+                    technical_details={"link_id": link.link_id.value},
+                    redaction_applied=True,
+                    created_at=now,
+                    correlation_id="chat-evidence",
+                    target_ref=ResourceRef(kind="link", id=link.link_id.value),
+                )
+            )
         return redact_value(persisted)
 
     def _diagnostic_from_record(record: DiagnosticRecord) -> Diagnostic:

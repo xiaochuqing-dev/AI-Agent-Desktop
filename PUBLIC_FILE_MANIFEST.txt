@@ -1,7 +1,7 @@
 PUBLIC_FILE_MANIFEST
 
-Generated: 2026-08-11
-Public file count: 302
+Generated: 2026-08-13
+Public file count: 310
 
 Scope
 This inventory contains every tracked file on final main.
@@ -76,6 +76,12 @@ control-plane/alembic/versions/0005_six_link_observability.py
 control-plane/control_plane/__init__.py
 control-plane/control_plane/adapters/__init__.py
 control-plane/control_plane/adapters/discovery.py
+control-plane/control_plane/agent_detection/__init__.py
+control-plane/control_plane/agent_detection/detectors.py
+control-plane/control_plane/agent_detection/models.py
+control-plane/control_plane/agent_detection/probe.py
+control-plane/control_plane/agent_detection/service.py
+control-plane/control_plane/agent_detection/windows_discovery.py
 control-plane/control_plane/api/__init__.py
 control-plane/control_plane/api/app.py
 control-plane/control_plane/api/errors.py
@@ -200,6 +206,7 @@ control-plane/tests/fakes.py
 control-plane/tests/installer_helpers.py
 control-plane/tests/telegram_helpers.py
 control-plane/tests/test_adapters.py
+control-plane/tests/test_agent_detection.py
 control-plane/tests/test_api.py
 control-plane/tests/test_configuration_service.py
 control-plane/tests/test_contract.py
@@ -264,6 +271,7 @@ reports/CC_CONNECT_MANAGED_LIFECYCLE_CONFIGURATION_AND_INTEGRATION_BOUNDARIES_RE
 reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md
+reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md
 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md
 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md
 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md

@@ -1,7 +1,7 @@
 03 最新产品决策
 ================
 
-更新时间：2026-08-11
+更新时间：2026-08-13
 
 1. 产品正式定位为“面向 Windows 开发者的 Telegram AI 编程团队安装、配置、管理、诊断与恢复中心”。
 2. 首发平台固定为 Windows 10/11，首发 Channel 固定为 Telegram，本阶段不扩展其他渠道。
@@ -26,7 +26,12 @@
 21. 锁定上游原生配置不支持 Group Chat 白名单字段，management API 只能监听所有网卡，deep health 也无官方端点；这些能力保持 unsupported/partial，不增加 Patch。
 22. Hermes 未安装时仍准确标记 pending_component_install；当前机器已观测到 Hermes external runtime，但 Control Plane 不接管其 Provider、配置或生命周期。
 23. 六链路可观测性、一次性 E2E 计划、自包含验收向导和最小 PySide6 GUI 已实现。旧入口六条真实用户体验链路仍记为历史 `LIVE_VERIFIED`；新 GUI 私聊激活与群自动检测必须单独由用户复测，状态为 `PENDING USER LIVE VALIDATION`。
-24. `0.2.0-gui` Windows candidate 已在 Windows 11 x64 构建并通过本地候选验证器；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/正式安装器/签名为 `DEFERRED`。
+24. `0.3.0-prebeta` Windows candidate 已在 Windows 11 x64 构建并通过本地候选验证器与普通用户 smoke；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/正式安装器/签名为 `DEFERRED`。
 25. Hermes 仍是 external/read-only 边界；本轮不声称 Hermes 实时消息、Hermes 新 GUI 流程或真实 Token 已验证。
 26. 当前收口工作继续保持 Integration First 和唯一 ManagementOwner，下一步只做用户验证、候选包验证和文档证据，不扩展 Agent、Channel 或上游 Patch。
 27. 用户可直接在 Telegram 做最终体验验收；若未使用向导，报告只能记录用户确认与只读日志元数据，不能生成或补写 Control Plane 结构化 live 证据。
+28. Agent installed/healthy 必须来自产品自己的 read-only detector，不再由 Telegram Bot Identity 推断；Agent installed 不等于 authenticated。Claude/Codex connected 仅在 detector acceptable 且严格 Runtime Ready 时为 true，Hermes external runtime 保持 null。
+29. Agent discovery 必须按 PATH 目录顺序和安全 known locations 解析 Windows wrapper/executable；版本探测使用官方 `--version`、shell=False、短 timeout、无 stdin、无控制台、受限输出和敏感环境清理，不写死版本。
+30. Step 4 只有在 cc-connect PID、exe、configuration revision、port owner、startup stability 等证据同时满足时才完成；Binding、ready_for_test、LIVE_VERIFIED 和 stale 必须分开显示。
+31. GUI 真实 Live E2E 必须弹出用户确认，六条链路每条最多发送一次且不自动重试；用户可跳过，自动化和 Demo 不能升级为 LIVE_VERIFIED。
+32. CC Switch 继续可选。Agent Detection 仅参考其公开成熟策略重新实现，参考 upstream `1f38c83826a8bca3c1a7a18d9629f05a914718fd`、MIT；未复制第三方代码，不新增第三方 License 文件。

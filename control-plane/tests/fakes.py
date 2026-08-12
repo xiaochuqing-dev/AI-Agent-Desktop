@@ -2,7 +2,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
+from control_plane.agent_detection.models import (
+    AgentDetectionResult,
+    DetectionSource,
+    DetectionStatus,
+    ProbeStatus,
+)
+from control_plane.agent_detection.service import AgentDetectionService
 from control_plane.domain.models import (
     AuthenticationState,
     Capability,
@@ -142,3 +150,46 @@ class FakeFailingAdapter(DiscoveryAdapter):
 
 def make_fake_adapters() -> list[DiscoveryAdapter]:
     return [FakeHealthyAdapter(), FakeMissingAdapter()]
+
+
+class FakeAgentDetector:
+    def __init__(self, slot: str, display_name: str, *, installed: bool = True) -> None:
+        self.agent_id = slot
+        self.display_name = display_name
+        self.installed = installed
+
+    def detect(self) -> AgentDetectionResult:
+        return AgentDetectionResult(
+            agent_id=self.agent_id,  # type: ignore[arg-type]
+            display_name=self.display_name,
+            status=DetectionStatus.INSTALLED if self.installed else DetectionStatus.NOT_FOUND,
+            installed=self.installed,
+            version="1.2.3" if self.installed else None,
+            executable_path_internal=(
+                str(Path("C:/synthetic") / f"{self.agent_id}.exe") if self.installed else None
+            ),
+            detection_source=(
+                DetectionSource.KNOWN_LOCATION if self.installed else DetectionSource.NOT_FOUND
+            ),
+            probe_status=ProbeStatus.HEALTHY if self.installed else ProbeStatus.NOT_RUN,
+            observed_at=_ts(),
+            diagnostic_code=None if self.installed else "AGENT_NOT_FOUND",
+            user_message=(
+                f"已检测到 {self.display_name}，版本 1.2.3。"
+                if self.installed
+                else f"没有检测到 {self.display_name}。"
+            ),
+            official_install_url=f"https://example.invalid/{self.agent_id}",
+            revision=f"sha256:{self.agent_id:0<64}",
+        )
+
+
+def make_fake_agent_detection(*, installed: bool = True) -> AgentDetectionService:
+    return AgentDetectionService(
+        {
+            "hermes": FakeAgentDetector("hermes", "Hermes", installed=installed),
+            "claude": FakeAgentDetector("claude", "Claude Code", installed=installed),
+            "codex": FakeAgentDetector("codex", "Codex", installed=installed),
+        },  # type: ignore[arg-type]
+        ttl_seconds=3600,
+    )

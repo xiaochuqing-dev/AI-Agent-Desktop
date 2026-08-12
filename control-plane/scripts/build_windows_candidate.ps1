@@ -65,12 +65,12 @@ New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
     --add-data "$ControlPlaneRoot\alembic.ini;." `
     --add-data "$ControlPlaneRoot\control_plane\gui\assets;control_plane/gui/assets" `
     --icon "$ControlPlaneRoot\control_plane\gui\assets\app_icon.ico" `
-    --collect-all control_plane `
-    --collect-all PySide6 `
-    --collect-all qrcode `
+    --collect-data control_plane `
     --hidden-import control_plane.main `
     --hidden-import control_plane.gui `
     --hidden-import control_plane.gui.app `
+    --hidden-import qrcode `
+    --hidden-import qrcode.image.pil `
     --hidden-import keyring.backends.Windows `
     (Join-Path $PSScriptRoot "gui_candidate_entry.py")
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
@@ -109,7 +109,7 @@ function Get-FileEntry {
     }
 }
 
-$CandidateVersion = "0.2.0-gui"
+$CandidateVersion = "0.3.0-prebeta"
 $CcManifest = Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect-artifact-manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $CcSha = (Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect.sha256") -Raw -Encoding UTF8).Trim().Split(' ')[0].ToLowerInvariant()
 $PayloadFiles = @(Get-ChildItem -LiteralPath $OutputDir -Recurse -File | Where-Object {

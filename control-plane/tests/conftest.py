@@ -11,11 +11,15 @@ def client(tmp_path, monkeypatch):
     from control_plane.api.app import create_app
     from control_plane.infrastructure.config import Settings
 
-    from .fakes import make_fake_adapters
+    from .fakes import make_fake_adapters, make_fake_agent_detection
 
     monkeypatch.setenv("CONTROL_PLANE_API_TOKEN", TEST_TOKEN)
     settings = Settings(data_dir=str(tmp_path))
-    app = create_app(settings, adapters=make_fake_adapters())
+    app = create_app(
+        settings,
+        adapters=make_fake_adapters(),
+        agent_detection_service=make_fake_agent_detection(),
+    )
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers.update({"Authorization": f"Bearer {TEST_TOKEN}"})
         yield c

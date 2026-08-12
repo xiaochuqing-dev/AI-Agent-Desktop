@@ -202,3 +202,7 @@ read_only_candidate：文件存在、版本、哈希、进程身份、监听可�
 ## GUI Adapter 边界
 
 GUI 不是 Adapter，也不是状态所有者。`control_plane/gui/api_client.py` 只封装稳定本地 API；`state_store.py` 只缓存当前快照；`DemoControlPlaneClient` 的自动进度仅用于合成测试。新 GUI 私聊/群自动检测没有用户现场证据，不能从 Fake 或 Demo 结果推断 `LIVE_VERIFIED`；Windows 10 保持 `PENDING WINDOWS 10 VALIDATION`。Windows 11 candidate 已通过本地构建验证，但不改变 live 证据等级。
+
+## Agent Detection 实施映射
+
+`control_plane/agent_detection/` 已将原 `read_only_candidate` 落地为三个独立 detector。共享层只负责按 PATH 目录顺序、Windows 扩展名和安全 known locations 发现候选，以及执行有界无窗口版本探测；Hermes、Claude Code、Codex 各自拥有命令名、位置、输出兼容和官方安装入口。结果进入 ComponentDiscovery/Onboarding/Dashboard/Diagnostics 读模型，GUI 默认不显示完整路径。Detector 不读取认证、Provider、Secret 或 CC Switch 私有数据，也不管理 Agent 安装/更新。

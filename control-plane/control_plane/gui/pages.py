@@ -438,24 +438,32 @@ class GroupPage(QWidget):
 class CompletionPage(QWidget):
     retry_requested = Signal()
     live_test_requested = Signal()
+    skip_live_test_requested = Signal()
+    install_guide_requested = Signal(str)
+    cc_switch_requested = Signal()
     start_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(16)
-        root.addWidget(label("正在为你完成剩余配置", "PageTitle"))
-        root.addWidget(
-            label(
-                "后面的连接和设置会由我们自动完成。你只需要等待一下，完成后就可以开始使用。",
-                "Subtitle",
-            )
+        root.setSpacing(8)
+        title = label("正在为你完成剩余配置", "PageTitle")
+        title.setWordWrap(False)
+        title.setStyleSheet("font-size:32px;")
+        root.addWidget(title)
+        subtitle = label(
+            "后面的连接和设置会由我们自动完成。你只需要等待一下，完成后就可以开始使用。",
+            "Subtitle",
         )
+        subtitle.setStyleSheet("font-size:13px;")
+        root.addWidget(subtitle)
         card = GlassCard(strong=True)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(24, 16, 24, 14)
+        layout.setContentsMargins(18, 8, 18, 8)
+        layout.setSpacing(1)
         self.checks: dict[str, tuple[QLabel, StatusChip]] = {}
+        self.check_rows: list[QWidget] = []
         self.chat_pills: dict[tuple[str, str], QLabel] = {}
         items = [
             ("telegram", "检查 Telegram 连接", "➤"),
@@ -465,33 +473,90 @@ class CompletionPage(QWidget):
             ("chat", "检查聊天是否可用", "⋯"),
         ]
         for key, text_value, icon in items:
-            row = QHBoxLayout()
+            row_widget = QWidget()
+            row_widget.setFixedHeight(20)
+            row = QHBoxLayout(row_widget)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(7)
             glyph = QLabel(icon)
-            glyph.setFixedWidth(32)
-            glyph.setStyleSheet("font-size:20px;color:#5868E8;")
+            glyph.setFixedWidth(20)
+            glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            glyph.setStyleSheet("font-size:14px;color:#5868E8;")
             row.addWidget(glyph)
-            row.addWidget(label(text_value, "CardTitle"), 1)
+            check_label = QLabel(text_value)
+            check_label.setStyleSheet("font-size:12px;font-weight:600;color:#111323;")
+            row.addWidget(check_label, 1)
             status = StatusChip("等待", "neutral")
+            status.setFixedHeight(18)
+            status.setStyleSheet("padding:1px 7px;font-size:10px;border-radius:9px;")
             row.addWidget(status)
-            layout.addLayout(row)
+            layout.addWidget(row_widget)
+            self.check_rows.append(row_widget)
             self.checks[key] = (glyph, status)
         root.addWidget(card)
 
+        agents = GlassCard()
+        agent_layout = QVBoxLayout(agents)
+        agent_layout.setContentsMargins(18, 8, 18, 8)
+        agent_layout.setSpacing(4)
+        agent_header = QHBoxLayout()
+        agent_title = QLabel("Agent 检测")
+        agent_title.setStyleSheet("font-size:15px;font-weight:650;color:#111323;")
+        agent_header.addWidget(agent_title)
+        agent_header.addStretch(1)
+        self.cc_switch_button = QPushButton("获取 CC Switch（可选）")
+        self.cc_switch_button.setObjectName("CompactInlineButton")
+        self.cc_switch_button.clicked.connect(self.cc_switch_requested)
+        agent_header.addWidget(self.cc_switch_button)
+        agent_layout.addLayout(agent_header)
+        agent_statuses = QHBoxLayout()
+        agent_statuses.setSpacing(12)
+        self.agent_rows: dict[str, dict[str, Any]] = {}
+        for slot in SLOTS:
+            cell = QWidget()
+            cell_layout = QVBoxLayout(cell)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(0)
+            name = QLabel(DISPLAY_NAMES[slot])
+            name.setStyleSheet("font-size:12px;font-weight:650;color:#111323;")
+            cell_layout.addWidget(name)
+            state_row = QHBoxLayout()
+            state_row.setContentsMargins(0, 0, 0, 0)
+            state_row.setSpacing(5)
+            state = QLabel("等待检测")
+            state.setStyleSheet("color:#5D6275;font-size:11px;")
+            state_row.addWidget(state, 1)
+            guide = QPushButton("安装说明")
+            guide.setObjectName("CompactInlineButton")
+            guide.hide()
+            guide.clicked.connect(
+                lambda _checked=False, selected=slot: self._open_install_guide(selected)
+            )
+            state_row.addWidget(guide)
+            cell_layout.addLayout(state_row)
+            agent_statuses.addWidget(cell, 1)
+            self.agent_rows[slot] = {"state": state, "guide": guide, "url": ""}
+        agent_layout.addLayout(agent_statuses)
+        root.addWidget(agents)
+
         results = GlassCard()
         result_layout = QVBoxLayout(results)
-        result_layout.setContentsMargins(22, 12, 22, 12)
-        result_layout.addWidget(label("聊天结果", "CardTitle"))
+        result_layout.setContentsMargins(18, 8, 18, 8)
+        result_layout.setSpacing(4)
+        result_title = QLabel("聊天结果")
+        result_title.setStyleSheet("font-size:15px;font-weight:650;color:#111323;")
+        result_layout.addWidget(result_title)
         pills = QGridLayout()
         pills.setHorizontalSpacing(8)
-        pills.setVerticalSpacing(6)
+        pills.setVerticalSpacing(4)
         for column in range(3):
             pills.setColumnStretch(column, 1)
         self.short_names = {"hermes": "Hermes", "claude": "Claude", "codex": "Codex"}
         pill_index = 0
         for slot in SLOTS:
             for kind, suffix in (("private", "私聊"), ("group", "群聊")):
-                name = f"{self.short_names[slot]} {suffix}"
-                pill = QLabel(f"{name}  ·  待确认")
+                chat_name = f"{self.short_names[slot]} {suffix}"
+                pill = QLabel(f"{chat_name}  ·  待确认")
                 pill.setProperty("kind", "neutral")
                 self.chat_pills[(slot, kind)] = pill
                 pill.setObjectName("ChatPill")
@@ -500,11 +565,11 @@ class CompletionPage(QWidget):
                 pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 pill.setWordWrap(True)
                 pill.setMinimumWidth(0)
-                pill.setMinimumHeight(28)
-                pill.setToolTip(f"{name}：待确认")
+                pill.setFixedHeight(22)
+                pill.setToolTip(f"{chat_name}：待确认")
                 pill.setStyleSheet(
                     "background:rgba(239,243,252,220);border:1px solid rgba(205,216,238,150);"
-                    "border-radius:12px;padding:3px 4px;color:#5D6275;font-size:10px;"
+                    "border-radius:10px;padding:1px 4px;color:#5D6275;font-size:9px;"
                 )
                 pill.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
                 pills.addWidget(pill, pill_index // 3, pill_index % 3)
@@ -515,11 +580,24 @@ class CompletionPage(QWidget):
         banner = QFrame()
         banner.setObjectName("SuccessBanner")
         banner_layout = QHBoxLayout(banner)
-        banner_layout.setContentsMargins(14, 8, 14, 8)
+        banner_layout.setContentsMargins(12, 6, 12, 6)
         self.banner_text = label("配置完成后，你就可以开始使用了。", "BodyText")
-        self.banner_text.setStyleSheet("color:#2B8050;font-size:15px;font-weight:600;")
+        self.banner_text.setStyleSheet("color:#2B8050;font-size:13px;font-weight:600;")
         banner_layout.addWidget(self.banner_text)
         root.addWidget(banner)
+        live_actions = QHBoxLayout()
+        self.live_button = QPushButton("快速验证聊天")
+        self.live_button.setObjectName("PrimaryButton")
+        self.live_button.clicked.connect(self.live_test_requested)
+        self.live_button.setEnabled(False)
+        self.skip_live_button = QPushButton("以后再验证")
+        self.skip_live_button.setObjectName("SecondaryButton")
+        self.skip_live_button.clicked.connect(self.skip_live_test_requested)
+        self.skip_live_button.setEnabled(False)
+        live_actions.addWidget(self.live_button)
+        live_actions.addWidget(self.skip_live_button)
+        live_actions.addStretch(1)
+        root.addLayout(live_actions)
         root.addStretch(1)
 
     def apply_snapshot(self, snapshot: dict[str, Any]) -> None:
@@ -539,38 +617,151 @@ class CompletionPage(QWidget):
             slot = agent.get("slot")
             if slot not in SLOTS:
                 continue
-            for kind, status_key in (("private", "private_status"), ("group", "group_status")):
-                pill = self.chat_pills[(slot, kind)]
-                if agent.get(status_key) == "bound":
-                    name = f"{self.short_names[slot]} {'私聊' if kind == 'private' else '群聊'}"
-                    pill.setText(f"{name}  ·  已绑定")
-                    pill.setToolTip(f"{name}：已绑定")
-                    pill.setStyleSheet(
-                        "background:rgba(229,248,238,220);border:1px solid rgba(152,220,180,130);"
-                        "border-radius:12px;padding:3px 4px;color:#2B8050;font-size:10px;"
-                    )
-                else:
-                    name = f"{self.short_names[slot]} {'私聊' if kind == 'private' else '群聊'}"
-                    pill.setText(f"{name}  ·  待确认")
-                    pill.setToolTip(f"{name}：待确认")
-                    pill.setStyleSheet(
-                        "background:rgba(239,243,252,220);border:1px solid rgba(205,216,238,150);"
-                        "border-radius:12px;padding:3px 4px;color:#5D6275;font-size:10px;"
-                    )
+            row = self.agent_rows[slot]
+            version = f" · {agent['version']}" if agent.get("version") else ""
+            if agent.get("acceptable"):
+                row["state"].setText(f"已检测{version}")
+                row["state"].setToolTip(f"{DISPLAY_NAMES[slot]} 已检测{version}")
+                row["state"].setStyleSheet("color:#2B8050;font-size:11px;font-weight:600;")
+                row["guide"].hide()
+            else:
+                message = agent.get("user_message") or "需要处理"
+                row["state"].setText(message)
+                row["state"].setToolTip(message)
+                row["state"].setStyleSheet("color:#A86A20;font-size:11px;font-weight:600;")
+                row["url"] = agent.get("official_install_url") or ""
+                row["guide"].show()
+        for link in snapshot.get("chat_links", []):
+            slot = link.get("slot")
+            kind = link.get("scope")
+            if (slot, kind) not in self.chat_pills:
+                continue
+            self._set_chat_pill(
+                slot,
+                kind,
+                link.get("health_status", "unknown"),
+                link.get("binding_status", "pending"),
+                link,
+            )
+        if not snapshot.get("chat_links"):
+            for agent in snapshot.get("agents", []):
+                slot = agent.get("slot")
+                if slot not in SLOTS:
+                    continue
+                for kind, status_key in (
+                    ("private", "private_status"),
+                    ("group", "group_status"),
+                ):
+                    binding = "bound" if agent.get(status_key) == "bound" else "pending"
+                    self._set_chat_pill(slot, kind, "unknown", binding, {})
+        base_ready = bool(snapshot.get("onboarding_complete"))
+        self.live_button.setEnabled(base_ready)
+        self.skip_live_button.setEnabled(base_ready)
+        self.cc_switch_button.setText(
+            "打开 CC Switch（可选）"
+            if snapshot.get("cc_switch_openable")
+            else "获取 CC Switch（可选）"
+        )
+
+    def _open_install_guide(self, slot: str) -> None:
+        url = str(self.agent_rows[slot].get("url") or "")
+        if url:
+            self.install_guide_requested.emit(url)
+
+    def _set_chat_pill(
+        self,
+        slot: str,
+        kind: str,
+        health: str,
+        binding: str,
+        details: dict[str, Any],
+    ) -> None:
+        pill = self.chat_pills[(slot, kind)]
+        name = f"{self.short_names[slot]} {'私聊' if kind == 'private' else '群聊'}"
+        if health == "live_verified":
+            text_value, color, background, border = (
+                "已验证",
+                "#2B8050",
+                "229,248,238,220",
+                "152,220,180,130",
+            )
+        elif health == "stale":
+            text_value, color, background, border = (
+                "需重新确认",
+                "#A86A20",
+                "255,245,220,230",
+                "224,190,120,150",
+            )
+        elif health == "failed":
+            text_value, color, background, border = (
+                "验证失败",
+                "#A94A55",
+                "255,235,238,230",
+                "226,153,164,150",
+            )
+        elif health == "ready_for_test":
+            text_value, color, background, border = (
+                "待验证",
+                "#5969D8",
+                "235,239,255,230",
+                "164,178,238,150",
+            )
+        elif binding == "bound":
+            text_value, color, background, border = (
+                "已绑定",
+                "#5D6275",
+                "239,243,252,220",
+                "205,216,238,150",
+            )
+        else:
+            text_value, color, background, border = (
+                "未绑定",
+                "#5D6275",
+                "239,243,252,220",
+                "205,216,238,150",
+            )
+        pill.setText(f"{name}  ·  {text_value}")
+        technical = [details.get("user_message", text_value)]
+        for key, label_text in (
+            ("correlation_id", "Correlation"),
+            ("request_message_id", "Request"),
+            ("response_message_id", "Response"),
+            ("latency_ms", "Latency ms"),
+        ):
+            if details.get(key) is not None:
+                technical.append(f"{label_text}: {details[key]}")
+        pill.setToolTip("\n".join(str(item) for item in technical))
+        pill.setStyleSheet(
+            f"background:rgba({background});border:1px solid rgba({border});"
+            f"border-radius:10px;padding:1px 4px;color:{color};font-size:9px;"
+        )
+
+    def set_live_test_running(self) -> None:
+        self.live_button.setEnabled(False)
+        self.skip_live_button.setEnabled(False)
+        for (slot, kind), pill in self.chat_pills.items():
+            name = f"{self.short_names[slot]} {'私聊' if kind == 'private' else '群聊'}"
+            pill.setText(f"{name}  ·  发送中")
+        self.banner_text.setText("正在逐条执行 6 项聊天验证，每条最多发送 1 条消息，不会自动重试。")
 
     def set_failure(self, message: str) -> None:
         self.banner_text.setText(f"配置暂时没有完成：{message}\n可以点击重试配置，或打开详细诊断。")
-        self.banner_text.setStyleSheet("color:#A94A55;font-size:15px;font-weight:600;")
+        self.banner_text.setStyleSheet("color:#A94A55;font-size:13px;font-weight:600;")
 
-    def set_ready(self) -> None:
-        self.banner_text.setText("🎉  已准备完成，你现在可以开始使用了。")
-        self.banner_text.setStyleSheet("color:#2B8050;font-size:15px;font-weight:600;")
+    def set_ready(self, *, chat_verified: bool = False) -> None:
+        self.banner_text.setText(
+            "🎉  六条聊天链路已验证，你现在可以开始使用了。"
+            if chat_verified
+            else "基础配置已完成。你可以快速验证聊天，或以后从 Dashboard 再验证。"
+        )
+        self.banner_text.setStyleSheet("color:#2B8050;font-size:13px;font-weight:600;")
 
 
 class DashboardPage(QWidget):
     reconfigure_requested = Signal()
     diagnostics_requested = Signal()
     refresh_requested = Signal()
+    live_test_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -637,14 +828,20 @@ class DashboardPage(QWidget):
         diagnostics.setObjectName("PrimaryButton")
         diagnostics.clicked.connect(self.diagnostics_requested)
         actions.addWidget(reconfigure)
+        live_test = QPushButton("快速验证聊天")
+        live_test.setObjectName("SecondaryButton")
+        live_test.clicked.connect(self.live_test_requested)
+        actions.addWidget(live_test)
         actions.addStretch(1)
         actions.addWidget(diagnostics)
         root.addLayout(actions)
 
     def apply_snapshot(self, snapshot: dict[str, Any]) -> None:
         overall = snapshot.get("overall_status")
-        if overall == "ready":
-            self.overall.set_status("已准备", "success")
+        if overall == "ready" and snapshot.get("chat_health") == "live_verified":
+            self.overall.set_status("已验证", "success")
+        elif overall == "ready":
+            self.overall.set_status("基础配置完成", "neutral")
         elif overall == "needs_action":
             self.overall.set_status("需要处理", "warning")
         else:
@@ -653,27 +850,38 @@ class DashboardPage(QWidget):
             slot = agent.get("slot")
             state = self.agent_cards.get(slot)
             if state is not None:
-                if agent.get("status") == "ready" or agent.get("identity_verified"):
+                if agent.get("status") == "ready" or agent.get("acceptable"):
                     state.setText(agent.get("user_message", "已准备好"))
                 else:
                     state.setText(agent.get("user_message", "状态待确认"))
-            if slot not in SLOTS:
+        for link in snapshot.get("chat_links", []):
+            slot = link.get("slot")
+            kind = link.get("scope")
+            if (slot, kind) not in self.chat_pills:
                 continue
-            for kind, status_key in (("private", "private_status"), ("group", "group_status")):
-                pill = self.chat_pills[(slot, kind)]
-                suffix = "私聊" if kind == "private" else "群聊"
-                if agent.get(status_key) == "bound":
-                    pill.setText(f"{DISPLAY_NAMES[slot]} {suffix}  ·  已绑定")
-                    pill.setStyleSheet(
-                        "background:rgba(229,248,238,220);border:1px solid rgba(152,220,180,130);"
-                        "border-radius:11px;padding:5px 10px;color:#2B8050;font-size:12px;"
-                    )
-                else:
-                    pill.setText(f"{DISPLAY_NAMES[slot]} {suffix}  ·  待确认")
-                    pill.setStyleSheet(
-                        "background:rgba(239,243,252,220);border:1px solid rgba(205,216,238,150);"
-                        "border-radius:11px;padding:5px 10px;color:#5D6275;font-size:12px;"
-                    )
+            pill = self.chat_pills[(slot, kind)]
+            suffix = "私聊" if kind == "private" else "群聊"
+            health = link.get("health_status")
+            binding = link.get("binding_status")
+            text_value = {
+                "live_verified": "已验证",
+                "ready_for_test": "待验证",
+                "failed": "验证失败",
+                "stale": "需重新确认",
+            }.get(health, "已绑定" if binding == "bound" else "未绑定")
+            pill.setText(f"{DISPLAY_NAMES[slot]} {suffix}  ·  {text_value}")
+            success = health == "live_verified"
+            pill.setStyleSheet(
+                (
+                    "background:rgba(229,248,238,220);border:1px solid rgba(152,220,180,130);"
+                    "border-radius:11px;padding:5px 10px;color:#2B8050;font-size:12px;"
+                )
+                if success
+                else (
+                    "background:rgba(239,243,252,220);border:1px solid rgba(205,216,238,150);"
+                    "border-radius:11px;padding:5px 10px;color:#5D6275;font-size:12px;"
+                )
+            )
         issues = snapshot.get("recent_issues") or []
         self.issue_text.setText(issues[0] if issues else "最近没有需要处理的问题。")
 

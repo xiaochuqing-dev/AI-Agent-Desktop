@@ -29,7 +29,8 @@ class GuiStateStore:
         return self.snapshot
 
     def refresh(self) -> dict[str, Any]:
-        snapshot = self.client.snapshot()
+        refresh_reader = getattr(self.client, "refresh_snapshot", None)
+        snapshot = refresh_reader() if callable(refresh_reader) else self.client.snapshot()
         dashboard_reader = getattr(self.client, "dashboard_snapshot", None)
         if callable(dashboard_reader):
             try:
@@ -44,6 +45,19 @@ class GuiStateStore:
         binding = getattr(self.client, "binding", None)
         if binding:
             snapshot["binding_session"] = deepcopy(binding)
+        try:
+            diagnostics = self.client.diagnostics()
+            snapshot["diagnostics"] = diagnostics
+            dashboard = snapshot.get("dashboard")
+            if isinstance(dashboard, dict):
+                issues = list(dashboard.get("recent_issues") or [])
+                issues.extend(
+                    item.get("user_message") or item.get("summary") or "需要进一步检查。"
+                    for item in diagnostics
+                )
+                dashboard["recent_issues"] = list(dict.fromkeys(issues))
+        except GuiApiError:
+            pass
         return self._publish(snapshot)
 
     def save_tokens(self, values: dict[str, str]) -> dict[str, Any]:
@@ -69,3 +83,12 @@ class GuiStateStore:
 
     def complete_configuration(self) -> dict[str, Any]:
         return self._publish(self.client.complete_configuration())
+
+    def run_live_test(self, *, confirmation: bool) -> dict[str, Any]:
+        runs = self.client.run_live_test(confirmation=confirmation)
+        snapshot = self.client.snapshot()
+        snapshot["live_test_runs"] = runs
+        dashboard_reader = getattr(self.client, "dashboard_snapshot", None)
+        if callable(dashboard_reader):
+            snapshot["dashboard"] = dashboard_reader()
+        return self._publish(snapshot)

@@ -1,7 +1,7 @@
 十分钟安装引导 TEN_MINUTE_ONBOARDING
 ====================================
 
-本文档描述正式产品目标和 2026-08-11 的最小实现。三 Bot 合成绑定与最小 PySide6 GUI 已实现；新 GUI 的真实 Telegram 私聊/群自动检测尚未验证，Windows 10 也未验证。
+本文档描述正式产品目标和 2026-08-13 的 Pre-Beta 实现。三 Bot 绑定、真实 Agent Detection、严格 Runtime Readiness 与 PySide6 GUI 已接线；新 GUI Telegram 和 Windows 10 仍待用户验证。
 
 一、用户准备
 ------------
@@ -18,7 +18,7 @@
 1. 录入 Hermes、Claude Code、Codex 三个 Bot Token；真实模式写入 Windows Credential Manager，并复用 Control Plane getMe 验证 Bot 身份。
 2. 为三个 Bot 生成短时私聊 deep link，用户通过桌面 Telegram 或手机 QR 打开私聊并点击 Start；GUI 轮询 Control Plane 绑定状态，不要求用户输入 User ID。
 3. 用户创建或打开一个群并把三个 Bot 加入同一个群；GUI 使用 Telegram group deep link/startgroup 辅助打开，并通过 Binding API 检测三 Bot 是否进入同一群，不要求 Group ID，也不读取群列表。
-4. GUI 显示剩余配置检查、Dashboard 和 Diagnostics；真实消息测试仍需要用户明确确认，不会默认发送。
+4. GUI 检测三个 Agent、启动并严格核验 cc-connect、生成配置，再显示 Binding 与 Chat Health；真实六链路测试需要用户明确确认，每条最多一条且不自动重试，也可跳过。
 
 完整产品目标仍包括组件安装、官方登录、配置所有权、Hermes/cc-connect 候选配置、运行环境准备和六链路证据展示；当前最小 GUI 尚未完成所有这些自动化。
 
@@ -35,7 +35,7 @@ Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 
 五、当前阶段
 ------------
 
-当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、Claude/Codex 原生配置、产品自有 cc-connect 运行和最小 PySide6 GUI。当前工作区 pytest 为 222 passed、1 skipped、1 warning，其中 GUI/onboarding 定向测试 23 passed，candidate validator 回归另有 2 passed。
+当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、三个真实 Agent Detector、Claude/Codex 原生配置、严格 cc-connect Runtime Ready、Live E2E GUI 和 PySide6 GUI。当前工作区 pytest 为 240 passed、1 skipped；Ruff、format、mypy 104 files、契约和 final3 candidate validator 通过。
 
 这些自动化结果只证明代码与合成合同。新 GUI 私聊激活和群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；MSI/正式安装器/代码签名为 `DEFERRED`。Hermes 仍为 external/read-only，不得声称本轮完成了 Hermes 实时消息或自动配置验证。历史 2026-08-07 六链路直接 Telegram 用户确认不覆盖新 GUI。
 

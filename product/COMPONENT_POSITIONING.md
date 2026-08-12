@@ -39,7 +39,7 @@ Control Plane
 GUI
 ---
 
-当前最小实现为 PySide6 + Qt Widgets + QSS，包含 Welcome、四步 Onboarding、QR、Telegram 深链接、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不直接写 Hermes、cc-connect、Claude Code、Codex、Telegram 或 CC Switch 私有配置。新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+当前实现为 PySide6 + Qt Widgets + QSS `0.3.0-prebeta`，包含 Welcome、四步 Onboarding、真实 Agent 状态、严格 Runtime、QR/深链接、Live E2E、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不直接写 Hermes、Claude Code、Codex、Telegram 或 CC Switch 私有配置；仅产品自有 cc-connect 受管路径可写。新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 dual_agent 与 cc-connect Patch
 -----------------------------

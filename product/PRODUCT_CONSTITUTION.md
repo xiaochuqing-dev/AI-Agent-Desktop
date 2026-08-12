@@ -45,7 +45,7 @@
 六、当前实现边界
 ----------------
 
-Control Plane 基础运行代码已存在，当前已实现只读发现、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及合法 cc-connect 受管生命周期。最小 PySide6 GUI、四步 Onboarding、Dashboard、Diagnostics、QR 和 Telegram 深链接入口也已实现，并通过本地自动化/合成测试；真实 Telegram 用户尚未复测新 GUI 私聊/群自动检测，状态为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram 或 Hermes 已验证。
+Control Plane 基础运行代码已存在，当前已实现只读发现、三个真实 Agent Detector、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及严格的 cc-connect 受管 Runtime Readiness。PySide6 `0.3.0-prebeta` 四步 GUI、Dashboard、Diagnostics、QR、Telegram 深链接和用户确认 Live E2E 也已实现；真实 Telegram 用户尚未复测新 GUI，状态为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram、认证状态或 Hermes 已受管验证。
 
 七、不得走偏
 ------------

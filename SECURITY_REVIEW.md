@@ -1,8 +1,8 @@
 安全审查
 ========
 
-更新时间：2026-08-11
-结论：Control Plane、Fake、既有 Windows 11 合成门禁和最小 GUI 本地自动化通过；新 GUI Telegram 私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体保持 `PARTIAL`。
+更新时间：2026-08-13
+结论：Control Plane、Fake、Windows 11 合成门禁、真实 Agent Detection 和 `0.3.0-prebeta` candidate 本地验证通过；新 GUI Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体保持 `PARTIAL`。
 
 一、仓库内容
 ------------
@@ -39,6 +39,9 @@
 - Telegram Desktop 打开优先使用 `tg://` 深链接，失败才打开官方 HTTPS 下载页；不会读取客户端登录状态或自动点击 Telegram。
 - Demo/预览模式仅用于截图和合成测试，标题栏明确显示预览状态，不能被当作实时 Telegram 证据。
 - GUI 图标的透明 alpha、黑底边缘、PNG/ICO 多尺寸、PyInstaller archive 字节一致性和 PE 图标资源已复核通过；Windows 10 Shell 与正式安装器快捷方式仍待后续现场验证。
+- Agent Detection 只执行 detector 自己发现的可信候选，使用 argv、shell=False、短 timeout、无 stdin、CREATE_NO_WINDOW、受限 stdout/stderr 和移除 Token/API Key 类环境变量的子进程环境；不允许用户选择任意可执行文件。
+- Detector 不读取 Claude OAuth、Codex login、Hermes Provider、CC Switch 数据库、API Key、模型、配额、账号、订阅或私有配置；installed/healthy 不等于 authenticated。
+- Live E2E 必须经过 GUI 明确确认，固定六条计划、每条最多一条、无自动重试；失败证据不包含消息正文。Binding 完成不再显示为聊天已验证。
 
 四、本阶段无副作用证明
 ----------------------
@@ -50,7 +53,7 @@
 五、验证
 --------
 
-Control Plane 自动化覆盖 Secret API 不回显与不落库、Credential 后端错误、Telegram getMe/webhook/getUpdates、Update Lease、绑定过期/重放/抢绑定/同群一致性、六 LinkState、一次性 E2E、消息关联、Session 隔离、代理策略、原生 Renderer、配置竞态/漂移/回滚、external 检测、PID/SHA/端口/Owner 和重启恢复。当前工作区本地 pytest 为 222 passed、1 skipped、1 warning；GUI/onboarding 定向测试为 23 passed，candidate validator 回归另有 2 passed。ruff、format、mypy、契约验证和新 GUI candidate 本地 validator 均通过。详细边界见 reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md。
+Control Plane 自动化覆盖上述安全矩阵，并增加 PATH 顺序、wrapper、timeout、Unicode/空格路径、版本未知、Agent missing、严格 Runtime Ready、Binding/Live/stale 语义与 1280×720 GUI 回归。当前本地 pytest 为 240 passed、1 skipped；Ruff、format、mypy 104 files、契约验证和 final3 candidate validator 均通过。最终 EXE SHA256 为 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`，普通用户 smoke 未访问真实 Telegram。详细边界见 `reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md`。
 
 六、分发限制
 ------------

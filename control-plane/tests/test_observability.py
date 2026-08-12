@@ -52,7 +52,12 @@ class FakeIdentities:
 
 class FakeLifecycle:
     def status(self):
-        return SimpleNamespace(observed_state="running")
+        return SimpleNamespace(
+            observed_state="running_partial",
+            artifact_id="artifact-test",
+            management_owner="product",
+            lifecycle_owner="product",
+        )
 
 
 class FakeConfiguration:
@@ -214,9 +219,10 @@ def test_send_without_response_stays_observed_until_exact_runtime_evidence(tmp_p
         update={"credential_revision": 2}
     )
     stale = service.get_link(LinkId.CLAUDE_PRIVATE)
-    assert stale.status == LinkStatus.READY_FOR_LIVE_TEST
+    assert stale.status == LinkStatus.STALE
+    assert stale.diagnostic_code == "CHAT_EVIDENCE_STALE"
     assert stale.evidence_level != EvidenceLevel.LIVE_VERIFIED
-    assert stale.last_live_verified_at is None
+    assert stale.last_live_verified_at is not None
 
 
 def test_failed_send_is_never_retried_for_the_same_plan(tmp_path):

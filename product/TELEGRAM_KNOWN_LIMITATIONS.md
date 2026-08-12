@@ -3,10 +3,10 @@ Telegram 已知限制
 
 更新时间：2026-08-07
 
-2026-08-11 GUI 状态更新
+2026-08-13 GUI 状态更新
 -----------------------
 
-最小 PySide6 GUI 已接入私聊 deep link/QR、群 startgroup/deep link 和 Binding API 轮询，但这些新入口尚未由用户真实复测。新 GUI 私聊激活与群自动检测固定为 `PENDING USER LIVE VALIDATION`；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。
+`0.3.0-prebeta` GUI 已接入私聊 deep link/QR、群 startgroup、Binding API、独立 Chat Health 与用户确认 Live E2E，但尚未由用户真实复测。Binding、ready_for_test、LIVE_VERIFIED、failed 和 stale 分开显示；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。
 
 一、已知事实
 ------------
@@ -41,8 +41,9 @@ Telegram 已知限制
 | Reply 路由 | Reply + Mention 场景已验证，其他组合待补 | 2026-07-28 | 中 |
 | Topic | 尚无完整证据 | 未验证 | 低 |
 | Session 隔离 | 群聊与 Hermes 私聊不串线已验证，跨三 Agent 完整矩阵待补 | 2026-07-28 | 中 |
-| 新 GUI 私聊自动检测 | 尚未用户现场复测 | 2026-08-11 | PENDING USER LIVE VALIDATION |
-| 新 GUI 群自动检测 | 尚未用户现场复测 | 2026-08-11 | PENDING USER LIVE VALIDATION |
+| 新 GUI 私聊自动检测 | 尚未用户现场复测 | 2026-08-13 | PENDING USER LIVE VALIDATION |
+| 新 GUI 群自动检测 | 尚未用户现场复测 | 2026-08-13 | PENDING USER LIVE VALIDATION |
+| 新 GUI 六链路 Live E2E | 已接线，尚未用户确认执行 | 2026-08-13 | PENDING USER LIVE VALIDATION |
 
 三、后续处理
 ------------

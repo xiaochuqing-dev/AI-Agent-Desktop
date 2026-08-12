@@ -41,4 +41,4 @@ external cc-connect 检测区分 installed、process、port、supervisor、confi
 六、当前 GUI 交付边界
 --------------------
 
-GUI 的最小四步流程、二维码和 Telegram 深链接已实现，版本入口为 `0.2.0-gui`。它支持 Demo 合成模式与本地 HTTP/Bearer、Embedded Control Plane 模式；Demo 模式只服务截图和自动化测试。新 GUI Windows 11 candidate 已通过本地 validator；私聊/群自动检测仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。历史旧入口的真实 Telegram 用户确认不改变这些状态。
+GUI 四步流程已升级到 `0.3.0-prebeta`，真实 Agent Detection 由产品自身只读实现，不依赖 CC Switch runtime；只参考 CC Switch 公开 detection 策略，未复制第三方代码。Demo 仍只用于截图/测试。final3 Windows 11 candidate 已通过 validator；新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。

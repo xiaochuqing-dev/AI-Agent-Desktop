@@ -46,6 +46,7 @@ class LinkStatus(StrEnum):
     FAILED = "failed"
     UNSUPPORTED = "unsupported"
     PENDING_USER_VALIDATION = "pending_user_validation"
+    STALE = "stale"
 
 
 class EvidenceLevel(StrEnum):
@@ -80,6 +81,8 @@ class LinkState(StrictModel):
     group_identity_hash: str | None = None
     runtime_owner: str = "unknown"
     runtime_state: str = "unknown"
+    artifact_id: str | None = None
+    ownership_revision: str = "unknown"
     configuration_revision: int = Field(default=0, ge=0)
     update_lease_owner: str = "unknown"
     send_status: str = "unknown"

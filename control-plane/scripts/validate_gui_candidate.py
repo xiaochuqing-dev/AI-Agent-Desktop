@@ -19,7 +19,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 EXPECTED_MANIFEST = {
     "schema_version": "1",
-    "candidate_version": "0.2.0-gui",
+    "candidate_version": "0.3.0-prebeta",
     "product": "AI-Agent-Desktop",
     "platform": "windows",
     "architecture": "x64",
@@ -300,21 +300,49 @@ def _run_executable_smoke(executable: Path) -> None:
             child_env.pop(key, None)
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     for argument in ("--version", "--headless"):
+        process: subprocess.Popen[bytes] | None = None
         try:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 [str(executable), argument],
                 cwd=executable.parent,
                 env=child_env,
                 stdin=subprocess.DEVNULL,
-                capture_output=True,
-                timeout=45,
-                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 creationflags=creationflags,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
+            process.communicate(timeout=45)
+        except subprocess.TimeoutExpired as exc:
+            if process is not None:
+                _terminate_process_tree(process)
             _fail(f"GUI executable {argument} smoke failed: {type(exc).__name__}")
-        if result.returncode != 0:
-            _fail(f"GUI executable {argument} smoke returned {result.returncode}")
+        except OSError as exc:
+            _fail(f"GUI executable {argument} smoke failed: {type(exc).__name__}")
+        if process is None or process.returncode != 0:
+            return_code = process.returncode if process is not None else None
+            _fail(f"GUI executable {argument} smoke returned {return_code}")
+
+
+def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=10,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def _validate_pe_subsystem(executable: Path) -> None:
@@ -426,6 +454,17 @@ def _validate_archive(executable: Path, findings: list[str]) -> None:
         _fail("PyInstaller archive is missing embedded Control Plane modules")
     if not any(name == "control_plane.gui.app" for name in nested_module_names):
         _fail("PyInstaller archive is missing the formal GUI module")
+    required_modules = {
+        "control_plane.agent_detection.models",
+        "control_plane.agent_detection.probe",
+        "control_plane.agent_detection.service",
+        "control_plane.agent_detection.windows_discovery",
+        "control_plane.observability.service",
+        "control_plane.gui.main_window",
+    }
+    missing_modules = sorted(required_modules - nested_module_names)
+    if missing_modules:
+        _fail(f"PyInstaller archive is missing pre-beta closure modules: {missing_modules}")
     if not (
         any(name == "qrcode" or name.startswith("qrcode.") for name in nested_module_names)
         or any(name == "qrcode" or name.startswith("qrcode/") for name in names)

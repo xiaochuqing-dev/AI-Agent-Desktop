@@ -7,7 +7,7 @@
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
 - 实现决策：ADR-001..004 已冻结（见 `adr/`）
-- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、Update Lease、managed/native 配置分离、锁定 Renderer、Claude/Codex 合法原生配置和受管生命周期；最小 PySide6 GUI/四步 Onboarding、Dashboard、Diagnostics、QR 与 Telegram 深链接客户端已实现。Fake 与 Windows 11 合成验收通过；新 GUI 私聊/群自动检测为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
+- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、三个真实 Agent Detector、Update Lease、managed/native 分离、Claude/Codex 原生配置、严格 Runtime Readiness 和受管生命周期；`0.3.0-prebeta` GUI、Live E2E、Dashboard、Diagnostics、QR 与 Telegram 深链接已实现。Fake 与 Windows 11 本地验收通过；新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
 
@@ -69,7 +69,7 @@
 9. 每个配置作用域同一时刻仅有一个 `ManagementOwner`；切换使用备份、版本比较和两阶段交接，禁止双写窗口。
 10. 凭据与业务配置分离；GUI 不读取明文 Secret，Secret 不出现在 URL、普通日志、事件或错误详情中。
 11. 人类指令优先级最高；取消是可确认的异步请求，不虚假承诺瞬时终止外部进程。
-12. Readiness、cc-connect 隔离安装、合法原生配置与产品自有生命周期已实现；Telegram 只限三个固定 Bot slot 和显式绑定 Operation，最小 GUI 只消费本地契约，其他组件安装、外部生命周期与六链路消息 E2E 仍不在当前范围。
+12. Readiness、Agent Detection、cc-connect 隔离安装、合法原生配置与产品自有生命周期已实现；Telegram 只限三个固定 Bot slot、显式绑定和用户确认六链路 E2E，GUI 只消费本地契约，其他组件安装与外部生命周期仍不在当前范围。
 
 ## 未冻结项
 

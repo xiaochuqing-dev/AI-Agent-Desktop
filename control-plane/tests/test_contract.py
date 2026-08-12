@@ -95,6 +95,7 @@ def test_openapi_frozen_with_readiness_and_events():
         "/observability/session-isolation:probe",
         "/observability/session-isolation",
         "/telegram/network-policy",
+        "/agents",
         "/onboarding/snapshot",
         "/dashboard/snapshot",
         "/telegram/client-availability",
@@ -113,6 +114,7 @@ def test_openapi_frozen_with_readiness_and_events():
         assert schema["$ref"] == expected_ref
     assert any(item["name"] == "Observability" for item in doc["tags"])
     for schema in [
+        "AgentDetectionSnapshot",
         "LinkState",
         "E2ETestPlan",
         "E2ETestConfirmation",

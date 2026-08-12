@@ -212,8 +212,124 @@ def test_http_client_resume_calls_resume_endpoint(monkeypatch):
     ]
 
 
+def test_http_complete_configuration_starts_reconciles_and_strictly_verifies_runtime(monkeypatch):
+    client = HttpControlPlaneClient("http://127.0.0.1:58080", "local-bearer")
+    client.binding = {"session_id": "binding-1"}
+    client._ensure_cc_connect_installed = lambda: None
+    client._ensure_product_ownership = lambda: None
+    client._ensure_native_configuration = lambda _session: None
+    operations = []
+
+    class Response:
+        def __init__(self, body):
+            self.body = body
+
+        def json(self):
+            return self.body
+
+    ready_status = {
+        "observed_state": "running_partial",
+        "configuration_revision": 4,
+        "pid": 55123,
+        "identity": {"pid": 55123, "configuration_revision": 4},
+        "identity_verification": {"status": "verified"},
+        "health": {
+            "process_identity_verified": True,
+            "artifact_integrity_verified": True,
+            "configuration_revision_verified": True,
+            "port_owned_by_process": True,
+            "startup_stable_for_window": True,
+            "fatal_log_detected": False,
+        },
+    }
+    status_calls = iter([{"observed_state": "stopped", "health": {}}, ready_status])
+
+    def fake_request(method, path, *, json_body=None, headers=None):
+        del headers
+        operations.append((method, path, json_body))
+        if path == "/api/v1/components/cc-connect/native-configuration":
+            return Response({"status": "valid", "revision": 4})
+        if path == "/api/v1/components/cc-connect/lifecycle":
+            return Response(next(status_calls))
+        if path.endswith(":start"):
+            return Response({"operation_id": "op-start"})
+        if path.endswith(":reconcile"):
+            return Response({"operation_id": "op-reconcile"})
+        raise AssertionError(path)
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    monkeypatch.setattr(
+        client,
+        "_wait_operation",
+        lambda operation_id, **_kwargs: operations.append(("WAIT", operation_id, None)),
+    )
+    monkeypatch.setattr(
+        client,
+        "refresh_snapshot",
+        lambda: {
+            "agents": [
+                {"display_name": name, "acceptable": True}
+                for name in ("Hermes", "Claude Code", "Codex")
+            ]
+        },
+    )
+    monkeypatch.setattr(client, "snapshot", lambda: {"onboarding_complete": True})
+    result = client.complete_configuration()
+    assert result["onboarding_complete"] is True
+    assert any(path.endswith(":start") for method, path, _body in operations if method == "POST")
+    assert any(
+        path.endswith(":reconcile") for method, path, _body in operations if method == "POST"
+    )
+
+
+def test_live_test_runs_six_one_shot_plans_without_retry(monkeypatch):
+    client = HttpControlPlaneClient("http://127.0.0.1:58080", "local-bearer")
+    links = [
+        f"{slot}.{kind}" for slot in ("hermes", "claude", "codex") for kind in ("private", "group")
+    ]
+    client.live_links = lambda: [{"link_id": link} for link in links]
+    calls = []
+
+    class Response:
+        def __init__(self, body):
+            self.body = body
+
+        def json(self):
+            return self.body
+
+    def fake_request(method, path, *, json_body=None, headers=None):
+        calls.append((method, path, json_body, headers))
+        if path.endswith("/e2e-plans"):
+            link_id = path.split("/links/", 1)[1].split("/e2e-plans", 1)[0]
+            return Response(
+                {
+                    "plan_id": "plan-" + link_id,
+                    "plan_digest": "sha256:" + "a" * 64,
+                    "link_id": link_id,
+                    "expected_credential_revision": 1,
+                    "expected_binding_session_id": "binding-1",
+                    "expected_binding_revision": 2,
+                    "expected_configuration_revision": 3,
+                }
+            )
+        return Response(
+            {
+                "link_id": json_body["link_id"],
+                "lifecycle": "unknown",
+                "message_count": 1,
+                "automatic_retry": False,
+            }
+        )
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    runs = client.run_live_test(confirmation=True)
+    assert len(runs) == 6
+    assert all(run["message_count"] == 1 and run["automatic_retry"] is False for run in runs)
+    assert len([call for call in calls if call[0] == "POST" and call[1].endswith(":confirm")]) == 6
+
+
 def test_gui_version_matches_candidate_manifest():
-    assert APP_VERSION == "0.2.0-gui"
+    assert APP_VERSION == "0.3.0-prebeta"
 
 
 def test_binding_poll_timer_only_runs_on_binding_steps(qt_app):
@@ -265,8 +381,49 @@ def test_completion_chat_pills_are_not_false_success(qt_app):
         }
     )
     assert "已绑定" in page.chat_pills[("hermes", "private")].text()
-    assert "待确认" in page.chat_pills[("hermes", "group")].text()
+    assert "未绑定" in page.chat_pills[("hermes", "group")].text()
     page.close()
+
+
+def test_completion_actions_fit_default_1280_by_720_window(qt_app):
+    client = DemoControlPlaneClient()
+    client._tokens_ready = True
+    client._private_count = 3
+    client._group_count = 3
+    client._complete = True
+    window = MainWindow(client, demo_mode=True)
+    window.resize(1280, 720)
+    window.apply_snapshot(client.snapshot())
+    window.show_wizard(3)
+    window.show()
+    qt_app.processEvents()
+
+    for widget in (
+        window.wizard.completion.live_button,
+        window.wizard.completion.skip_live_button,
+        window.wizard.completion.cc_switch_button,
+        window.wizard.next,
+        window.wizard.back,
+    ):
+        top_left = widget.mapTo(window, widget.rect().topLeft())
+        bottom_right = widget.mapTo(window, widget.rect().bottomRight())
+        assert widget.isVisible()
+        assert top_left.x() >= 0 and top_left.y() >= 0
+        assert bottom_right.x() < window.width()
+        assert bottom_right.y() < window.height()
+
+    check_rows = window.wizard.completion.check_rows
+    for previous, current in zip(check_rows[:-1], check_rows[1:], strict=True):
+        previous_bottom = previous.mapTo(window, previous.rect().bottomLeft()).y()
+        current_top = current.mapTo(window, current.rect().topLeft()).y()
+        assert previous_bottom < current_top
+
+    agent_states = [
+        window.wizard.completion.agent_rows[slot]["state"] for slot in ("hermes", "claude", "codex")
+    ]
+    assert len({state.mapTo(window, state.rect().topLeft()).y() for state in agent_states}) == 1
+
+    window.close()
 
 
 def test_dashboard_agent_refresh_button_is_connected(qt_app):

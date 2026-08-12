@@ -5,12 +5,12 @@ AI Agent Desktop
 
 本仓库是当前公开事实源。产品集成 Hermes、Claude Code、Codex、cc-connect、Telegram，并把 CC Switch 作为推荐但非强制的供应商配置入口。核心价值是减少配置和首次使用摩擦，降低失败率，并统一状态、诊断、更新、回滚与恢复；不重复开发成熟上游。
 
-2026-08-11 实施更新
+2026-08-13 实施更新
 -------------------
 
-当前公开 `main` 起点为 `33652568727b6bb4b41ae84b99a1e2332eea6bce`。工作区已加入最小 PySide6 + Qt Widgets + QSS GUI 候选实现（版本 `0.2.0-gui`）：欢迎页、统一四步 Onboarding Shell、Token、私聊激活、同群检测、完成配置、Dashboard、Diagnostics、二维码弹窗、Telegram Desktop 深链接与 HTTPS 下载 fallback。GUI 通过 `/api/v1/onboarding/snapshot`、`/api/v1/dashboard/snapshot` 和现有 Telegram Binding API 读取/提交状态；没有独立复制 Control Plane 业务状态。
+本轮从 `df345946ce2e0526ed2f57a32ba3182a6918f053` 开始，完成 `0.3.0-prebeta` 收口：真实 Windows Agent Detection、严格 cc-connect Runtime Readiness、Telegram Binding 与 Chat Live Health 分离、六链路 Live E2E GUI 入口，以及 Step 4/Dashboard/Diagnostics/全局刷新接线。Agent 检测按 PATH 目录顺序和安全已知位置发现 Hermes、Claude Code、Codex，使用各自官方 `--version` 做有界无窗口探测；不读取账号、Token、Provider、模型或私有配置。
 
-这轮 GUI 的自动化/合成测试已通过，但新 GUI 的私聊激活和群自动检测尚未由用户在真实 Telegram 中复测，状态固定为 `PENDING USER LIVE VALIDATION`。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。`AI-Agent-Desktop.exe` / `0.2.0-gui` candidate 已在 Windows 11 x64 构建并通过本地 validator；MSI、安装器体验和代码签名为 `DEFERRED`。历史 2026-08-07 的直接 Telegram 六链路确认仍是旧入口的 `LIVE_VERIFIED` 证据，不得当作新 GUI 流程证据，也不得据此声称 Hermes 或新 GUI 已完成实时验证。
+本机真实检测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。本地门禁为 240 passed、1 skipped，Ruff、format、mypy 104 files 和全部契约验证通过。最终 Windows 11 x64 candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.3.0-prebeta-windows-x64-final3-20260813`，EXE 66.05 MiB、SHA256 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`，validator 与 ordinary-user version/headless smoke 通过。新 GUI Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；历史 2026-08-07 六链路仅代表旧入口 `LIVE_VERIFIED`。MSI、安装器和签名为 `DEFERRED`。
 
 一、当前状态
 ------------
@@ -24,11 +24,14 @@ AI Agent Desktop
 - 三个固定 Bot slot、getMe 身份验证、Webhook 检查、Update Lease、一次性绑定码、防重放、User ID/Group ID 自动发现和三 Bot 3/3 一致性已实现并通过 Fake Telegram 合成验收。
 - 合法 Claude/Codex Project 的真实 cc-connect 进程已在 Windows 11 普通用户、非系统盘、中文空格括号路径下通过持续运行、stop、restart、Control Plane 重启 reconcile、PID/exe SHA/config revision/端口所有权和 Bearer management API 验收。
 - 六链路可观测性、消息关联、Session 隔离探针、显式一次性 E2E 计划、代理策略、脱敏用户验收向导和 Windows x64 候选包已实现。
+- Agent Detection 已接入 Onboarding、Dashboard、Diagnostics 和全局刷新；Bot Identity 不再冒充 Agent installed/connected。Claude/Codex 只有 Agent acceptable 且严格 Runtime Ready 才显示 connected，Hermes external runtime 保持 connected=null。
+- Step 4 会真实启动/协调 cc-connect，并核验 PID、exe、配置 revision、端口所有权和启动稳定性；Binding 完成不再等同 Chat Live Health，真实 6 条消息必须由用户明确确认且不会自动重试。
 - 2026-08-07，用户直接在 Telegram 完成 Hermes、Claude Code、Codex 的私聊与群聊六链路验收，并明确确认无问题、可以通过；六条用户体验链路均记为 LIVE_VERIFIED。
 - 本轮真实验收绕过向导，未生成三次 getMe、3/3 绑定和六条 correlation 的 Control Plane 持久化证据，不能把用户确认改写为不存在的结构化记录。
 - 整体仍为 PARTIAL：Windows 10 为 PENDING WINDOWS 10 VALIDATION；当前实机为 Windows 11；上游 management API 只能监听所有网卡、原生 Group Chat 过滤和 deep health 为 unsupported。
 - Hermes 在当前机器作为 external runtime 被观测，不由 Control Plane 接管生命周期；本机启动黑窗口问题已在外部运行层修复并由用户复测通过。
 - 旧 stage-a 候选包仍是 Tk/Windows 验收向导；当前工作区的正式 GUI 最小切片已使用 PySide6 + Qt Widgets + QSS。新 GUI candidate 已完成 Windows 11 本地构建验证，但用户 live 与 Windows 10 尚未完成，不能标为发布完成。
+- Step 4 与 Dashboard 已在原生 Windows Qt 1280×720 下复核，无文字重叠和关键按钮越界。
 
 二、首发产品范围
 ----------------
@@ -60,6 +63,7 @@ AI Agent Desktop
 13. 05_NEXT_PHASE.md
 14. next-agent/NEXT_AGENT_PROMPT.txt
 15. reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md
+16. reports/GUI_PRE_BETA_AGENT_RUNTIME_AND_LIVE_CLOSURE_REPORT.md
 
 五、目录结构
 ------------
