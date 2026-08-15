@@ -4,7 +4,7 @@
 
 ## 1. 结论
 
-本阶段从 `1506f8d997b1339665462f87d76aa3476bb97acf` 开始，完成 `0.4.0-prebeta` Windows x64 Candidate 所需的 GUI 产品级精修、Hermes Native Telegram 最小配置闭环、契约扩展、质量门禁和文档收口。核心业务范围冻结为 Windows 10/11、Telegram、Hermes/Claude Code/Codex 与产品自有 cc-connect；不新增 Agent/Channel，不安装或升级 Hermes，不管理 Provider/Model/Tool/Hermes Studio。
+本阶段从 `1506f8d997b1339665462f87d76aa3476bb97acf` 开始，完成 `0.4.0-prebeta` Windows x64 Candidate 所需的 GUI 产品级精修、Hermes Native Telegram 最小配置闭环、契约扩展、质量门禁和文档收口。功能收口提交为 `582b12a95e69d2494a58856f62cdae886000d3d5`，已推送 `origin/main`；本报告及交接文档随后作为证据提交。核心业务范围冻结为 Windows 10/11、Telegram、Hermes/Claude Code/Codex 与产品自有 cc-connect；不新增 Agent/Channel，不安装或升级 Hermes，不管理 Provider/Model/Tool/Hermes Studio。
 
 整体证据等级仍为 `PARTIAL`：Windows 11 本地 Candidate 为 `LOCAL_VERIFIED`；新 GUI Telegram、Hermes Native Telegram Setup 为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；Installer/MSI/signing 为 `DEFERRED`。2026-08-07 旧入口六链路仍保留历史 `LIVE_VERIFIED`，不被本轮自动化改写。
 
@@ -54,13 +54,16 @@ Candidate validator、`--version`、`--headless`、PyInstaller SVG/Hermes module
 
 - pytest：`264 passed, 2 skipped, 1 warning`
 - Ruff check：通过
-- Ruff format check：158 files already formatted
+- Ruff format check：165 files already formatted
 - `mypy control_plane`：通过，112 source files
 - OpenAPI/JSON Schema contract validation：通过
 - GUI candidate validator：通过
 - Windows offline candidate smoke：通过
 - `git diff --check`：通过
 - 敏感信息扫描：仓库文本、报告、日志与候选包均未发现真实 Telegram Token、Bot Token、Binding code 或 API key；测试 synthetic token 仅用于隔离测试，不作为泄漏。
+- GitHub Actions Run `31878741409`：四个 Job 全部 `success`，对应提交 `582b12a95e69d2494a58856f62cdae886000d3d5`。
+- GUI artifact：ID `9245537693`，名称 `ai-agent-desktop-0.4.0-prebeta-windows-x64`，Actions digest `sha256:14bd224f82eb8d0c2cb1c07f8be6095b21c021147447e182bcb32317284ebf1d`。
+- cc-connect artifact：ID `9245538197`，名称 `cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64`，Actions digest `sha256:97d5ea9d4d438d8de5a75b2db7eb4d866f8fceb9de71dcb72c225b59b609ead3`。
 
 本报告不宣称 `mypy control_plane scripts` 全量通过；scripts 目录存在 3 个既有类型错误，当前 CI 只执行 `mypy control_plane`。
 
@@ -78,6 +81,6 @@ Hermes Native Telegram Setup：`PENDING USER LIVE VALIDATION`。
 
 Installer/MSI、卸载器、快捷方式、GitHub Release Asset、签名和 SmartScreen：`DEFERRED`。
 
-推送后回填：本轮 GitHub Actions Run ID、GUI artifact ID/digest、cc-connect artifact ID/digest，以及最终 main SHA。下一阶段只做用户 Win11 GUI/Hermes live、Windows 10 实机、Installer/Release/签名，不继续扩展核心业务范围。
+CI 证据已回填：Run `31878741409`、GUI artifact `9245537693`、cc-connect artifact `9245538197`、最终 main SHA `582b12a95e69d2494a58856f62cdae886000d3d5`。下一阶段只做用户 Win11 GUI/Hermes live、Windows 10 实机、Installer/Release/签名，不继续扩展核心业务范围。
 
 回滚策略：候选包不写入系统环境；Hermes `.env` 事务使用内存 receipt 回滚，Gateway 恢复原状态；cc-connect 使用产品自有 revision/backup/rollback；代码回滚使用 main 上的正常反向提交，禁止 reset/rebase/force push。
