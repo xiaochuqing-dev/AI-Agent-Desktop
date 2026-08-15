@@ -696,6 +696,73 @@ paths:
                 $ref: "./managed-runtime.schema.json#/$defs/HermesConfigurationState"
         default:
           $ref: "#/components/responses/Problem"
+  /components/hermes/telegram-readiness:
+    get:
+      tags: [Native Configuration]
+      operationId: getHermesTelegramReadiness
+      summary: Read redacted Hermes Telegram configuration, identity, operator, and gateway readiness.
+      description: This snapshot never returns a bot token, raw environment, or provider secret.
+      x-stability: stable
+      parameters:
+        - name: binding_session_id
+          in: query
+          required: false
+          description: Optional completed Telegram binding session used to evaluate the operator allowlist.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      responses:
+        "200":
+          description: Redacted Hermes Telegram readiness snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/HermesTelegramReadinessSnapshot"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/hermes/telegram-configuration:plan":
+    post:
+      tags: [Native Configuration]
+      operationId: createHermesTelegramConfigurationChangePlan
+      summary: Plan a minimal Hermes Telegram configuration change without writing external state.
+      description: Existing configuration is inspected first; switching an existing different Bot requires explicit confirmation.
+      x-stability: stable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./managed-runtime.schema.json#/$defs/HermesTelegramConfigurationPlanRequest"
+      responses:
+        "201":
+          description: Immutable Hermes Telegram change plan.
+          content:
+            application/json:
+              schema:
+                $ref: "./managed-runtime.schema.json#/$defs/HermesTelegramConfigurationPlan"
+        default:
+          $ref: "#/components/responses/Problem"
+  "/components/hermes/telegram-configuration:apply":
+    post:
+      tags: [Native Configuration]
+      operationId: applyHermesTelegramConfigurationChange
+      summary: Explicitly confirm and apply a Hermes Telegram configuration plan.
+      description: The operation uses Credential Manager, an atomic env transaction, and gateway state rollback; secrets never appear in the response.
+      x-stability: stable
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./managed-runtime.schema.json#/$defs/HermesTelegramApplyRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/OperationAccepted"
+        default:
+          $ref: "#/components/responses/Problem"
   "/components/{componentId}:start":
     parameters:
       - $ref: "#/components/parameters/ComponentId"

@@ -45,7 +45,7 @@
 六、当前实现边界
 ----------------
 
-Control Plane 基础运行代码已存在，当前已实现只读发现、三个真实 Agent Detector、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚，以及严格的 cc-connect 受管 Runtime Readiness。PySide6 `0.3.0-prebeta` 四步 GUI、Dashboard、Diagnostics、QR、Telegram 深链接和用户确认 Live E2E 也已实现；真实 Telegram 用户尚未复测新 GUI，状态为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram、认证状态或 Hermes 已受管验证。
+Control Plane 基础运行代码已存在，当前已实现只读发现、三个真实 Agent Detector、Readiness、Dry-run、持久化 OperationExecutor/SSE、脱敏诊断、Windows Credential Manager、三 Bot 身份与一次性绑定、Update Lease、Claude/Codex 原生配置生成与回滚、Hermes Telegram Native Configuration，以及严格的 cc-connect 受管 Runtime Readiness。PySide6 `0.4.0-prebeta` 四步 GUI、正式 SVG 图标、Design Tokens、TitleBar、GlassDialog、Dashboard、Diagnostics、QR、Telegram 深链接和用户确认 Live E2E 也已实现；真实 Telegram 用户尚未复测新 GUI/Hermes Native，状态为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。已有 Hermes 配置不静默覆盖，Provider/Model/Tool 仍由 Hermes/外部工具管理。第五节仍是完整产品目标，不得把合成证据写成真实 Telegram、认证状态或 Hermes live 验证。
 
 七、不得走偏
 ------------

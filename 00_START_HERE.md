@@ -3,12 +3,12 @@
 
 本仓库是当前公开事实源。请按以下顺序阅读。
 
-2026-08-13 状态提示
+2026-08-15 状态提示
 -------------------
 
-本轮起点为 `df345946ce2e0526ed2f57a32ba3182a6918f053`。PySide6 四步 GUI 已升级为 `0.3.0-prebeta`：真实 Agent Detection、严格 cc-connect Runtime Readiness、Binding/Chat Health 分离、六链路 Live E2E 确认入口和准确的 Dashboard/Diagnostics 已接入。新 GUI Telegram 仍统一记为 `PENDING USER LIVE VALIDATION`。
+本轮起点为 `1506f8d997b1339665462f87d76aa3476bb97acf`。PySide6 四步 GUI 已收口为 `0.4.0-prebeta`：正式 SVG 图标、统一标题栏/设计 Token/对话框、真实 Agent Detection、严格 cc-connect Runtime Readiness、Binding/Chat Health 分离、Hermes Telegram Native Configuration 与准确的 Dashboard/Diagnostics 已接入。新 GUI Telegram 与 Hermes Native Telegram Setup 仍统一记为 `PENDING USER LIVE VALIDATION`。
 
-本机 Agent 实测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。最终 candidate 在 Windows 11 x64 完成 validator 与 ordinary-user smoke，EXE SHA256 为 `7b2a2370f17eb0d1ff181d8fbf6fa36a221672a3bc9525f4c3fca74aa2186223`。Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。2026-08-07 直接 Telegram 六链路是旧入口历史证据。
+本机 Agent 实测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。`0.4.0-prebeta` candidate 在 Windows 11 x64 完成 validator 与 ordinary-user smoke，EXE SHA256 为 `dbebb193cd1ec3779f1dab796f3b075c061f906bfd4b8270e055bf790c7b8910`。Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。2026-08-07 直接 Telegram 六链路是旧入口历史证据。
 
 一、产品与当前状态
 ------------------
@@ -43,7 +43,7 @@ src/ 与 integrations/cc-connect/patches/ 是 Reference Baseline 的当前证据
 三、当前实现边界
 ----------------
 
-Control Plane 已提供上述能力，并新增三个独立 Agent Detector、TTL/显式刷新缓存、Onboarding/Dashboard Agent 读模型、严格 Runtime Ready 聚合和 GUI Live E2E 接线。Bot getMe 只证明 Telegram Identity，不再决定 Agent installed/connected；cc-connect 配置存在也不再等同运行完成。240 passed、1 skipped 及静态/契约门禁是本地自动化证据，不替代真实 Telegram 或 Windows 10 实机证据，整体仍为 PARTIAL。
+Control Plane 已提供上述能力，并新增三个独立 Agent Detector、TTL/显式刷新缓存、Onboarding/Dashboard Agent 读模型、严格 Runtime Ready 聚合、GUI Live E2E 接线和 Hermes Telegram Native Configuration Adapter。Bot getMe 只证明 Telegram Identity，不再决定 Agent installed/connected；cc-connect 配置存在也不再等同运行完成。264 passed、2 skipped 及静态/契约门禁是本地自动化证据，不替代真实 Telegram 或 Windows 10 实机证据，整体仍为 PARTIAL。
 
 四、下一阶段
 ------------

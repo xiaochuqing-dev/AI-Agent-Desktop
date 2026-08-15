@@ -6,12 +6,10 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon, QPainterPath, QRegion
 from PySide6.QtWidgets import (
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -19,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .api_client import DISPLAY_NAMES, SLOTS, GuiApiClient
+from .icons import IconTextButton, icon
 from .pages import (
     CompletionPage,
     DashboardPage,
@@ -35,6 +34,7 @@ from .widgets import (
     ASSET_DIR,
     ApiRunner,
     GlassCard,
+    GlassDialog,
     GradientCanvas,
     QrDialog,
     RefreshSpinner,
@@ -74,48 +74,60 @@ class HelpRail(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
+    @staticmethod
+    def _heading(title: str, icon_name: str) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(7)
+        icon_label = QLabel()
+        icon_label.setFixedSize(18, 18)
+        icon_label.setPixmap(icon(icon_name).pixmap(17, 17))
+        icon_label.setAccessibleName(title)
+        row.addWidget(icon_label)
+        row.addWidget(label(title, "CardTitle"), 1)
+        return row
+
     def set_step(self, index: int) -> None:
         self._clear(self.primary_layout)
         self._clear(self.secondary_layout)
         content = [
             (
-                "★  你需要准备什么",
+                "你需要准备什么",
                 [
                     ("3 个 Token", "从 BotFather 获取"),
                     ("可以访问 Telegram", "稍后会打开私聊"),
                     ("已创建好 3 个 Bot", "Hermes、Claude Code、Codex"),
                 ],
-                "?  如何获取 Token",
+                "如何获取 Token",
                 "打开 Telegram 搜索 @BotFather，发送 /newbot 或选择已有 Bot，然后复制 Token。",
             ),
             (
-                "★  这一页你要做什么",
+                "这一页你要做什么",
                 [
                     ("1  打开 Telegram", "点击每一行的按钮"),
                     ("2  点一次 Start", "在 Bot 私聊里点击"),
                     ("3  回到这里等待", "状态会自动更新"),
                 ],
-                "💡  提示",
+                "提示",
                 "不需要填写 Telegram 用户 ID。手机扫码也可以完成激活。",
             ),
             (
-                "★  你要做什么",
+                "你要做什么",
                 [
                     ("创建或打开一个群", "在 Telegram 中操作"),
                     ("加入 3 个 Bot", "全部加入同一个群"),
                     ("回到这里检测", "软件会自动识别"),
                 ],
-                "?  说明",
+                "说明",
                 "这里不需要填写 Group ID，也不会读取你的群列表或聊天历史。",
             ),
             (
-                "★  这一页发生了什么",
+                "这一页发生了什么",
                 [
                     ("生成连接配置", "按当前绑定自动生成"),
                     ("检查 Agent 与 Runtime", "状态异常会提示处理"),
                     ("聊天验证需确认", "不会自动发送消息"),
                 ],
-                "?  如果遇到问题",
+                "如果遇到问题",
                 "可以刷新、返回或打开详细诊断。不会自动发送消息。",
             ),
         ][index]
@@ -125,7 +137,7 @@ class HelpRail(QWidget):
             self.primary_layout.addWidget(label(item_title, "CardTitle"))
             self.primary_layout.addWidget(label(detail, "SmallText"))
         self.primary_layout.addStretch(1)
-        self.secondary_layout.addWidget(label(secondary_title, "CardTitle"))
+        self.secondary_layout.addLayout(self._heading(secondary_title, "info"))
         self.secondary_layout.addWidget(label(secondary_body, "BodyText"))
         self.secondary_layout.addStretch(1)
 
@@ -157,11 +169,11 @@ class WizardShell(QWidget):
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(258, 0, 304, 0)
         footer_layout.setSpacing(18)
-        self.back = QPushButton("‹  返回上一步")
+        self.back = IconTextButton("返回上一步", "arrow-left")
         self.back.setObjectName("SecondaryButton")
-        self.aux = QPushButton("⌁  检查状态")
+        self.aux = IconTextButton("检查状态", "refresh")
         self.aux.setObjectName("SecondaryButton")
-        self.next = QPushButton("继续下一步  ›")
+        self.next = IconTextButton("继续下一步", "arrow-right")
         self.next.setObjectName("PrimaryButton")
         footer_layout.addWidget(self.back)
         footer_layout.addWidget(self.aux)
@@ -173,13 +185,12 @@ class WizardShell(QWidget):
         self.pages.setCurrentIndex(index)
         self.rail.set_active(index)
         self.help.set_step(index)
-        self.back.setText("‹  返回欢迎页" if index == 0 else "‹  返回上一步")
-        self.aux.setText(
-            ["⌁  检测 Token 格式", "↻  检查激活状态", "↻  重新检测", "查看配置说明"][index]
-        )
-        self.next.setText(
-            ["继续下一步  ›", "继续下一步  ›", "继续下一步  ›", "🚀  开始使用"][index]
-        )
+        self.back.setText("返回欢迎页" if index == 0 else "返回上一步")
+        self.back.setIcon(icon("arrow-left"))
+        self.aux.setText(["检测 Token 格式", "检查激活状态", "重新检测", "查看配置说明"][index])
+        self.aux.setIcon(icon("refresh" if index in {1, 2} else "info"))
+        self.next.setText(["继续下一步", "继续下一步", "继续下一步", "开始使用"][index])
+        self.next.setIcon(icon("arrow-right"))
 
 
 class MainWindow(QMainWindow):
@@ -303,7 +314,10 @@ class MainWindow(QMainWindow):
                 busy_button.setEnabled(True)
             if self.current_step == 3:
                 self.wizard.completion.set_failure(message)
-                self.wizard.next.setText("重试配置  ›")
+                self.wizard.next.setText("重试配置")
+                if code == "HERMES_TELEGRAM_CONFLICT_CONFIRMATION_REQUIRED":
+                    self.show_hermes_conflict_dialog()
+                    return
             self.show_toast(message, error=True)
 
         self.runner.run(function, finished, failed)
@@ -334,6 +348,7 @@ class MainWindow(QMainWindow):
         # Keep binding progress from the onboarding model alongside the
         # dashboard read model so chat pills never imply live-message proof.
         dashboard_snapshot["agents"] = snapshot.get("agents", dashboard_snapshot.get("agents", []))
+        dashboard_snapshot["hermes_telegram"] = snapshot.get("hermes_telegram", {})
         dashboard_snapshot.setdefault("recent_issues", [])
         self.dashboard.apply_snapshot(dashboard_snapshot)
 
@@ -537,22 +552,55 @@ class MainWindow(QMainWindow):
         self.wizard.completion.set_ready(
             chat_verified=snapshot.get("chat_health") == "live_verified"
         )
-        self.wizard.next.setText("🚀  开始使用")
+        self.wizard.next.setText("开始使用")
         self.show_toast("基础配置已完成。聊天验证仍需你明确确认。")
+
+    def show_hermes_conflict_dialog(self) -> None:
+        dialog = GlassDialog("检测到 Hermes 已有 Telegram 配置", self, minimum_size=(600, 360))
+        dialog.body_layout.addWidget(
+            label(
+                "Hermes 官方配置中已经存在一个可识别的 Bot。请选择继续使用这个现有 Bot，或切换到本页刚刚验证的当前 Token。\n\n"
+                "选择只会在你确认后执行；失败时会恢复配置和 Gateway 原状态。",
+                "DialogBody",
+            )
+        )
+        dialog.body_layout.addStretch(1)
+        cancel = dialog.add_action("稍后处理")
+        use_existing = dialog.add_action("复用现有 Bot", primary=True)
+        switch_current = dialog.add_action("切换当前 Token")
+        cancel.clicked.connect(dialog.reject)
+
+        def choose(choice: str) -> None:
+            self.client.set_hermes_choice(choice)
+            dialog.accept()
+            self._run(
+                self.store.complete_configuration,
+                self._configuration_complete,
+                busy_button=self.wizard.next,
+            )
+
+        use_existing.clicked.connect(lambda: choose("use_existing"))
+        switch_current.clicked.connect(lambda: choose("switch_to_current"))
+        if dialog.exec() != 1:
+            self.show_toast("Hermes Bot 选择已保留，尚未修改现有配置。")
 
     def confirm_live_test(self) -> None:
         if not self._snapshot.get("onboarding_complete"):
             self.show_toast("请先完成 Agent、配置和运行环境检查。", error=True)
             return
-        answer = QMessageBox.question(
-            self,
-            "确认真实聊天验证",
+        dialog = GlassDialog("确认真实聊天验证", self, minimum_size=(560, 320))
+        body = label(
             "将分别向三个 Bot 的私聊和群聊发送一条短测试消息，共 6 条。\n\n"
-            "每条链路最多发送 1 条，不会自动重复发送。是否继续？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            "每条链路最多发送 1 条，不会自动重复发送。",
+            "DialogBody",
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        dialog.body_layout.addWidget(body)
+        dialog.body_layout.addStretch(1)
+        cancel = dialog.add_action("取消")
+        confirm = dialog.add_action("确认发送", primary=True)
+        cancel.clicked.connect(dialog.reject)
+        confirm.clicked.connect(dialog.accept)
+        if dialog.exec() != 1:
             self.show_toast("已取消，没有发送测试消息。")
             return
         self.wizard.completion.set_live_test_running()
@@ -597,28 +645,24 @@ class MainWindow(QMainWindow):
     def show_diagnostics(self) -> None:
         self.binding_poll_timer.stop()
         self.root_stack.setCurrentWidget(self.diagnostics_page)
-        self._run(self.client.diagnostics, self.diagnostics_page.apply_diagnostics)
+
+        def done(snapshot: dict[str, Any]) -> None:
+            self.apply_snapshot(snapshot)
+            self.diagnostics_page.apply_diagnostics(snapshot.get("diagnostics") or [])
+
+        self._run(self.store.refresh, done)
 
     def show_help_dialog(self) -> None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle("配置说明")
-        dialog.setWindowIcon(QIcon(str(ASSET_DIR / "app_icon.ico")))
-        dialog.setMinimumSize(560, 420)
-        dialog.setStyleSheet(build_stylesheet() + "QDialog{background:#EEF1FD;}")
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.addWidget(label("准备事项", "PageTitle"))
-        layout.addWidget(
+        dialog = GlassDialog("配置说明", self, minimum_size=(560, 420))
+        dialog.body_layout.addWidget(
             label(
                 "1. 在 BotFather 创建 Hermes、Claude Code、Codex 三个 Bot。\n\n2. 准备好三个 Token。\n\n3. 能够打开 Telegram，并在三个 Bot 私聊里点击 Start。\n\n4. 创建或使用一个群，把三个 Bot 加入同一个群。\n\n后面的连接配置会由 AI Agent Desktop 自动处理。",
-                "BodyText",
+                "DialogBody",
             )
         )
-        layout.addStretch(1)
-        close = QPushButton("知道了")
-        close.setObjectName("PrimaryButton")
+        dialog.body_layout.addStretch(1)
+        close = dialog.add_action("知道了", primary=True)
         close.clicked.connect(dialog.accept)
-        layout.addWidget(close)
         dialog.exec()
 
     def show_toast(self, message: str, *, error: bool = False) -> None:

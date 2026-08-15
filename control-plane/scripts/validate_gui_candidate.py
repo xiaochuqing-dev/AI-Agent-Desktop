@@ -16,10 +16,11 @@ import subprocess
 import sys
 from collections.abc import Iterable
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import NoReturn
 
 EXPECTED_MANIFEST = {
     "schema_version": "1",
-    "candidate_version": "0.3.0-prebeta",
+    "candidate_version": "0.4.0-prebeta",
     "product": "AI-Agent-Desktop",
     "platform": "windows",
     "architecture": "x64",
@@ -89,7 +90,7 @@ class ValidationError(RuntimeError):
     """A candidate failed a release gate."""
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     raise ValidationError(message)
 
 
@@ -202,7 +203,9 @@ def _validate_manifest_and_hashes(candidate: Path) -> dict[str, object]:
         if not isinstance(raw_entry, dict):
             _fail("manifest files contains a non-object entry")
         raw_path = raw_entry.get("path")
-        relative = _normalise_relative(raw_path) if isinstance(raw_path, str) else ""
+        if not isinstance(raw_path, str):
+            _fail(f"manifest path is not a string: {raw_path!r}")
+        relative = _normalise_relative(raw_path)
         if not relative or relative in seen:
             _fail(f"duplicate or invalid manifest path: {raw_path!r}")
         seen.add(relative)
@@ -263,9 +266,12 @@ def _validate_manifest_and_hashes(candidate: Path) -> dict[str, object]:
 
 
 def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> None:
+    raw_files = manifest.get("files")
+    if not isinstance(raw_files, list):
+        _fail("manifest files must be a list")
     manifest_paths = {
         _normalise_relative(entry["path"])
-        for entry in manifest["files"]  # type: ignore[index]
+        for entry in raw_files
         if isinstance(entry, dict) and isinstance(entry.get("path"), str)
     }
     for relative in REQUIRED_PAYLOAD_FILES:
@@ -421,6 +427,37 @@ def _validate_archive(executable: Path, findings: list[str]) -> None:
     if not any("/platforms/" in name and name.endswith("/qwindows.dll") for name in names):
         _fail("PyInstaller archive is missing the Qt Windows platform plugin")
 
+    required_icons = {
+        f"control_plane/gui/icons/assets/{name}.svg"
+        for name in (
+            "arrow-left",
+            "arrow-right",
+            "claude",
+            "clipboard",
+            "close",
+            "codex",
+            "eye-off",
+            "eye",
+            "group",
+            "hermes",
+            "info",
+            "maximize",
+            "minimize",
+            "qr",
+            "refresh",
+            "repair",
+            "restore",
+            "shield",
+            "success",
+            "telegram",
+            "warning",
+            "error",
+        )
+    }
+    missing_icons = sorted(required_icons - set(names))
+    if missing_icons:
+        _fail(f"PyInstaller archive is missing GUI SVG assets: {missing_icons}")
+
     for original_name in reader.toc:
         try:
             reader.extract(original_name)
@@ -461,6 +498,13 @@ def _validate_archive(executable: Path, findings: list[str]) -> None:
         "control_plane.agent_detection.windows_discovery",
         "control_plane.observability.service",
         "control_plane.gui.main_window",
+        "control_plane.gui.icons.registry",
+        "control_plane.gui.icons.renderer",
+        "control_plane.hermes.cli",
+        "control_plane.hermes.env_transaction",
+        "control_plane.hermes.lifecycle",
+        "control_plane.hermes.models",
+        "control_plane.hermes.service",
     }
     missing_modules = sorted(required_modules - nested_module_names)
     if missing_modules:

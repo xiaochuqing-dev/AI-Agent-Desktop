@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from .conftest import wait_for_operation
 
 
@@ -169,3 +171,122 @@ def test_response_has_no_real_secret(client):
         assert "sk-ant-" not in body
         # 不应出现 Telegram bot token 形态
         assert not re.search(r"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b", body)
+
+
+def test_hermes_readiness_plan_apply_api_covers_conflict_retry(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from control_plane.api.app import create_app, get_state
+    from control_plane.hermes.models import (
+        HermesTelegramConfigurationPlan,
+        HermesTelegramReadinessSnapshot,
+    )
+    from control_plane.infrastructure.config import Settings
+    from control_plane.installer.artifacts import InstallerError
+
+    from .fakes import make_fake_adapters
+    from .telegram_helpers import FakeTelegramClient
+
+    api_token = "hermes-api-test-token"
+    monkeypatch.setenv("CONTROL_PLANE_API_TOKEN", api_token)
+    app = create_app(
+        Settings(data_dir=str(tmp_path)),
+        adapters=make_fake_adapters(),
+        credential_backend=None,
+        telegram_client=FakeTelegramClient(),  # type: ignore[arg-type]
+        hermes_path_lookup=lambda _name: None,
+    )
+    state = get_state()
+    readiness = HermesTelegramReadinessSnapshot(
+        configuration_status="DIFFERENT_BOT",
+        bot_identity_status="verified",
+        operator_allowed=True,
+        gateway_status="running",
+        gateway_running=True,
+        change_required=True,
+        conflict=True,
+        diagnostic_code="HERMES_TELEGRAM_EXISTING_BOT_CONFLICT",
+        user_message="检测到 Hermes 已连接另一个 Telegram Bot。",
+        revision=4,
+        bot_id=101,
+        username="existing_bot",
+    )
+    plan = HermesTelegramConfigurationPlan(
+        plan_id="hermes-api-plan",
+        plan_digest="sha256:" + "a" * 64,
+        binding_session_id="binding-api-test",
+        status="ready",
+        readiness=readiness,
+        choice="switch_to_current",
+        expected_changes=["merge operator", "restart gateway"],
+        user_confirmation_required=True,
+        created_at=datetime.now(UTC),
+    )
+
+    class FakeHermesAdapter:
+        def __init__(self):
+            self.readiness_calls: list[str | None] = []
+            self.plan_calls: list[bool] = []
+
+        def readiness(self, *, binding_session_id=None):
+            self.readiness_calls.append(binding_session_id)
+            return readiness
+
+        def create_plan(self, request):
+            self.plan_calls.append(request.confirmation)
+            if not request.confirmation:
+                raise InstallerError(
+                    "HERMES_TELEGRAM_CONFLICT_CONFIRMATION_REQUIRED",
+                    "切换 Hermes 当前 Bot 需要明确确认。",
+                )
+            return plan
+
+        def confirm_plan(self, _request):
+            return plan.plan_id, False
+
+    adapter = FakeHermesAdapter()
+    state.hermes_telegram = adapter  # type: ignore[assignment]
+    submitted: list[dict] = []
+    state.executor.submit = lambda **payload: submitted.append(payload)  # type: ignore[method-assign]
+
+    with TestClient(app, base_url="http://127.0.0.1") as test_client:
+        test_client.headers["Authorization"] = f"Bearer {api_token}"
+        snapshot = test_client.get(
+            "/api/v1/components/hermes/telegram-readiness",
+            params={"binding_session_id": "binding-api-test"},
+        )
+        assert snapshot.status_code == 200
+        assert snapshot.json()["configuration_status"] == "DIFFERENT_BOT"
+        assert adapter.readiness_calls == ["binding-api-test"]
+
+        blocked = test_client.post(
+            "/api/v1/components/hermes/telegram-configuration:plan",
+            json={"binding_session_id": "binding-api-test", "confirmation": False},
+        )
+        assert blocked.status_code == 409
+        assert blocked.json()["code"] == "HERMES_TELEGRAM_CONFLICT_CONFIRMATION_REQUIRED"
+
+        created = test_client.post(
+            "/api/v1/components/hermes/telegram-configuration:plan",
+            json={
+                "binding_session_id": "binding-api-test",
+                "choice": "switch_to_current",
+                "confirmation": True,
+            },
+        )
+        assert created.status_code == 201
+        assert created.json()["user_confirmation_required"] is True
+
+        applied = test_client.post(
+            "/api/v1/components/hermes/telegram-configuration:apply",
+            headers={"Idempotency-Key": "hermes-api-apply-key-0001"},
+            json={
+                "plan_id": plan.plan_id,
+                "plan_digest": plan.plan_digest,
+                "choice": "switch_to_current",
+                "confirmation": True,
+            },
+        )
+        assert applied.status_code == 202
+        assert applied.headers["Location"].startswith("/api/v1/operations/")
+        assert submitted[0]["kind"] == "hermes_telegram_configuration_apply"

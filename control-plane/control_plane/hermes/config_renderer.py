@@ -71,8 +71,6 @@ class HermesConfigurationPlanner:
             management_owner="external" if installed else "unknown",
             non_secret_environment={
                 "TELEGRAM_ALLOWED_USERS": str(binding.operator_user_id),
-                "TELEGRAM_GROUP_ALLOWED_USERS": str(binding.operator_user_id),
-                "TELEGRAM_GROUP_ALLOWED_CHATS": str(binding.group_chat_id),
             },
             reason=reason,
             created_at=utcnow(),

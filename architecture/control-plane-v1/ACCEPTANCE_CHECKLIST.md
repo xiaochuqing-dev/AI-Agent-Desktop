@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-13）：当前已实现 Windows Credential Manager、三 Bot 绑定、真实 Agent Detection、managed/native 分离、合法 Claude/Codex 原生配置、严格 Runtime Readiness 和 `0.3.0-prebeta` PySide6 GUI/Live E2E；新 GUI Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
+实施状态更新（2026-08-15）：当前已实现 Windows Credential Manager、三 Bot 绑定、真实 Agent Detection、managed/native 分离、合法 Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和 `0.4.0-prebeta` PySide6 GUI/Live E2E；新 GUI Telegram 与 Hermes Native Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 
@@ -107,7 +107,7 @@
 | PASS | 三 Fake getMe 身份唯一、一次性绑定防重放、同一 User/Group 3/3 completed | windows_native_runtime_acceptance.py |
 | PASS | 合法 cc-connect 真实进程 start/stop/restart/reconcile、PID/SHA/config/port 和 management Bearer 通过 | windows_native_runtime_acceptance.py |
 | PASS | PATH 仅安装不阻塞，目标端口/配置/Supervisor 冲突阻塞，外部状态未修改 | external detector 测试与 Windows 验收 |
-| PASS | Hermes 缺失准确 pending_component_install，不阻塞 Claude/Codex | Hermes planner 测试与 Windows 验收 |
+| PASS | Hermes 缺失准确 pending_component_install，不阻塞 Claude/Codex；已安装但 Telegram 未配置时仅通过官方公开 `.env`/Gateway 完成 allowlisted 最小配置，并保留 existing/external-first 边界 | Hermes Telegram Adapter 测试与 Windows 合成验收 |
 | PENDING | 三个真实 Token 的 getMe、三私聊/三同群 live 绑定 | PENDING USER LIVE VALIDATION |
 | PENDING | Windows 10 x64 普通用户打包实机验证 | PENDING WINDOWS 10 VALIDATION |
 | PENDING | 新 GUI 私聊/群自动检测真实用户验收 | `PENDING USER LIVE VALIDATION` |
@@ -116,4 +116,4 @@
 
 ## 当前结论
 
-设计、机器契约、代码、Fake 与 Windows 11 合成安全验证通过；本地 GUI/onboarding pytest 通过。新 GUI Telegram live、Windows 10 candidate 验证、MSI/签名仍未完成，阶段整体为 PARTIAL，不得标为 COMPLETE。
+设计、机器契约、代码、Fake 与 Windows 11 合成安全验证通过；本地 GUI/onboarding/Hermes pytest 通过。新 GUI Telegram live、Hermes Native Telegram live、Windows 10 candidate 验证、MSI/签名仍未完成，阶段整体为 PARTIAL，不得标为 COMPLETE。

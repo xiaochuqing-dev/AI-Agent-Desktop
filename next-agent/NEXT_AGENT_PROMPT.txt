@@ -20,7 +20,7 @@ TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处�
 
 当前 GUI 事实
 
-control-plane/control_plane/gui/ 已实现 PySide6 6.7.2 + Qt Widgets + QSS 的最小 GUI：Welcome、固定四步 Wizard Shell、Token、私聊激活、同群检测、Completion、Dashboard、Diagnostics、QR dialog、Telegram tg:///HTTPS fallback、Demo/HTTP/Embedded Control Plane 客户端。入口版本为 0.2.0-gui；requirements-gui.lock 固定 PySide6 6.7.2、qrcode 8.2、Pillow 11.3.0。
+control-plane/control_plane/gui/ 已实现 PySide6 6.7.2 + Qt Widgets + QSS 的 `0.4.0-prebeta` GUI：Welcome、固定四步 Wizard Shell、Token、私聊激活、同群检测、Completion、Dashboard、Diagnostics、Hermes readiness/conflict、QR dialog、Telegram tg:///HTTPS fallback、SVG IconRegistry、Design Tokens、统一 TitleBar/GlassDialog、Demo/HTTP/Embedded Control Plane 客户端。requirements-gui.lock 固定 PySide6 6.7.2、qrcode 8.2、Pillow 11.3.0。
 
 GUI 通过 /api/v1/onboarding/snapshot、/api/v1/dashboard/snapshot、/api/v1/telegram/client-availability 以及现有 credentials、telegram verify、binding、poll API 工作。GUI 不读取 Telegram tdata、登录状态、群列表、聊天正文或上游私有配置。Demo 模式只用于截图和自动化测试，标题栏必须显示预览状态，Demo 结果不算真实证据。
 
@@ -36,11 +36,11 @@ MSI、正式安装器/卸载器、Start Menu/快捷方式发布、代码签名�
 
 2026-08-07 用户直接在旧入口 Telegram 验证 Hermes、Claude Code、Codex 私聊/群聊六链路并确认通过；这可保持历史 LIVE_VERIFIED，但没有新 GUI 入口、三次结构化 getMe、3/3 binding 或 correlation 持久化记录。不得伪报 Hermes 实时消息、新 GUI live、真实 Token 或新 GUI Windows 打包已验证。
 
-Hermes 仍为 observed external/read-only 或 pending_component_install，不由 Control Plane 静默接管 Provider、配置或生命周期。锁定上游 management API 监听所有网卡、原生 Group Chat 白名单和 deep health 保持 partial/unsupported，不为此增加 Patch。
+Hermes 已有配置保持 external-first，不由 Control Plane 静默接管 Provider、Model、Tool 或生命周期；对已安装但 Telegram 未配置的 Hermes，Native Adapter 仅通过官方公开 `.env` 与 Gateway CLI 完成 allowlisted Telegram 配置和 Gateway 生命周期，并要求冲突显式确认、失败可回滚。锁定上游 management API 监听所有网卡、原生 Group Chat 白名单和 deep health 保持 partial/unsupported，不为此增加 Patch。
 
 当前本地验证
 
-当前工作区 control-plane/.venv 全量 pytest 为 222 passed、1 skipped、1 warning；GUI/onboarding 定向测试为 23 passed，candidate validator 回归另有 2 passed。ruff check、ruff format --check、mypy、契约验证和本地 candidate validator 均通过。新 GUI candidate 已在 Windows 11 x64 构建；远端 CI 仍以最新 GitHub Actions run 为准。
+当前工作区全量 pytest 为 264 passed、2 skipped、1 warning；Ruff、format、`mypy control_plane` 112 files、契约验证和 `0.4.0-prebeta` candidate validator 均通过。新 GUI candidate 已在 Windows 11 x64 构建；远端 CI 仍以最新 GitHub Actions run 为准。scripts 目录额外 mypy 不计入 CI 门禁。
 
 下一步允许
 

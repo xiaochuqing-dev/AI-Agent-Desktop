@@ -53,6 +53,7 @@ include = ["control_plane*"]
 [tool.setuptools.package-data]
 "control_plane.installer" = ["artifact-lock.json"]
 "control_plane.gui" = ["assets/*.png", "assets/*.ico"]
+"control_plane.gui.icons" = ["assets/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

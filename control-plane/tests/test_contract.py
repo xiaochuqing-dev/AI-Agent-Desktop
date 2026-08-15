@@ -83,6 +83,9 @@ def test_openapi_frozen_with_readiness_and_events():
         "/components/{componentId}/external-cc-connect",
         "/components/hermes/telegram-configuration-plans",
         "/components/hermes/telegram-configuration",
+        "/components/hermes/telegram-readiness",
+        "/components/hermes/telegram-configuration:plan",
+        "/components/hermes/telegram-configuration:apply",
         "/observability/links",
         "/observability/links/{linkId}",
         "/observability/links/{linkId}/e2e-plans",
@@ -176,6 +179,10 @@ def test_managed_runtime_schema_has_non_secret_lifecycle_models():
         "NativeConfigurationState",
         "HermesConfigurationPlan",
         "HermesConfigurationState",
+        "HermesTelegramReadinessSnapshot",
+        "HermesTelegramConfigurationPlanRequest",
+        "HermesTelegramConfigurationPlan",
+        "HermesTelegramApplyRequest",
         "ExternalCcConnectState",
     ]:
         assert name in models["$defs"]

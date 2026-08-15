@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施更新：2026-08-13。GUI Step 4 已正式调用安装/Owner/原生配置/start/reconcile，并只在 PID、artifact/exe、configuration revision、port ownership、startup stability 和 fatal-log 证据满足时标记 Runtime Ready。Claude/Codex connected 还要求各自 Agent detector acceptable；Hermes external runtime 不映射为受管 connected。整体仍为 PARTIAL：新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+实施更新：2026-08-15。GUI Step 4 已正式调用安装/Owner/原生配置/start/reconcile，并只在 PID、artifact/exe、configuration revision、port ownership、startup stability 和 fatal-log 证据满足时标记 Runtime Ready。Claude/Codex connected 还要求各自 Agent detector acceptable；Hermes Native Telegram readiness 单独建模，不映射为 cc-connect connected。整体仍为 PARTIAL：新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 ## 范围与非目标
 
@@ -49,7 +49,7 @@ Alembic 0003 保留 Operation、旧配置和生命周期表；0004 新增 creden
 
 ## 更新与外部工具
 
-cc-connect 当前版本由 artifact lock、manifest、current 指针和持久化状态唯一确定。更新评估要求精确候选版本、来源、兼容性、迁移计划和回滚点，不支持 latest。Hermes 未有可执行更新 Adapter，准确返回 unsupported。
+cc-connect 当前版本由 artifact lock、manifest、current 指针和持久化状态唯一确定。更新评估要求精确候选版本、来源、兼容性、迁移计划和回滚点，不支持 latest。Hermes 更新仍无可执行 Adapter，准确返回 unsupported；本轮只实现已安装 Hermes 的 Telegram `.env`/Gateway 最小配置，不执行 Hermes 安装或更新。
 
 CC Switch 只根据公开可执行入口返回安装状态并可普通打开。install/update/configuration/ownership_handoff 缺少稳定公开接口证据时标为 unknown，不读取私有配置或 Secret，不修改 CC Switch 源码。
 

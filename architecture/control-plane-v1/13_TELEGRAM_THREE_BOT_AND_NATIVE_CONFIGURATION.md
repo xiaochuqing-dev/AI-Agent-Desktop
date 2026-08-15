@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施更新：2026-08-13。代码、Fake Telegram、Credential Manager、Windows 11 受管运行、真实 Agent Detection 和 `0.3.0-prebeta` GUI 已通过本地自动化/合成检查；整体为 PARTIAL。Telegram Bot Identity、Binding、ready_for_test、LIVE_VERIFIED、failed 与 stale 已分离。新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+实施更新：2026-08-15。代码、Fake Telegram、Credential Manager、Windows 11 受管运行、真实 Agent Detection、Hermes Native Adapter 和 `0.4.0-prebeta` GUI 已通过本地自动化/合成检查；整体为 PARTIAL。Telegram Bot Identity、Binding、ready_for_test、LIVE_VERIFIED、failed 与 stale 已分离。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 ## 门禁顺序
 
@@ -50,7 +50,7 @@ external 状态拆分为 installed、process_running、port_active、supervisor_
 
 ## Hermes 与已知上游限制
 
-Hermes 未安装时保存 pending_component_install 计划，不阻塞 Claude/Codex；已安装但配置 Owner 为 external 时只生成非 Secret 计划，不直接写入未知 Schema。
+Hermes 未安装时保存 pending_component_install 计划，不阻塞 Claude/Codex。Hermes 已安装但 Telegram 未配置时，`HermesTelegramConfigurationAdapter` 通过 `hermes config env-path` 使用官方公开 `.env`，执行 readiness、plan/apply 和 Gateway status/start/stop/restart；已有配置保持 external-first，不静默覆盖。事务只写 `TELEGRAM_BOT_TOKEN` 与 `TELEGRAM_ALLOWED_USERS`，未知 key、注释、`TELEGRAM_HOME_CHANNEL` 和群授权保留；不同 Bot、partial、invalid、Lease 冲突和 Gateway 失败均需显式处理或回滚。Provider、Model、Tool、Studio 与 Hermes 更新仍不属于本阶段。
 
 锁定版 cc-connect management API 无 bind host 字段，实测监听所有网卡，虽有 Bearer 仍只记 partial。Telegram 原生 options 无 Group Chat ID 白名单，只能限制 operator user，状态为 unsupported。上游无正式 deep health endpoint，deep health 为 unsupported。以上限制不通过新增 Patch 规避。
 
@@ -62,4 +62,4 @@ PySide6 GUI 使用固定四步 Shell。Step 4 展示独立 Agent Detection、严
 
 锁定 commit 为 fc315d213b49d62e9d90ea4a510189d4115e636f，既有 patchset 为 0.1，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。Windows 11 合成验收完成三 Fake getMe、三私聊、三同群、revision 4、三份备份、漂移恢复、真实进程 start/stop/restart/reconcile、Bearer 200/401、Lease 释放、Secret 扫描与无残留进程。真实 Token 和 Windows 10 证据仍待用户现场完成。
 
-新 GUI 代码与合成测试不改变上述 Telegram 证据等级；`0.3.0-prebeta` final3 candidate 已在 Windows 11 x64 构建并通过 validator 与 ordinary-user smoke，但不能由此推断真实 Telegram 或 Windows 10 已验证。
+新 GUI 代码与合成测试不改变上述 Telegram 证据等级；`0.4.0-prebeta` candidate 已在 Windows 11 x64 构建并通过 validator 与 ordinary-user smoke，但不能由此推断真实 GUI Telegram、Hermes Native Telegram 或 Windows 10 已验证。

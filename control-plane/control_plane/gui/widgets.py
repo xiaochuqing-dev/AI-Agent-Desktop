@@ -39,6 +39,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .icons import IconButton, icon
+
 ASSET_DIR = Path(__file__).with_name("assets")
 
 
@@ -81,6 +83,50 @@ class GlassCard(QFrame):
         self.setGraphicsEffect(shadow)
 
 
+class GlassDialog(QDialog):
+    """Shared modal surface for confirmations and help content."""
+
+    def __init__(
+        self, title: str, parent: QWidget | None = None, *, minimum_size=(520, 280)
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowIcon(QIcon(str(ASSET_DIR / "app_icon.ico")))
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setModal(True)
+        self.setMinimumSize(*minimum_size)
+        self.setObjectName("GlassDialog")
+        self.setStyleSheet(
+            "QDialog#GlassDialog{background:#EEF1FD;}"
+            "QLabel#DialogTitle{font-size:20px;font-weight:700;color:#111323;}"
+            "QLabel#DialogBody{font-size:14px;color:#606276;}"
+        )
+        root = QVBoxLayout(self)
+        root.setContentsMargins(26, 22, 26, 22)
+        root.setSpacing(14)
+        header = QHBoxLayout()
+        heading = QLabel(title)
+        heading.setObjectName("DialogTitle")
+        header.addWidget(heading, 1)
+        close = IconButton("close", tooltip="关闭")
+        close.setFixedSize(38, 38)
+        close.clicked.connect(self.reject)
+        header.addWidget(close)
+        root.addLayout(header)
+        self.body_layout = QVBoxLayout()
+        self.body_layout.setSpacing(10)
+        root.addLayout(self.body_layout, 1)
+        self.action_layout = QHBoxLayout()
+        self.action_layout.setSpacing(10)
+        root.addLayout(self.action_layout)
+
+    def add_action(self, text: str, *, primary: bool = False) -> QPushButton:
+        action = QPushButton(text)
+        action.setObjectName("PrimaryButton" if primary else "SecondaryButton")
+        self.action_layout.addWidget(action)
+        return action
+
+
 class StatusChip(QLabel):
     def __init__(self, text: str = "等待", kind: str = "neutral", parent=None) -> None:
         super().__init__(text, parent)
@@ -97,17 +143,17 @@ class StatusChip(QLabel):
 
 
 class AgentIcon(QLabel):
-    SYMBOLS = {"hermes": "ϟ", "claude": "◇", "codex": "▤"}
-    COLORS = {"hermes": "#5F63EA", "claude": "#755EEB", "codex": "#3C7CF1"}
+    ICONS = {"hermes": "hermes", "claude": "claude", "codex": "codex"}
 
     def __init__(self, slot: str, parent=None) -> None:
-        super().__init__(self.SYMBOLS.get(slot, "●"), parent)
+        super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFixedSize(46, 46)
-        color = self.COLORS.get(slot, "#5866E8")
+        self.setPixmap(icon(self.ICONS.get(slot, "info")).pixmap(24, 24))
+        self.setAccessibleName(f"{slot} agent")
         self.setStyleSheet(
-            f"background: rgba(255,255,255,190); color:{color}; border:1px solid rgba(255,255,255,210); "
-            "border-radius:14px; font-size:25px; font-weight:700;"
+            "background: rgba(255,255,255,205); border:1px solid rgba(255,255,255,225); "
+            "border-radius:14px;"
         )
 
 
@@ -151,12 +197,18 @@ class StepRail(QFrame):
         safety = QWidget()
         safety_layout = QVBoxLayout(safety)
         safety_layout.setContentsMargins(16, 14, 16, 10)
-        title = QLabel("✓  安全可靠")
+        title = QLabel("安全可靠")
         title.setObjectName("SafetyTitle")
+        title_row = QHBoxLayout()
+        title_icon = QLabel()
+        title_icon.setPixmap(icon("shield").pixmap(17, 17))
+        title_row.addWidget(title_icon)
+        title_row.addWidget(title)
+        title_row.addStretch(1)
         body = QLabel("所有数据仅存储在本地，\n由你完全掌控。")
         body.setObjectName("BodyText")
         body.setWordWrap(True)
-        safety_layout.addWidget(title)
+        safety_layout.addLayout(title_row)
         safety_layout.addWidget(body)
         layout.addWidget(safety)
         self.set_active(0)
@@ -196,35 +248,33 @@ class TitleBar(QWidget):
         layout.addWidget(title)
         layout.addStretch(1)
 
-        self.refresh = QPushButton("↻")
+        self.refresh = IconButton("refresh", tooltip="只读刷新全部状态")
         self.refresh.setObjectName("RefreshButton")
-        self.refresh.setToolTip("只读刷新全部状态")
         self.refresh.clicked.connect(self.refresh_requested)
         layout.addWidget(self.refresh)
-        minimize = QPushButton("—")
+        minimize = IconButton("minimize", tooltip="最小化窗口")
         minimize.setObjectName("WindowButton")
         minimize.clicked.connect(window.showMinimized)
         layout.addWidget(minimize)
-        self.maximize = QPushButton("□")
+        self.maximize = IconButton("maximize", tooltip="最大化窗口")
         self.maximize.setObjectName("WindowButton")
         self.maximize.clicked.connect(self.toggle_maximized)
         layout.addWidget(self.maximize)
-        close = QPushButton("×")
+        close = IconButton("close", tooltip="关闭窗口")
         close.setObjectName("CloseButton")
-        close.setProperty("class", "WindowButton")
-        close.setStyleSheet(
-            "QPushButton{border:none;background:transparent;font-size:21px;min-width:48px;min-height:46px;border-radius:11px;} QPushButton:hover{background:rgba(231,92,105,190);color:white;}"
-        )
         close.clicked.connect(window.close)
         layout.addWidget(close)
+        self.close_button = close
 
     def toggle_maximized(self) -> None:
         if self.host_window.isMaximized():
             self.host_window.showNormal()
-            self.maximize.setText("□")
+            self.maximize.setIcon(icon("maximize"))
+            self.maximize.setToolTip("最大化窗口")
         else:
             self.host_window.showMaximized()
-            self.maximize.setText("❐")
+            self.maximize.setIcon(icon("restore"))
+            self.maximize.setToolTip("还原窗口")
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -271,7 +321,7 @@ class TelegramLauncher:
         return QDesktopServices.openUrl(cls.OFFICIAL_DOWNLOAD)
 
 
-class QrDialog(QDialog):
+class QrDialog(GlassDialog):
     def __init__(
         self,
         bot_name: str,
@@ -281,41 +331,26 @@ class QrDialog(QDialog):
         *,
         expires_at: str | None = None,
     ) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("手机扫码激活")
-        self.setWindowIcon(QIcon(str(ASSET_DIR / "app_icon.ico")))
-        self.setWindowModality(Qt.WindowModality.WindowModal)
-        self.setModal(True)
-        self.setMinimumSize(430, 520)
-        self.setStyleSheet("QDialog{background:#EEF1FD;} QLabel{color:#111323;}")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(34, 28, 34, 28)
-        layout.setSpacing(14)
-        title = QLabel("手机扫码激活")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size:24px;font-weight:700;")
-        layout.addWidget(title)
+        super().__init__("手机扫码激活", parent, minimum_size=(430, 520))
         qr_label = QLabel()
         qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qr_label.setPixmap(self._qr_pixmap(deep_link, 270))
-        layout.addWidget(qr_label, 1)
+        self.body_layout.addWidget(qr_label, 1)
         bot = QLabel(f"{bot_name}  ·  @{username}")
         bot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bot.setStyleSheet("font-size:16px;font-weight:650;")
-        layout.addWidget(bot)
+        bot.setObjectName("CardTitle")
+        self.body_layout.addWidget(bot)
         body = QLabel("用手机 Telegram 扫码，打开 Bot 私聊后点击 Start 即可完成激活。")
         body.setWordWrap(True)
         body.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        body.setStyleSheet("font-size:14px;color:#626477;")
-        layout.addWidget(body)
+        body.setObjectName("DialogBody")
+        self.body_layout.addWidget(body)
         self.expiry_label = QLabel("链接将在约 15 分钟后失效")
         self.expiry_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.expiry_label.setStyleSheet("font-size:12px;color:#8A8DA0;")
-        layout.addWidget(self.expiry_label)
-        close = QPushButton("关闭")
-        close.setObjectName("PrimaryButton")
-        close.clicked.connect(self.close)
-        layout.addWidget(close)
+        self.expiry_label.setObjectName("SmallText")
+        self.body_layout.addWidget(self.expiry_label)
+        close = self.add_action("关闭", primary=True)
+        close.clicked.connect(self.accept)
         self._expires_at = self._parse_expiry(expires_at)
         self._expiry_timer = QTimer(self)
         self._expiry_timer.setInterval(1000)
@@ -340,7 +375,9 @@ class QrDialog(QDialog):
         remaining = int((self._expires_at - datetime.now(UTC)).total_seconds())
         if remaining <= 0:
             self.expiry_label.setText("链接已过期，请返回页面刷新后重新打开")
-            self.expiry_label.setStyleSheet("font-size:12px;color:#A94A55;font-weight:600;")
+            self.expiry_label.setProperty("kind", "error")
+            self.expiry_label.style().unpolish(self.expiry_label)
+            self.expiry_label.style().polish(self.expiry_label)
             self._expiry_timer.stop()
             return
         minutes, seconds = divmod(remaining, 60)
@@ -434,21 +471,22 @@ class ApiRunner:
 class RefreshSpinner:
     def __init__(self, button: QPushButton) -> None:
         self.button = button
-        self.frames = ["↻", "⟳", "↺", "⟲"]
-        self.index = 0
         self.timer = QTimer(button)
         self.timer.setInterval(120)
         self.timer.timeout.connect(self._tick)
 
     def _tick(self) -> None:
-        self.index = (self.index + 1) % len(self.frames)
-        self.button.setText(self.frames[self.index])
+        self.button.setProperty("loading", True)
+        self.button.style().unpolish(self.button)
+        self.button.style().polish(self.button)
 
     def start(self) -> None:
         self.button.setEnabled(False)
+        self.button.setProperty("loading", True)
         self.timer.start()
 
     def stop(self) -> None:
         self.timer.stop()
-        self.button.setText("↻")
+        self.button.setProperty("loading", False)
+        self.button.setIcon(icon("refresh"))
         self.button.setEnabled(True)

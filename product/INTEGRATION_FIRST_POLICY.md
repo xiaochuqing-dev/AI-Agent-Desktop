@@ -41,4 +41,4 @@ external cc-connect 检测区分 installed、process、port、supervisor、confi
 六、当前 GUI 交付边界
 --------------------
 
-GUI 四步流程已升级到 `0.3.0-prebeta`，真实 Agent Detection 由产品自身只读实现，不依赖 CC Switch runtime；只参考 CC Switch 公开 detection 策略，未复制第三方代码。Demo 仍只用于截图/测试。final3 Windows 11 candidate 已通过 validator；新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。
+GUI 四步流程已升级到 `0.4.0-prebeta`，真实 Agent Detection 由产品自身只读实现，不依赖 CC Switch runtime；只参考 CC Switch 公开 detection 策略，未复制第三方代码。Hermes Telegram Native Adapter 只调用 Hermes 官方公开 CLI 与 `.env`，不接管 Provider/Model/Tool。Demo 仍只用于截图/测试。Windows 11 candidate 已通过 validator；新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。

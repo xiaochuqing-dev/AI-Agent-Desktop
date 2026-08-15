@@ -7,7 +7,7 @@
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
 - 实现决策：ADR-001..004 已冻结（见 `adr/`）
-- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、三个真实 Agent Detector、Update Lease、managed/native 分离、Claude/Codex 原生配置、严格 Runtime Readiness 和受管生命周期；`0.3.0-prebeta` GUI、Live E2E、Dashboard、Diagnostics、QR 与 Telegram 深链接已实现。Fake 与 Windows 11 本地验收通过；新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
+- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、三个真实 Agent Detector、Update Lease、managed/native 分离、Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和受管生命周期；`0.4.0-prebeta` GUI、SVG IconRegistry、Design Tokens、TitleBar、GlassDialog、Live E2E、Dashboard、Diagnostics、QR 与 Telegram 深链接已实现。Fake 与 Windows 11 本地验收通过；新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
 

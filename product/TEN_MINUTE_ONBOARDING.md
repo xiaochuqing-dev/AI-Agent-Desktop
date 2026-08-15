@@ -35,9 +35,9 @@ Hermes 私聊、Hermes 群聊、Claude Code 私聊、Claude Code 群聊、Codex 
 五、当前阶段
 ------------
 
-当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、三个真实 Agent Detector、Claude/Codex 原生配置、严格 cc-connect Runtime Ready、Live E2E GUI 和 PySide6 GUI。当前工作区 pytest 为 240 passed、1 skipped；Ruff、format、mypy 104 files、契约和 final3 candidate validator 通过。
+当前已实现只读发现、Readiness、Dry-run、Operation/SSE、Windows Credential Manager、三 Bot 身份与绑定、三个真实 Agent Detector、Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 cc-connect Runtime Ready、Live E2E GUI、SVG IconRegistry、Design Tokens、统一对话框和 PySide6 GUI。当前工作区 pytest 为 264 passed、2 skipped；Ruff、format、`mypy control_plane` 112 files、契约和 `0.4.0-prebeta` candidate validator 通过。
 
-这些自动化结果只证明代码与合成合同。新 GUI 私聊激活和群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；MSI/正式安装器/代码签名为 `DEFERRED`。Hermes 仍为 external/read-only，不得声称本轮完成了 Hermes 实时消息或自动配置验证。历史 2026-08-07 六链路直接 Telegram 用户确认不覆盖新 GUI。
+这些自动化结果只证明代码与合成合同。新 GUI 私聊激活、群自动检测和 Hermes Native Telegram Setup 为 `PENDING USER LIVE VALIDATION`；Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；MSI/正式安装器/代码签名为 `DEFERRED`。Hermes 已有配置保持 external-first；仅已安装且 Telegram 未配置或用户明确确认切换时，Adapter 才通过官方 `.env` 与 Gateway CLI 完成最小 Telegram 接入。Provider、Model、Tool 与其它 Hermes 配置仍由 Hermes/外部工具管理。历史 2026-08-07 六链路直接 Telegram 用户确认不覆盖新 GUI。
 
 六、恢复与预览模式
 ------------------

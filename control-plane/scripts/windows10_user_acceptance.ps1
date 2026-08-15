@@ -88,7 +88,7 @@ if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
     $entries = @($manifest.files | Where-Object { ([string]$_.path).Replace('\', '/') -eq "AI-Agent-Desktop.exe" })
     if (
       $manifest.product -eq "AI-Agent-Desktop" -and
-      $manifest.candidate_version -eq "0.3.0-prebeta" -and
+      $manifest.candidate_version -eq "0.4.0-prebeta" -and
       $manifest.platform -eq "windows" -and
       $manifest.architecture -eq "x64" -and
       [bool]$manifest.python_embedded -and
@@ -162,7 +162,7 @@ $report = [ordered]@{
   x64 = $isX64
   ordinary_user = -not [bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
   product_bundle_supplied = -not [string]::IsNullOrWhiteSpace($ProductBundle)
-  expected_candidate_version = "0.3.0-prebeta"
+  expected_candidate_version = "0.4.0-prebeta"
   observed_candidate_version = $candidateVersion
   candidate_executable_found = $candidateFound
   candidate_manifest_status = $manifestStatus

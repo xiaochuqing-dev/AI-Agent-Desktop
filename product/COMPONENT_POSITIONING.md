@@ -34,12 +34,12 @@ CC Switch
 Control Plane
 -------------
 
-统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前已对产品自有 cc-connect 实现安装、合法 Claude/Codex 原生配置、Secret 注入和生命周期；对 Telegram 实现安全凭据、身份与绑定；Hermes 只生成不接管外部所有权的计划或准确 pending。最小 GUI 通过 onboarding/dashboard/Telegram API 消费这些状态。Windows 11 candidate 已通过本地验证；整体因新 GUI live 与 Windows 10 尚未验证仍为 PARTIAL。
+统一承担发现、安装计划、配置权、状态、生命周期、诊断、更新评估和回滚。当前已对产品自有 cc-connect 实现安装、合法 Claude/Codex 原生配置、Secret 注入和生命周期；对 Telegram 实现安全凭据、身份与绑定；对已安装但 Telegram 未配置的 Hermes，通过官方公开 `.env` 与 Gateway CLI 实现最小接入、readiness、冲突计划和 Gateway 生命周期，已有配置不静默接管。最小 GUI 通过 onboarding/dashboard/Telegram API 消费这些状态。Windows 11 candidate 已通过本地验证；整体因新 GUI live、Hermes Native live 与 Windows 10 尚未验证仍为 PARTIAL。
 
 GUI
 ---
 
-当前实现为 PySide6 + Qt Widgets + QSS `0.3.0-prebeta`，包含 Welcome、四步 Onboarding、真实 Agent 状态、严格 Runtime、QR/深链接、Live E2E、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不直接写 Hermes、Claude Code、Codex、Telegram 或 CC Switch 私有配置；仅产品自有 cc-connect 受管路径可写。新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+当前实现为 PySide6 + Qt Widgets + QSS `0.4.0-prebeta`，包含 Welcome、四步 Onboarding、真实 Agent 状态、严格 Runtime、QR/深链接、Hermes readiness/conflict、Live E2E、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不读取 Hermes 私有数据，不直接写 Claude Code、Codex、Telegram 或 CC Switch 私有配置；Hermes 仅使用官方公开 `.env` 的两个 allowlisted Telegram key，产品自有 cc-connect 受管路径可写。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 dual_agent 与 cc-connect Patch
 -----------------------------

@@ -1,4 +1,4 @@
-AI-Agent-Desktop 0.3.0-prebeta Windows x64 用户验收指南
+AI-Agent-Desktop 0.4.0-prebeta Windows x64 用户验收指南
 
 一、启动前
 
@@ -18,7 +18,7 @@ AI-Agent-Desktop 0.3.0-prebeta Windows x64 用户验收指南
 Step 1：粘贴 Hermes、Claude Code、Codex 三个 Bot Token，并执行验证。Token 只应输入 GUI 的安全输入框，不要写入文本文件、截图、日志或发送给支持人员。
 Step 2：依次点击三个 Bot 的“打开 Telegram”，或扫描对应私聊二维码。在 Telegram 中点击 Start，等待 GUI 自动显示已激活。二维码和链接不包含 Bot Token。
 Step 3：把三个 Bot 加入同一个 Telegram 群，返回 GUI 等待自动检测。此步骤没有群二维码，不要求输入 Group ID，也不会枚举 Telegram 账号中的群列表。若长时间未完成，按界面提示检查 Bot 权限和 Privacy Mode。
-Step 4：先确认 Hermes、Claude Code、Codex 都显示真实安装状态和版本，再等待产品完成本机配置并显示 cc-connect Runtime 已就绪。若某个 Agent 未检测到，按界面打开官方安装说明或可选的 CC Switch，安装后点击“重新检测”，无需退出软件。
+Step 4：先确认 Hermes、Claude Code、Codex 都显示真实安装状态和版本，再等待产品完成本机配置并显示 cc-connect Runtime 已就绪。若某个 Agent 未检测到，按界面打开官方安装说明或可选的 CC Switch，安装后点击“重新检测”，无需退出软件。已安装但 Telegram 未配置的 Hermes 会显示 Native Telegram readiness；如果检测到既有 Bot，必须选择复用或切换，不能静默覆盖。
 Step 4 完成不只代表配置文件已生成，还应确认 cc-connect 正在运行，PID、制品、配置 revision、端口归属和稳定窗口均通过检查。不要手工编辑 cc-connect TOML、SecretRef、端口、User ID、Group ID 或 Update Offset。
 
 四、可选六链路聊天验证
@@ -32,7 +32,7 @@ Step 4 完成不只代表配置文件已生成，还应确认 cc-connect 正在�
 正常流程不会默认发送真实测试消息，也不会读取 Telegram 登录状态、聊天历史或消息正文。
 Dashboard 和 Diagnostics 只能展示 Control Plane 的脱敏状态；失败时记录界面状态和时间，不要提交 Token、完整 Deep Link 或私有路径。
 关闭并重新打开 GUI 后，应从 Control Plane 真实状态恢复；不能用 Demo 绿色状态替代真实结果。
-新 GUI 的私聊激活、同群自动检测和 Windows 10 x64 状态，只有用户实际完成本轮流程后才能记为通过。
+新 GUI 的私聊激活、同群自动检测、Hermes Native Telegram Setup 和 Windows 10 x64 状态，只有用户实际完成本轮流程后才能记为通过。不要把 Hermes readiness、Bot 绑定或本地 Gateway running 误记为真实聊天 LIVE_VERIFIED。
 
 六、Windows 10 离线预检
 
@@ -40,5 +40,5 @@ Dashboard 和 Diagnostics 只能展示 Control Plane 的脱敏状态；失败时
 
 powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\windows10_user_acceptance.ps1 -ProductBundle . -OutputPath .\windows10-user-acceptance-redacted.json
 
-该脚本只检查 Windows 10 x64、0.3.0-prebeta Manifest、AI-Agent-Desktop.exe、--version 和 --headless，不访问真实 Telegram，也不替代上面的四步人工 GUI 验收。
+该脚本只检查 Windows 10 x64、0.4.0-prebeta Manifest、AI-Agent-Desktop.exe、--version 和 --headless，不访问真实 Telegram，也不替代上面的四步人工 GUI 验收。
 输出报告不包含 Token 或消息正文。即使离线预检通过，在用户完成四步 GUI 前，状态仍为 PENDING_USER_REAL_MACHINE_VALIDATION。

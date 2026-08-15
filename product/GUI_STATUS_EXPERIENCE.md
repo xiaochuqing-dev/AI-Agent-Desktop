@@ -1,13 +1,13 @@
 GUI 状态体验模型 GUI_STATUS_EXPERIENCE
 
-本文档同时记录正式 GUI 的目标体验与当前 `0.3.0-prebeta` 实现。真实 Agent Detection、严格 Runtime Readiness、Binding/Live 分离和 Live E2E GUI 已接入，但完整发布体验和真实 Telegram 复测尚未完成。
+本文档同时记录正式 GUI 的目标体验与当前 `0.4.0-prebeta` 实现。真实 Agent Detection、严格 Runtime Readiness、Binding/Live 分离、Hermes Telegram Native Onboarding 和 Live E2E GUI 已接入，但完整发布体验和真实 Telegram 复测尚未完成。
 GUI 是 Control Plane 状态的视图，不是状态所有者。它只通过稳定本地 API 读取 StateSnapshot 和下发 Operation，不直接读取上游目录、进程或配置。
 关闭 GUI 只断开本地客户端，不能停止 Control Plane 或已经运行的 Agent/Channel 服务。
 
 当前实现映射
 ------------
 
-`control-plane/control_plane/gui/` 提供 Welcome、统一四步 Wizard Shell、Token、私聊 deep link/QR、同群检测、Agent/Runtime/Chat Health、Live E2E、Dashboard、Diagnostics、刷新和 Demo。Agent 状态来自 Detector，Bot Identity 只用于 Telegram；配置完成只有在严格 Runtime Ready 时成立。`DemoControlPlaneClient` 只用于截图和自动化测试。
+`control-plane/control_plane/gui/` 提供 Welcome、统一四步 Wizard Shell、Token、私聊 deep link/QR、同群检测、Agent/Runtime/Chat Health、Hermes readiness/conflict、Live E2E、Dashboard、Diagnostics、刷新和 Demo。正式 SVG IconRegistry、Design Tokens、TitleBar 和 GlassDialog 统一用户可见控件。Agent 状态来自 Detector，Bot Identity 只用于 Telegram；配置完成只有在严格 Runtime Ready 时成立。`DemoControlPlaneClient` 只用于截图和自动化测试。
 
 当前证据状态：新 GUI 私聊激活和群自动检测为 `PENDING USER LIVE VALIDATION`；Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。历史直接 Telegram 六链路确认与新 GUI 证据严格分开。
 

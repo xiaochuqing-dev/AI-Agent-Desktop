@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 
+from ...application.operation_store import OperationStore
 from ...cc_connect.native_config_models import (
     NativeConfigurationConfirmation,
     NativeConfigurationPlan,
@@ -12,10 +13,15 @@ from ...cc_connect.native_config_models import (
     NativeConfigurationState,
     NativeRendererCapability,
 )
+from ...domain.models import ResourceRef
 from ...hermes.models import (
     HermesConfigurationPlan,
     HermesConfigurationPlanRequest,
     HermesConfigurationState,
+    HermesTelegramApplyRequest,
+    HermesTelegramConfigurationPlan,
+    HermesTelegramConfigurationPlanRequest,
+    HermesTelegramReadinessSnapshot,
 )
 from ...installer.artifacts import InstallerError
 from ...security.redaction import redact_value
@@ -147,5 +153,64 @@ def build_native_configuration_router(
     )
     def hermes_state(_token: str = Depends(bearer_auth)):
         return redact_value(get_state().hermes_configuration.state().model_dump(mode="json"))
+
+    @router.get(
+        "/components/hermes/telegram-readiness",
+        response_model=HermesTelegramReadinessSnapshot,
+    )
+    def hermes_telegram_readiness(
+        binding_session_id: str | None = None,
+        _token: str = Depends(bearer_auth),
+    ):
+        return redact_value(
+            get_state()
+            .hermes_telegram.readiness(binding_session_id=binding_session_id)
+            .model_dump(mode="json")
+        )
+
+    @router.post(
+        "/components/hermes/telegram-configuration:plan",
+        response_model=HermesTelegramConfigurationPlan,
+        status_code=201,
+    )
+    def create_hermes_telegram_plan(
+        payload: HermesTelegramConfigurationPlanRequest,
+        _token: str = Depends(bearer_auth),
+    ):
+        return redact_value(
+            get_state().hermes_telegram.create_plan(payload).model_dump(mode="json")
+        )
+
+    @router.post(
+        "/components/hermes/telegram-configuration:apply",
+        status_code=202,
+    )
+    async def apply_hermes_telegram_plan(
+        payload: HermesTelegramApplyRequest,
+        request: Request,
+        response: Response,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        _token: str = Depends(bearer_auth),
+    ):
+        state = get_state()
+        plan_id, reused = state.hermes_telegram.confirm_plan(payload)
+        with state.db.session() as session:
+            operation, reused = OperationStore(session).create(
+                kind="hermes_telegram_configuration_apply",
+                target_ref=ResourceRef(kind="component", id="hermes"),
+                idempotency_key=idempotency_key,
+                method="POST",
+                resource="/api/v1/components/hermes/telegram-configuration:apply",
+                body=await request.body(),
+            )
+        if not reused:
+            state.executor.submit(
+                operation_id=operation.operation_id,
+                component_id="hermes",
+                kind="hermes_telegram_configuration_apply",
+                payload={"plan_id": plan_id},
+            )
+        response.headers["Location"] = f"/api/v1/operations/{operation.operation_id}"
+        return redact_value(operation.model_dump(mode="json"))
 
     return router

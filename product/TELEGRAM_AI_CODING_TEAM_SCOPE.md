@@ -31,9 +31,9 @@ Windows 10/11、Telegram、Hermes、Claude Code、Codex、cc-connect，以及推
 五、当前与目标
 --------------
 
-当前 Reference Baseline 与 2026-08-07 旧入口用户确认保留历史 Telegram 证据。Control Plane 已实现三个固定 Bot 的安全凭据、getMe、一次性绑定、User ID/Group ID 自动发现和 3/3 同群一致性，但结构化真实向导证据仍未采集。`0.3.0-prebeta` GUI 已提供四步私聊/群 Onboarding、真实 Agent Detection、严格 Runtime、QR、深链接、Live E2E、Dashboard 和 Diagnostics；新 GUI Telegram 为 `PENDING USER LIVE VALIDATION`。
+当前 Reference Baseline 与 2026-08-07 旧入口用户确认保留历史 Telegram 证据。Control Plane 已实现三个固定 Bot 的安全凭据、getMe、一次性绑定、User ID/Group ID 自动发现和 3/3 同群一致性，但结构化真实向导证据仍未采集。`0.4.0-prebeta` GUI 已提供四步私聊/群 Onboarding、真实 Agent Detection、严格 Runtime、SVG 图标、QR、深链接、Hermes Native readiness、Live E2E、Dashboard 和 Diagnostics；新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`。
 
-用户只需提供三个 Bot Token，并完成 Telegram 官方要求的首次 /start、建群/加 Bot 与权限设置；模型账号和 Hermes 管理不由 GUI 假装完成。六链路真实消息只有在用户明确确认后执行，每条最多一条且不自动重试。Agent installed/healthy 不等于 authenticated；Hermes 仍为 external/read-only。Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。
+用户只需提供三个 Bot Token，并完成 Telegram 官方要求的首次 /start、建群/加 Bot 与权限设置；模型账号和 Hermes Provider/Model/Tool 管理不由 GUI 假装完成。已安装但 Telegram 未配置的 Hermes 可通过官方公开 `.env` 与 Gateway CLI 完成最小接入；已有配置 external-first，冲突需要显式选择，失败可回滚。六链路真实消息只有在用户明确确认后执行，每条最多一条且不自动重试。Agent installed/healthy 不等于 authenticated。Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`。
 
 六、验收规则
 ------------

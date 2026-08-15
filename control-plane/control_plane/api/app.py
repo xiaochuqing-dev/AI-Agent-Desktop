@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -44,7 +45,11 @@ from ..domain.models import (
     SystemInfo,
 )
 from ..external_tools.cc_switch import CcSwitchExternalToolProvider
-from ..hermes import HermesConfigurationPlanner
+from ..hermes import (
+    HermesCliRunner,
+    HermesConfigurationPlanner,
+    HermesTelegramConfigurationAdapter,
+)
 from ..infrastructure.config import Settings
 from ..installer.artifacts import InstallerError
 from ..installer.models import (
@@ -208,6 +213,49 @@ class AppState:
             self.telegram_binding,
             path_lookup=hermes_path_lookup,
         )
+        hermes_executable = None
+        if hermes_path_lookup is not None:
+            hermes_executable = hermes_path_lookup("hermes.exe") or hermes_path_lookup("hermes")
+        if hermes_executable is None:
+            hermes_executable = shutil.which("hermes.exe") or shutil.which("hermes")
+
+        def resolve_hermes_token():
+            return self.credentials.resolve_for_operation("telegram/hermes-bot-token")
+
+        def verify_hermes_token(token: str) -> dict:
+            return asyncio.run(self.telegram_client.get_me(token))
+
+        def adopt_hermes_token(token: str, operation_id: str):
+            previous: str | None = None
+            try:
+                with self.credentials.resolve_for_operation("telegram/hermes-bot-token") as value:
+                    previous = value
+            except CredentialBackendError:
+                previous = None
+            self.credentials.replace("telegram/hermes-bot-token", token, operation_id=operation_id)
+
+            def rollback() -> None:
+                if previous is None:
+                    self.credentials.delete(
+                        "telegram/hermes-bot-token", operation_id=f"{operation_id}:rollback"
+                    )
+                else:
+                    self.credentials.replace(
+                        "telegram/hermes-bot-token",
+                        previous,
+                        operation_id=f"{operation_id}:rollback",
+                    )
+
+            return rollback
+
+        self.hermes_telegram = HermesTelegramConfigurationAdapter(
+            runner=HermesCliRunner(hermes_executable),
+            token_resolver=resolve_hermes_token,
+            verify_token=verify_hermes_token,
+            binding_resolver=self.telegram_binding.get,
+            credential_adopter=adopt_hermes_token,
+            lease_service=self.telegram_leases,
+        )
         self.cc_switch = CcSwitchExternalToolProvider(self.db)
         self.executor = OperationExecutor(
             self.db,
@@ -270,6 +318,18 @@ class AppState:
             "cc_connect_native_configuration_apply",
             self._execute_native_configuration,
             recovery_probe=self.native_configuration.recovery_probe,
+        )
+        self.executor.register(
+            "hermes_telegram_configuration_apply",
+            self._execute_hermes_telegram_configuration,
+            recovery_probe=lambda _operation_id, _payload: RecoveryDecision.fail(
+                code="HERMES_TELEGRAM_RECOVERY_REQUIRES_REVIEW",
+                message="Hermes Telegram 配置操作中断，需要重新检查状态后确认。",
+                recovery_actions=[
+                    "inspect_hermes_telegram_readiness",
+                    "create_hermes_telegram_plan",
+                ],
+            ),
         )
         self.executor.register(
             "telegram_bot_verify",
@@ -338,6 +398,12 @@ class AppState:
         context.safe_checkpoint()
         return self.native_configuration.execute_plan(
             context.operation_id, str(context.payload["plan_id"])
+        )
+
+    def _execute_hermes_telegram_configuration(self, context: ExecutionContext) -> dict | None:
+        context.safe_checkpoint()
+        return self.hermes_telegram.execute_plan(
+            str(context.payload["plan_id"]), operation_id=context.operation_id
         )
 
     def _execute_telegram_bot_verify(self, context: ExecutionContext) -> dict:

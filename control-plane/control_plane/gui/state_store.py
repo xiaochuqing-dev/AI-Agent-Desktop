@@ -39,6 +39,26 @@ class GuiStateStore:
                 # The onboarding read model remains authoritative if an older
                 # loopback service does not expose the dashboard endpoint yet.
                 pass
+        readiness_reader = getattr(self.client, "hermes_readiness", None)
+        if callable(readiness_reader):
+            try:
+                binding_session_id = (getattr(self.client, "binding", None) or {}).get("session_id")
+                if binding_session_id:
+                    try:
+                        snapshot["hermes_telegram"] = readiness_reader(
+                            binding_session_id=binding_session_id
+                        )
+                    except TypeError:
+                        # Demo and legacy loopback clients keep the older no-arg read model.
+                        snapshot["hermes_telegram"] = readiness_reader()
+                else:
+                    snapshot["hermes_telegram"] = readiness_reader()
+            except GuiApiError as exc:
+                snapshot["hermes_telegram"] = {
+                    "configuration_status": "UNKNOWN",
+                    "diagnostic_code": exc.code,
+                    "user_message": str(exc),
+                }
         # A refresh is read-only, but an active binding session's one-time
         # links are still needed by the current window.  Keep the in-memory
         # display-only copy; the Control Plane remains the source of truth.
@@ -47,6 +67,16 @@ class GuiStateStore:
             snapshot["binding_session"] = deepcopy(binding)
         try:
             diagnostics = self.client.diagnostics()
+            hermes = snapshot.get("hermes_telegram") or {}
+            if hermes.get("diagnostic_code") and hermes.get("configuration_status") != "SAME_BOT":
+                diagnostics.append(
+                    {
+                        "code": hermes.get("diagnostic_code"),
+                        "severity": "warning",
+                        "user_message": hermes.get("user_message") or "Hermes Telegram 需要处理。",
+                        "suggested_actions": ["inspect_hermes_telegram_readiness"],
+                    }
+                )
             snapshot["diagnostics"] = diagnostics
             dashboard = snapshot.get("dashboard")
             if isinstance(dashboard, dict):

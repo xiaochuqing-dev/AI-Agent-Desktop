@@ -31,7 +31,7 @@
 | AgentRuntimeProvider | cc-connect relay Adapter | Claude Code/Codex 调用与 Session 连续 partial/verified | 统一 Agent 状态、强取消、稳定 Session API 缺失 | 包装版本/进程/可用性；调用路径保持现状 |
 | ChannelProvider | Hermes Telegram Adapter + cc-connect Telegram Adapter | 提及、Reply、群/私聊隔离、三 Bot 路由 verified | Hook best-effort；通用连接管理缺失 | 从现有事件只读映射通用状态 |
 | LifecycleProvider | Reference Baseline 只读 Adapter + 产品自有 cc-connect Adapter | 隔离安装、start/stop/restart/status/reconcile、进程身份与回滚 verified | 自动更新、跨机迁移、外部生命周期接管缺失 | 继续限制在产品自有实例 |
-| ModelConfigurationProvider | Reference Baseline 只读 Adapter + cc-connect Native Config Renderer | managed/native 分离、schema、Owner、revision、备份、漂移检测与回滚 verified | Hermes 未安装时仅能生成 pending 计划；通用组件写入缺失 | Claude/Codex 走受管原生配置；外部配置只读 |
+| ModelConfigurationProvider | Hermes Telegram Native Adapter + Reference Baseline 只读 Adapter + cc-connect Native Config Renderer | managed/native 分离、schema、Owner、revision、备份、漂移检测与回滚 verified；Hermes 公开 `.env` 的最小 Telegram 写入、冲突计划和 Gateway 生命周期已实现 | Hermes Provider/Model/Tool/Studio 与非 Telegram 配置仍由外部管理；Windows/真实 Hermes Telegram live 待用户验证 | Claude/Codex 走受管原生配置；已有 Hermes 配置 external-first，仅显式计划可写 allowlisted Telegram keys |
 | CredentialProvider | Windows Credential Manager + 显式 Fake 后端 | Telegram 固定引用的 put/replace/status/resolve/delete/metadata/revision verified | 加密导入导出、跨机迁移、通用 Provider Secret 缺失 | Secret 仅在受限 Operation 内解析并注入目标子进程 |
 | CapabilityRegistry | multiagent.yaml、relay bindings、版本事实 Adapter | 三个 Agent 与静态角色已知 | 动态注册、版本协商、心跳缺失 | 从配置与进程探测建立只读快照 |
 | HumanControlPolicy | Hermes routing/intervention Adapter | 显式 @、Reply、部分 pause/cancel入口 | 插话、持久化 ack、强控制、改派缺失 | 只声明 verified 能力；完整控制后续实现 |
@@ -155,7 +155,7 @@ read_only_candidate：文件存在、版本、哈希、进程身份、监听可�
 - 不自动把当前环境文件迁移进新 vault
 - 不推断 CC Switch 是否为 Owner；需要专用检测和用户确认
 
-产品自有路径已经实现正式 Owner marker、managed/native 配置分离、原子备份/回滚、Windows CredentialBackend、Telegram Update Lease 与 cc-connect 子进程 Secret 注入。该能力不授权读取旧环境文件中的 Token，也不扩大到 Hermes 模型 Provider、官方登录凭据或 CC Switch。
+产品自有路径已经实现正式 Owner marker、managed/native 配置分离、原子备份/回滚、Windows CredentialBackend、Telegram Update Lease、cc-connect 子进程 Secret 注入，以及 Hermes 官方 `.env` 的 allowlisted Telegram 事务和 Gateway 生命周期。该能力不授权读取或回显 Token，不扩大到 Hermes 模型 Provider、官方登录凭据或 CC Switch；已有 Hermes 配置必须显式计划后才可切换。
 
 ## Capability Registry 映射
 
@@ -197,7 +197,7 @@ read_only_candidate：文件存在、版本、哈希、进程身份、监听可�
 
 ## 本轮保护结论
 
-本轮没有修改 `src/`、`integrations/cc-connect/patches/`、Reference Baseline 真实配置、PATH、注册表、计划任务、Watchdog、junction 或外部服务。新增能力只作用于产品自有隔离目录；已执行 Fake Telegram 与合成 Token 验收，没有发送真实消息，真实 Telegram 仍为 `PENDING USER LIVE VALIDATION`。
+本轮没有修改 `src/`、`integrations/cc-connect/patches/`、Reference Baseline 真实配置、PATH、注册表、计划任务、Watchdog、junction 或外部服务。新增能力只作用于产品自有隔离目录；Hermes Native Adapter 的真实配置验证使用隔离 `.env` 和合成 Token，未发送真实消息，真实 GUI/Hermes Telegram 仍为 `PENDING USER LIVE VALIDATION`。
 
 ## GUI Adapter 边界
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -20,6 +21,7 @@ from control_plane.gui.api_client import (  # noqa: E402
     HttpControlPlaneClient,
 )
 from control_plane.gui.app import APP_VERSION, build_client  # noqa: E402
+from control_plane.gui.icons import ICON_NAMES, icon  # noqa: E402
 from control_plane.gui.main_window import MainWindow  # noqa: E402
 from control_plane.gui.pages import (  # noqa: E402
     CompletionPage,
@@ -72,6 +74,36 @@ def test_main_window_uses_one_fixed_wizard_shell(qt_app):
     assert window.wizard.help.width() == 276
     assert window.wizard.pages.count() == 4
     assert isinstance(window.wizard.completion, CompletionPage)
+    window.close()
+
+
+def test_gui_source_has_no_forbidden_glyph_icons():
+    source_root = Path(__file__).parents[1] / "control_plane" / "gui"
+    forbidden = "🚀★◇▤➤▦⌁ϟ●✓↻—□❐×‹›ⓘ👥"
+    for path in source_root.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        assert not any(symbol in source for symbol in forbidden), path
+
+
+def test_icon_registry_loads_only_vendored_svg_subset():
+    for name in ICON_NAMES:
+        resource = (
+            Path(__file__).parents[1] / "control_plane" / "gui" / "icons" / "assets" / f"{name}.svg"
+        )
+        assert resource.is_file()
+        assert not icon(name).isNull()
+
+
+def test_titlebar_controls_have_consistent_hit_targets(qt_app):
+    window = MainWindow(DemoControlPlaneClient(), demo_mode=True)
+    buttons = [window.title_bar.refresh, window.title_bar.maximize, window.title_bar.close_button]
+    buttons.extend(
+        button
+        for button in window.title_bar.findChildren(QPushButton)
+        if button not in buttons and button.objectName() == "WindowButton"
+    )
+    assert {(button.width(), button.height()) for button in buttons} == {(46, 46)}
+    assert all(not button.icon().isNull() for button in buttons)
     window.close()
 
 
@@ -274,6 +306,8 @@ def test_http_complete_configuration_starts_reconciles_and_strictly_verifies_run
         },
     )
     monkeypatch.setattr(client, "snapshot", lambda: {"onboarding_complete": True})
+    monkeypatch.setattr(client, "_ensure_hermes_telegram_configuration", lambda _session: None)
+    monkeypatch.setattr(client, "hermes_readiness", lambda: {"configuration_status": "READY"})
     result = client.complete_configuration()
     assert result["onboarding_complete"] is True
     assert any(path.endswith(":start") for method, path, _body in operations if method == "POST")
@@ -329,7 +363,7 @@ def test_live_test_runs_six_one_shot_plans_without_retry(monkeypatch):
 
 
 def test_gui_version_matches_candidate_manifest():
-    assert APP_VERSION == "0.3.0-prebeta"
+    assert APP_VERSION == "0.4.0-prebeta"
 
 
 def test_binding_poll_timer_only_runs_on_binding_steps(qt_app):

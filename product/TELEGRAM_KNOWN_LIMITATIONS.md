@@ -1,12 +1,12 @@
 Telegram 已知限制
 =================
 
-更新时间：2026-08-07
+更新时间：2026-08-15
 
-2026-08-13 GUI 状态更新
+2026-08-15 GUI/Hermes 状态更新
 -----------------------
 
-`0.3.0-prebeta` GUI 已接入私聊 deep link/QR、群 startgroup、Binding API、独立 Chat Health 与用户确认 Live E2E，但尚未由用户真实复测。Binding、ready_for_test、LIVE_VERIFIED、failed 和 stale 分开显示；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。
+`0.4.0-prebeta` GUI 已接入正式 SVG 图标、私聊 deep link/QR、群 startgroup、Binding API、独立 Chat Health、Hermes readiness/conflict 与用户确认 Live E2E，但尚未由用户真实复测。Binding、ready_for_test、LIVE_VERIFIED、failed 和 stale 分开显示；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。Hermes Native Telegram Setup 同样等待用户现场确认。
 
 一、已知事实
 ------------
@@ -23,6 +23,8 @@ Telegram 已知限制
 - GUI 只能通过 Control Plane 快照和 Telegram Binding API 判断私聊/群进度，不读取 Telegram Desktop 登录状态、tdata、群列表或聊天历史；客户端不可达时显示 unknown/需要刷新。
 - Telegram Desktop 深链接优先走 `tg://`，不可用时打开官方 HTTPS 下载页；这只证明打开入口，不证明用户已登录或点击 Start。
 - QR 只编码短时 binding deep link；QR 显示成功不证明 Bot 激活，绑定状态仍需 Control Plane poll 和用户现场操作。
+- Hermes Native Adapter 使用官方 `hermes config env-path` 定位公开 `.env`，只修改 `TELEGRAM_BOT_TOKEN` 与 `TELEGRAM_ALLOWED_USERS`；不默认写入 `TELEGRAM_GROUP_ALLOWED_CHATS`，不设置 Allow-All，不修改 `TELEGRAM_HOME_CHANNEL`。
+- 已有 Hermes Bot 配置会先形成 readiness/冲突计划；复用现有 Bot 或切换当前 Bot 都需要显式选择，`.env` 写入可原子回滚，Gateway 原状态会在失败时恢复。
 
 二、能力证据登记
 ----------------

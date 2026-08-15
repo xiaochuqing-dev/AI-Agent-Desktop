@@ -33,3 +33,45 @@ class HermesConfigurationPlan(StrictModel):
 class HermesConfigurationState(StrictModel):
     status: Literal["missing_plan", "plan_ready_external_owner", "pending_component_install"]
     latest_plan: HermesConfigurationPlan | None = None
+
+
+class HermesTelegramReadinessSnapshot(StrictModel):
+    configuration_status: Literal[
+        "UNCONFIGURED", "SAME_BOT", "DIFFERENT_BOT", "INVALID_TOKEN", "PARTIAL", "UNKNOWN"
+    ]
+    bot_identity_status: Literal["verified", "invalid", "unknown"]
+    operator_allowed: bool
+    gateway_status: Literal["running", "stopped", "unknown"]
+    gateway_running: bool
+    change_required: bool
+    conflict: bool
+    diagnostic_code: str | None = None
+    user_message: str
+    revision: int = Field(ge=0)
+    bot_id: int | None = None
+    username: str | None = None
+
+
+class HermesTelegramConfigurationPlanRequest(StrictModel):
+    binding_session_id: str = Field(min_length=1, max_length=128)
+    choice: Literal["use_existing", "switch_to_current"] = "switch_to_current"
+    confirmation: bool = False
+
+
+class HermesTelegramConfigurationPlan(StrictModel):
+    plan_id: str
+    plan_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    binding_session_id: str
+    status: Literal["ready", "needs_action"]
+    readiness: HermesTelegramReadinessSnapshot
+    choice: Literal["use_existing", "switch_to_current"]
+    expected_changes: list[str]
+    user_confirmation_required: bool
+    created_at: datetime
+
+
+class HermesTelegramApplyRequest(StrictModel):
+    plan_id: str
+    plan_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    choice: Literal["use_existing", "switch_to_current"]
+    confirmation: Literal[True]

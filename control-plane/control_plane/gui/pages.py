@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from .api_client import DISPLAY_NAMES, SLOTS
+from .icons import IconTextButton, icon
 from .widgets import AgentIcon, GlassCard, StatusChip
 
 
@@ -54,7 +55,9 @@ class WelcomePage(QWidget):
         quick_layout = QVBoxLayout(quick)
         quick_layout.setContentsMargins(24, 22, 24, 20)
         heading = QHBoxLayout()
-        heading.addWidget(label("🚀", "CardTitle"))
+        heading_icon = QLabel()
+        heading_icon.setPixmap(icon("arrow-right").pixmap(20, 20))
+        heading.addWidget(heading_icon)
         heading.addWidget(label("快速开始", "CardTitle"))
         heading.addStretch(1)
         quick_layout.addLayout(heading)
@@ -109,17 +112,17 @@ class WelcomePage(QWidget):
         result_card.setMinimumHeight(300)
         result_layout = QVBoxLayout(result_card)
         result_layout.setContentsMargins(24, 22, 24, 18)
-        result_layout.addWidget(label("✦   你将完成什么", "CardTitle"))
-        for icon, title_text, detail_text_value in [
-            ("➤", "连接 Telegram", "建立安全的 Telegram 连接。"),
-            ("◆", "让 3 个 Bot 可以聊天", "让 Hermes、Claude Code 和 Codex 在群里正常对话。"),
-            ("✓", "自动检查 Agent", "确认三个 Agent 都已准备好。"),
-            ("●", "自动完成后续配置", "所有配置自动完成，无需手动操作。"),
+        result_layout.addWidget(label("你将完成什么", "CardTitle"))
+        for icon_name, title_text, detail_text_value in [
+            ("telegram", "连接 Telegram", "建立安全的 Telegram 连接。"),
+            ("group", "让 3 个 Bot 可以聊天", "让 Hermes、Claude Code 和 Codex 在群里正常对话。"),
+            ("success", "自动检查 Agent", "确认三个 Agent 都已准备好。"),
+            ("shield", "自动完成后续配置", "所有配置自动完成，无需手动操作。"),
         ]:
             row = QHBoxLayout()
-            icon_label = QLabel(icon)
+            icon_label = QLabel()
             icon_label.setFixedWidth(30)
-            icon_label.setStyleSheet("font-size:20px;color:#5968E8;")
+            icon_label.setPixmap(icon(icon_name).pixmap(19, 19))
             row.addWidget(icon_label)
             text_box = QVBoxLayout()
             text_box.setSpacing(1)
@@ -133,7 +136,7 @@ class WelcomePage(QWidget):
 
         actions = QHBoxLayout()
         actions.setSpacing(20)
-        start = QPushButton("🚀  开始快速配置")
+        start = IconTextButton("开始快速配置", "arrow-right")
         start.setObjectName("PrimaryButton")
         start.setMinimumWidth(312)
         start.clicked.connect(self.start_requested)
@@ -146,7 +149,7 @@ class WelcomePage(QWidget):
         actions.addWidget(help_button)
         actions.addStretch(1)
         root.addLayout(actions)
-        foot = label("✓  整个过程大约需要 5–10 分钟，我们会一步步引导你完成。", "SmallText")
+        foot = label("整个过程大约需要 5–10 分钟，我们会一步步引导你完成。", "SmallText")
         foot.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(foot)
 
@@ -190,16 +193,30 @@ class TokenPage(QWidget):
             paste.clicked.connect(
                 lambda _checked=False, target=field: target.setText(QApplication.clipboard().text())
             )
-            eye = QPushButton("◉")
+            eye = QPushButton()
             eye.setObjectName("InlineButton")
             eye.setFixedWidth(48)
+            eye.setIcon(icon("eye"))
+            eye.setIconSize(eye.iconSize())
             eye.setToolTip("按住临时显示 Token")
-            eye.pressed.connect(lambda target=field: target.setEchoMode(QLineEdit.EchoMode.Normal))
+            eye.setAccessibleName("显示 Token")
+            eye.pressed.connect(
+                lambda target=field, button=eye: (
+                    target.setEchoMode(QLineEdit.EchoMode.Normal),
+                    button.setIcon(icon("eye-off")),
+                )
+            )
             eye.released.connect(
-                lambda target=field: target.setEchoMode(QLineEdit.EchoMode.Password)
+                lambda target=field, button=eye: (
+                    target.setEchoMode(QLineEdit.EchoMode.Password),
+                    button.setIcon(icon("eye")),
+                )
             )
             field.editingFinished.connect(
-                lambda target=field: target.setEchoMode(QLineEdit.EchoMode.Password)
+                lambda target=field, button=eye: (
+                    target.setEchoMode(QLineEdit.EchoMode.Password),
+                    button.setIcon(icon("eye")),
+                )
             )
             input_row.addWidget(paste)
             input_row.addWidget(eye)
@@ -211,7 +228,9 @@ class TokenPage(QWidget):
                 line.setStyleSheet("color:rgba(197,210,236,110);")
                 form_layout.addWidget(line)
         security = QHBoxLayout()
-        security.addWidget(label("✓", "CardTitle"))
+        security_icon = QLabel()
+        security_icon.setPixmap(icon("shield").pixmap(18, 18))
+        security.addWidget(security_icon)
         security.addWidget(label("安全存储到 Windows Credential Manager", "SmallText"))
         security.addStretch(1)
         form_layout.addSpacing(4)
@@ -268,14 +287,16 @@ class PrivateActivationPage(QWidget):
             row_layout.addLayout(identity, 1)
             status = StatusChip("等待激活", "warning")
             row_layout.addWidget(status)
-            open_button = QPushButton("➤  打开 Telegram")
+            open_button = IconTextButton("打开 Telegram", "telegram")
             open_button.setObjectName("TelegramButton")
             open_button.clicked.connect(
                 lambda _checked=False, value=slot: self.open_requested.emit(value)
             )
             row_layout.addWidget(open_button)
-            qr = QPushButton("▦")
+            qr = QPushButton()
             qr.setObjectName("QrButton")
+            qr.setIcon(icon("qr"))
+            qr.setIconSize(qr.iconSize())
             qr.setToolTip("手机扫码激活")
             qr.clicked.connect(lambda _checked=False, value=slot: self.qr_requested.emit(value))
             row_layout.addWidget(qr)
@@ -289,7 +310,9 @@ class PrivateActivationPage(QWidget):
         info = QFrame()
         info_layout = QHBoxLayout(info)
         info_layout.setContentsMargins(8, 10, 8, 8)
-        info_layout.addWidget(label("ⓘ", "CardTitle"))
+        info_icon = QLabel()
+        info_icon.setPixmap(icon("info").pixmap(18, 18))
+        info_layout.addWidget(info_icon)
         info_layout.addWidget(
             label("如果电脑没有安装 Telegram，也可以直接用手机扫码完成激活。", "SmallText")
         )
@@ -340,10 +363,10 @@ class GroupPage(QWidget):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(22, 16, 22, 12)
         actions = QHBoxLayout()
-        open_button = QPushButton("➤  打开 Telegram")
+        open_button = IconTextButton("打开 Telegram", "telegram")
         open_button.setObjectName("SecondaryButton")
         open_button.clicked.connect(self.open_requested)
-        detect = QPushButton("⌕  我已经加好了，开始检测")
+        detect = IconTextButton("我已经加好了，开始检测", "refresh")
         detect.setObjectName("PrimaryButton")
         detect.clicked.connect(self.detect_requested)
         actions.addWidget(open_button)
@@ -369,7 +392,7 @@ class GroupPage(QWidget):
             copy_button.clicked.connect(
                 lambda _checked=False, value=slot: self.copy_username(value)
             )
-            add_button = QPushButton("➤  通过 Telegram 添加")
+            add_button = IconTextButton("通过 Telegram 添加", "telegram")
             add_button.setObjectName("InlineButton")
             add_button.clicked.connect(
                 lambda _checked=False, value=slot: self.add_requested.emit(value)
@@ -392,7 +415,9 @@ class GroupPage(QWidget):
         info.setObjectName("GlassCard")
         info_layout = QHBoxLayout(info)
         info_layout.setContentsMargins(14, 12, 14, 12)
-        info_layout.addWidget(QLabel("👥"))
+        info_icon = QLabel()
+        info_icon.setPixmap(icon("group").pixmap(20, 20))
+        info_layout.addWidget(info_icon)
         info_layout.addWidget(self.group_info, 1)
         layout.addWidget(info)
         root.addWidget(card, 1)
@@ -460,40 +485,47 @@ class CompletionPage(QWidget):
         root.addWidget(subtitle)
         card = GlassCard(strong=True)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(18, 8, 18, 8)
-        layout.setSpacing(1)
+        layout.setContentsMargins(18, 6, 18, 6)
+        layout.setSpacing(0)
         self.checks: dict[str, tuple[QLabel, StatusChip]] = {}
         self.check_rows: list[QWidget] = []
         self.chat_pills: dict[tuple[str, str], QLabel] = {}
         items = [
-            ("telegram", "检查 Telegram 连接", "➤"),
-            ("agents", "检查 Hermes、Claude Code 和 Codex", "◇"),
-            ("runtime", "准备运行环境", "▤"),
-            ("configuration", "生成连接配置", "⚙"),
-            ("chat", "检查聊天是否可用", "⋯"),
+            ("telegram", "检查 Telegram 连接", "telegram"),
+            ("agents", "检查 Hermes、Claude Code 和 Codex", "group"),
+            ("runtime", "准备运行环境", "repair"),
+            ("configuration", "生成连接配置", "shield"),
+            ("chat", "检查聊天是否可用", "info"),
         ]
-        for key, text_value, icon in items:
+        for key, text_value, icon_name in items:
             row_widget = QWidget()
-            row_widget.setFixedHeight(20)
+            row_widget.setFixedHeight(28)
             row = QHBoxLayout(row_widget)
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(7)
-            glyph = QLabel(icon)
+            glyph = QLabel()
             glyph.setFixedWidth(20)
             glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            glyph.setStyleSheet("font-size:14px;color:#5868E8;")
+            glyph.setPixmap(icon(icon_name).pixmap(17, 17))
             row.addWidget(glyph)
             check_label = QLabel(text_value)
-            check_label.setStyleSheet("font-size:12px;font-weight:600;color:#111323;")
+            check_label.setObjectName("BodyText")
             row.addWidget(check_label, 1)
             status = StatusChip("等待", "neutral")
-            status.setFixedHeight(18)
-            status.setStyleSheet("padding:1px 7px;font-size:10px;border-radius:9px;")
+            status.setFixedHeight(22)
             row.addWidget(status)
             layout.addWidget(row_widget)
             self.check_rows.append(row_widget)
             self.checks[key] = (glyph, status)
         root.addWidget(card)
+
+        hermes_row = QHBoxLayout()
+        hermes_row.addWidget(label("Hermes Telegram", "CardTitle"))
+        self.hermes_status = StatusChip("等待检查", "neutral")
+        self.hermes_status.setMinimumWidth(104)
+        hermes_row.addWidget(self.hermes_status)
+        hermes_row.addStretch(1)
+        root.addLayout(hermes_row)
 
         agents = GlassCard()
         agent_layout = QVBoxLayout(agents)
@@ -565,11 +597,11 @@ class CompletionPage(QWidget):
                 pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 pill.setWordWrap(True)
                 pill.setMinimumWidth(0)
-                pill.setFixedHeight(22)
+                pill.setFixedHeight(28)
                 pill.setToolTip(f"{chat_name}：待确认")
                 pill.setStyleSheet(
                     "background:rgba(239,243,252,220);border:1px solid rgba(205,216,238,150);"
-                    "border-radius:10px;padding:1px 4px;color:#5D6275;font-size:9px;"
+                    "border-radius:10px;padding:3px 6px;color:#5D6275;font-size:12px;"
                 )
                 pill.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
                 pills.addWidget(pill, pill_index // 3, pill_index % 3)
@@ -582,7 +614,7 @@ class CompletionPage(QWidget):
         banner_layout = QHBoxLayout(banner)
         banner_layout.setContentsMargins(12, 6, 12, 6)
         self.banner_text = label("配置完成后，你就可以开始使用了。", "BodyText")
-        self.banner_text.setStyleSheet("color:#2B8050;font-size:13px;font-weight:600;")
+        self.banner_text.setProperty("kind", "success")
         banner_layout.addWidget(self.banner_text)
         root.addWidget(banner)
         live_actions = QHBoxLayout()
@@ -601,6 +633,18 @@ class CompletionPage(QWidget):
         root.addStretch(1)
 
     def apply_snapshot(self, snapshot: dict[str, Any]) -> None:
+        hermes = snapshot.get("hermes_telegram") or {}
+        hermes_state = hermes.get("configuration_status")
+        if hermes_state == "SAME_BOT" and hermes.get("gateway_running"):
+            self.hermes_status.set_status("已连接", "success")
+        elif hermes_state == "DIFFERENT_BOT":
+            self.hermes_status.set_status("需要选择", "warning")
+        elif hermes_state in {"INVALID_TOKEN", "UNKNOWN"}:
+            self.hermes_status.set_status("需要处理", "warning")
+        elif hermes_state == "UNCONFIGURED":
+            self.hermes_status.set_status("待配置", "neutral")
+        else:
+            self.hermes_status.set_status("等待检查", "neutral")
         for item in snapshot.get("checklist", []):
             key = item.get("key")
             if key not in self.checks:
@@ -733,7 +777,7 @@ class CompletionPage(QWidget):
         pill.setToolTip("\n".join(str(item) for item in technical))
         pill.setStyleSheet(
             f"background:rgba({background});border:1px solid rgba({border});"
-            f"border-radius:10px;padding:1px 4px;color:{color};font-size:9px;"
+            f"border-radius:10px;padding:3px 6px;color:{color};font-size:12px;"
         )
 
     def set_live_test_running(self) -> None:
@@ -746,15 +790,15 @@ class CompletionPage(QWidget):
 
     def set_failure(self, message: str) -> None:
         self.banner_text.setText(f"配置暂时没有完成：{message}\n可以点击重试配置，或打开详细诊断。")
-        self.banner_text.setStyleSheet("color:#A94A55;font-size:13px;font-weight:600;")
+        self.banner_text.setProperty("kind", "error")
 
     def set_ready(self, *, chat_verified: bool = False) -> None:
         self.banner_text.setText(
-            "🎉  六条聊天链路已验证，你现在可以开始使用了。"
+            "六条聊天链路已验证，你现在可以开始使用了。"
             if chat_verified
             else "基础配置已完成。你可以快速验证聊天，或以后从 Dashboard 再验证。"
         )
-        self.banner_text.setStyleSheet("color:#2B8050;font-size:13px;font-weight:600;")
+        self.banner_text.setProperty("kind", "success")
 
 
 class DashboardPage(QWidget):
@@ -777,6 +821,13 @@ class DashboardPage(QWidget):
         self.overall = StatusChip("状态待确认", "neutral")
         top.addWidget(self.overall, alignment=Qt.AlignmentFlag.AlignTop)
         root.addLayout(top)
+        hermes_row = QHBoxLayout()
+        hermes_row.addWidget(label("Hermes Telegram", "CardTitle"))
+        self.hermes_status = StatusChip("状态待确认", "neutral")
+        self.hermes_status.setMinimumWidth(112)
+        hermes_row.addWidget(self.hermes_status)
+        hermes_row.addStretch(1)
+        root.addLayout(hermes_row)
         agents_card = GlassCard(strong=True)
         agents_layout = QHBoxLayout(agents_card)
         agents_layout.setContentsMargins(18, 18, 18, 18)
@@ -821,10 +872,10 @@ class DashboardPage(QWidget):
         issue_layout.addWidget(self.issue_text)
         root.addWidget(issue_card)
         actions = QHBoxLayout()
-        reconfigure = QPushButton("↻  重新运行快速配置")
+        reconfigure = IconTextButton("重新运行快速配置", "refresh")
         reconfigure.setObjectName("SecondaryButton")
         reconfigure.clicked.connect(self.reconfigure_requested)
-        diagnostics = QPushButton("⌕  查看详细诊断")
+        diagnostics = IconTextButton("查看详细诊断", "info")
         diagnostics.setObjectName("PrimaryButton")
         diagnostics.clicked.connect(self.diagnostics_requested)
         actions.addWidget(reconfigure)
@@ -837,6 +888,18 @@ class DashboardPage(QWidget):
         root.addLayout(actions)
 
     def apply_snapshot(self, snapshot: dict[str, Any]) -> None:
+        hermes = snapshot.get("hermes_telegram") or {}
+        hermes_state = hermes.get("configuration_status")
+        if hermes_state == "SAME_BOT" and hermes.get("gateway_running"):
+            self.hermes_status.set_status("已连接", "success")
+        elif hermes_state == "DIFFERENT_BOT":
+            self.hermes_status.set_status("需要选择", "warning")
+        elif hermes_state in {"INVALID_TOKEN", "UNKNOWN"}:
+            self.hermes_status.set_status("需要处理", "warning")
+        elif hermes_state == "UNCONFIGURED":
+            self.hermes_status.set_status("待配置", "neutral")
+        else:
+            self.hermes_status.set_status("状态待确认", "neutral")
         overall = snapshot.get("overall_status")
         if overall == "ready" and snapshot.get("chat_health") == "live_verified":
             self.overall.set_status("已验证", "success")
@@ -917,7 +980,7 @@ class DiagnosticsPage(QWidget):
         self.body = label("正在读取诊断…", "BodyText")
         layout.addWidget(self.body)
         root.addWidget(card, 1)
-        back = QPushButton("‹  返回首页")
+        back = IconTextButton("返回首页", "arrow-left")
         back.setObjectName("SecondaryButton")
         back.clicked.connect(self.back_requested)
         root.addWidget(back, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -925,12 +988,12 @@ class DiagnosticsPage(QWidget):
     def apply_diagnostics(self, diagnostics: list[dict[str, Any]]) -> None:
         if not diagnostics:
             self.body.setText(
-                "✓ 当前没有需要处理的问题。\n\n如果状态发生变化，可以点击顶部的刷新按钮重新读取。"
+                "当前没有需要处理的问题。\n\n如果状态发生变化，可以点击顶部的刷新按钮重新读取。"
             )
             return
         lines = []
         for item in diagnostics:
             lines.append(
-                f"• {item.get('user_message') or item.get('summary') or '需要进一步检查。'}"
+                f"- {item.get('user_message') or item.get('summary') or '需要进一步检查。'}"
             )
         self.body.setText("\n".join(lines))

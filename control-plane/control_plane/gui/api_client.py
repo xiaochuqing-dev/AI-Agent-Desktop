@@ -42,6 +42,13 @@ class GuiApiClient(ABC):
     @abstractmethod
     def complete_configuration(self) -> dict[str, Any]: ...
 
+    def hermes_readiness(self) -> dict[str, Any]:
+        return {}
+
+    def set_hermes_choice(self, choice: str | None) -> None:
+        if choice not in {None, "use_existing", "switch_to_current"}:
+            raise GuiApiError("Hermes Bot 选择无效。", code="HERMES_CHOICE_INVALID")
+
     @abstractmethod
     def diagnostics(self) -> list[dict[str, Any]]: ...
 
@@ -87,6 +94,7 @@ class HttpControlPlaneClient(GuiApiClient):
         self.binding: dict[str, Any] | None = None
         self.data_dir = data_dir
         self.artifact_dir = artifact_dir
+        self._hermes_choice: str | None = None
 
     def _request(
         self,
@@ -95,6 +103,7 @@ class HttpControlPlaneClient(GuiApiClient):
         *,
         json_body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
     ) -> httpx.Response:
         merged = dict(self.headers)
         if headers:
@@ -105,6 +114,7 @@ class HttpControlPlaneClient(GuiApiClient):
                 f"{self.base_url}{path}",
                 headers=merged,
                 json=json_body,
+                params=params,
                 timeout=self.timeout,
                 follow_redirects=False,
                 trust_env=False,
@@ -228,9 +238,6 @@ class HttpControlPlaneClient(GuiApiClient):
             raise GuiApiError(
                 "请先完成 Telegram 私聊和群聊绑定。", code="TELEGRAM_BINDING_NOT_COMPLETE"
             )
-        self._ensure_cc_connect_installed()
-        self._ensure_product_ownership()
-        self._ensure_native_configuration(str(binding_session_id))
         detections = self.refresh_snapshot().get("agents", [])
         missing = [
             item.get("display_name", item.get("slot", "Agent"))
@@ -242,14 +249,68 @@ class HttpControlPlaneClient(GuiApiClient):
                 "请先安装或修复这些 Agent：" + "、".join(str(item) for item in missing),
                 code="AGENT_NOT_READY",
             )
+        self._ensure_hermes_telegram_configuration(str(binding_session_id))
+        self._ensure_cc_connect_installed()
+        self._ensure_product_ownership()
+        self._ensure_native_configuration(str(binding_session_id))
         self._ensure_runtime_ready()
         snapshot = self.snapshot()
+        snapshot["hermes_telegram"] = self.hermes_readiness()
         if not snapshot.get("onboarding_complete"):
             raise GuiApiError(
                 "基础配置尚未通过全部真实性检查，请查看详细诊断。",
                 code="ONBOARDING_NOT_READY",
             )
         return snapshot
+
+    def hermes_readiness(self, binding_session_id: str | None = None) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            "/api/v1/components/hermes/telegram-readiness",
+            params=({"binding_session_id": binding_session_id} if binding_session_id else None),
+        ).json()
+
+    def set_hermes_choice(self, choice: str | None) -> None:
+        super().set_hermes_choice(choice)
+        self._hermes_choice = choice
+
+    def _ensure_hermes_telegram_configuration(self, binding_session_id: str) -> None:
+        readiness = self.hermes_readiness(binding_session_id)
+        self._last_hermes_readiness = readiness
+        status = readiness.get("configuration_status")
+        if status == "DIFFERENT_BOT" and self._hermes_choice is None:
+            raise GuiApiError(
+                "检测到 Hermes 已连接另一个 Telegram Bot，请选择复用现有 Bot 或切换当前 Token。",
+                code="HERMES_TELEGRAM_CONFLICT_CONFIRMATION_REQUIRED",
+            )
+        choice = self._hermes_choice or "switch_to_current"
+        plan = self._request(
+            "POST",
+            "/api/v1/components/hermes/telegram-configuration:plan",
+            json_body={
+                "binding_session_id": binding_session_id,
+                "choice": choice,
+                "confirmation": bool(self._hermes_choice),
+            },
+        ).json()
+        if plan.get("user_confirmation_required") and not self._hermes_choice:
+            raise GuiApiError(
+                "切换 Hermes 当前 Bot 需要明确确认。",
+                code="HERMES_TELEGRAM_CONFLICT_CONFIRMATION_REQUIRED",
+            )
+        operation = self._request(
+            "POST",
+            "/api/v1/components/hermes/telegram-configuration:apply",
+            json_body={
+                "plan_id": plan["plan_id"],
+                "plan_digest": plan["plan_digest"],
+                "choice": choice,
+                "confirmation": True,
+            },
+            headers={"Idempotency-Key": self._key("hermes-telegram-configuration")},
+        ).json()
+        self._wait_operation(operation["operation_id"], timeout=90)
+        self._hermes_choice = None
 
     def _ensure_runtime_ready(self) -> None:
         native = self._request("GET", "/api/v1/components/cc-connect/native-configuration").json()
@@ -510,6 +571,7 @@ class EmbeddedControlPlaneClient(HttpControlPlaneClient):
         *,
         json_body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
     ):
         merged = dict(self.headers)
         if headers:
@@ -519,6 +581,7 @@ class EmbeddedControlPlaneClient(HttpControlPlaneClient):
             path,
             headers=merged,
             json=json_body,
+            params=params,
             follow_redirects=False,
         )
         if response.status_code >= 400:
@@ -571,6 +634,8 @@ class DemoControlPlaneClient(GuiApiClient):
         self._tokens_ready = False
         self._complete = False
         self._live_verified = False
+        self._hermes_configured = False
+        self._hermes_choice: str | None = None
 
     @property
     def binding(self) -> dict[str, Any] | None:
@@ -805,7 +870,44 @@ class DemoControlPlaneClient(GuiApiClient):
     def complete_configuration(self) -> dict[str, Any]:
         self._tokens_ready = True
         self._complete = True
+        self._hermes_configured = True
+        self._hermes_choice = None
         return self.snapshot()
+
+    def hermes_readiness(self) -> dict[str, Any]:
+        if not self._tokens_ready:
+            return {
+                "configuration_status": "UNCONFIGURED",
+                "bot_identity_status": "unknown",
+                "operator_allowed": False,
+                "gateway_status": "stopped",
+                "gateway_running": False,
+                "change_required": True,
+                "conflict": False,
+                "diagnostic_code": "HERMES_TELEGRAM_NOT_CONFIGURED",
+                "user_message": "Hermes 尚未配置 Telegram。",
+                "revision": 0,
+            }
+        return {
+            "configuration_status": "SAME_BOT",
+            "bot_identity_status": "verified",
+            "operator_allowed": True,
+            "gateway_status": "running" if self._hermes_configured else "stopped",
+            "gateway_running": self._hermes_configured,
+            "change_required": not self._hermes_configured,
+            "conflict": False,
+            "diagnostic_code": None,
+            "user_message": "Hermes Telegram 已连接。"
+            if self._hermes_configured
+            else "Hermes 尚未配置 Telegram。",
+            "revision": 1 if self._hermes_configured else 0,
+            "bot_id": 9100,
+            "username": "hermes_bot",
+        }
+
+    def set_hermes_choice(self, choice: str | None) -> None:
+        super().set_hermes_choice(choice)
+        self._hermes_choice = choice
 
     def run_live_test(self, *, confirmation: bool) -> list[dict[str, Any]]:
         if not confirmation:

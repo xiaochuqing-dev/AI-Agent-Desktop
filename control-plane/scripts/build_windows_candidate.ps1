@@ -64,6 +64,7 @@ New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
     --add-data "$ControlPlaneRoot\alembic;alembic" `
     --add-data "$ControlPlaneRoot\alembic.ini;." `
     --add-data "$ControlPlaneRoot\control_plane\gui\assets;control_plane/gui/assets" `
+    --add-data "$ControlPlaneRoot\control_plane\gui\icons\assets;control_plane/gui/icons/assets" `
     --icon "$ControlPlaneRoot\control_plane\gui\assets\app_icon.ico" `
     --collect-data control_plane `
     --hidden-import control_plane.main `
@@ -109,7 +110,7 @@ function Get-FileEntry {
     }
 }
 
-$CandidateVersion = "0.3.0-prebeta"
+$CandidateVersion = "0.4.0-prebeta"
 $CcManifest = Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect-artifact-manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $CcSha = (Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect.sha256") -Raw -Encoding UTF8).Trim().Split(' ')[0].ToLowerInvariant()
 $PayloadFiles = @(Get-ChildItem -LiteralPath $OutputDir -Recurse -File | Where-Object {

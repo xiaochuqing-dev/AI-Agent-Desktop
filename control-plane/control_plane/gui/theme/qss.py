@@ -14,31 +14,32 @@ def build_stylesheet() -> str:
         border-bottom: 1px solid rgba(255, 255, 255, 150);
     }
     QLabel#AppTitle { font-size: 18px; font-weight: 650; }
-    QPushButton#WindowButton, QPushButton#RefreshButton {
+    QPushButton#WindowButton, QPushButton#RefreshButton, QPushButton#IconButton {
         border: none;
         background: transparent;
-        font-size: 18px;
         min-width: 48px;
         min-height: 46px;
         border-radius: 11px;
     }
     QPushButton#RefreshButton {
-        background: rgba(255, 255, 255, 145);
-        border: 1px solid rgba(255, 255, 255, 180);
+        background: rgba(255, 255, 255, 188);
+        border: 1px solid rgba(255, 255, 255, 220);
     }
-    QPushButton#WindowButton:hover, QPushButton#RefreshButton:hover {
-        background: rgba(255, 255, 255, 170);
+    QPushButton#WindowButton:hover, QPushButton#RefreshButton:hover, QPushButton#IconButton:hover {
+        background: rgba(255, 255, 255, 215);
     }
-    QPushButton#CloseButton:hover { background: rgba(231, 92, 105, 190); color: white; }
+    QPushButton#CloseButton { border: none; background: transparent; min-width: 48px; min-height: 46px; border-radius: 11px; }
+    QPushButton#CloseButton:hover { background: rgba(231, 92, 105, 145); }
+    QPushButton#CloseButton:pressed { background: rgba(211, 75, 90, 180); }
 
     QFrame#GlassCard, QWidget#GlassCard {
-        background: rgba(255, 255, 255, 118);
-        border: 1px solid rgba(255, 255, 255, 180);
+        background: rgba(255, 255, 255, 176);
+        border: 1px solid rgba(255, 255, 255, 220);
         border-radius: 17px;
     }
     QFrame#GlassCardStrong, QWidget#GlassCardStrong {
-        background: rgba(255, 255, 255, 151);
-        border: 1px solid rgba(255, 255, 255, 205);
+        background: rgba(255, 255, 255, 204);
+        border: 1px solid rgba(255, 255, 255, 235);
         border-radius: 17px;
     }
     QFrame#StepRail {
@@ -89,6 +90,8 @@ def build_stylesheet() -> str:
     QLabel#StatusChip[kind="success"] { color: #278D4B; background: rgba(221, 247, 231, 220); }
     QLabel#StatusChip[kind="warning"] { color: #B66B09; background: rgba(255, 245, 217, 225); }
     QLabel#StatusChip[kind="neutral"] { color: #5D6275; background: rgba(239, 243, 252, 220); }
+    QLabel#StatusChip[kind="info"] { color: #5969D8; background: rgba(235, 239, 255, 230); }
+    QLabel#StatusChip[kind="error"] { color: #A94A55; background: rgba(255, 235, 238, 230); }
 
     QPushButton#PrimaryButton {
         color: white;
@@ -143,7 +146,7 @@ def build_stylesheet() -> str:
         min-width: 54px;
         max-width: 54px;
         min-height: 48px;
-        font-size: 20px;
+        padding: 0;
     }
     QLineEdit#TokenInput {
         min-height: 44px;
@@ -162,6 +165,15 @@ def build_stylesheet() -> str:
         border: 1px solid rgba(152, 220, 180, 100);
         border-radius: 10px;
     }
+    QLabel#ChatPill {
+        background: rgba(239,243,252,230);
+        border: 1px solid rgba(205,216,238,180);
+        border-radius: 10px;
+        padding: 4px 8px;
+        color: #5D6275;
+        font-size: 12px;
+    }
+    QPushButton[loading="true"] { opacity: 0.65; }
     QScrollArea { background: transparent; border: none; }
     QScrollBar:vertical { width: 8px; background: transparent; }
     QScrollBar::handle:vertical { background: rgba(101, 111, 164, 70); border-radius: 4px; min-height: 28px; }

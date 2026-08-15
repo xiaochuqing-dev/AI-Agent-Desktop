@@ -25,6 +25,10 @@
     { "$ref": "#/$defs/NativeConfigurationState" },
     { "$ref": "#/$defs/HermesConfigurationPlan" },
     { "$ref": "#/$defs/HermesConfigurationState" },
+    { "$ref": "#/$defs/HermesTelegramReadinessSnapshot" },
+    { "$ref": "#/$defs/HermesTelegramConfigurationPlanRequest" },
+    { "$ref": "#/$defs/HermesTelegramConfigurationPlan" },
+    { "$ref": "#/$defs/HermesTelegramApplyRequest" },
     { "$ref": "#/$defs/ExternalCcConnectState" }
   ],
   "$defs": {
@@ -698,6 +702,72 @@
       "properties": {
         "status": { "type": "string", "enum": ["missing_plan", "plan_ready_external_owner", "pending_component_install"] },
         "latest_plan": { "oneOf": [{ "$ref": "#/$defs/HermesConfigurationPlan" }, { "type": "null" }] }
+      }
+    },
+    "HermesTelegramReadinessSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuration_status", "bot_identity_status", "operator_allowed",
+        "gateway_status", "gateway_running", "change_required", "conflict",
+        "diagnostic_code", "user_message", "revision", "bot_id", "username"
+      ],
+      "properties": {
+        "configuration_status": {
+          "type": "string",
+          "enum": ["UNCONFIGURED", "SAME_BOT", "DIFFERENT_BOT", "INVALID_TOKEN", "PARTIAL", "UNKNOWN"]
+        },
+        "bot_identity_status": { "type": "string", "enum": ["verified", "invalid", "unknown"] },
+        "operator_allowed": { "type": "boolean" },
+        "gateway_status": { "type": "string", "enum": ["running", "stopped", "unknown"] },
+        "gateway_running": { "type": "boolean" },
+        "change_required": { "type": "boolean" },
+        "conflict": { "type": "boolean" },
+        "diagnostic_code": { "type": ["string", "null"] },
+        "user_message": { "type": "string" },
+        "revision": { "type": "integer", "minimum": 0 },
+        "bot_id": { "type": ["integer", "null"], "exclusiveMinimum": 0 },
+        "username": { "type": ["string", "null"] }
+      }
+    },
+    "HermesTelegramConfigurationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id", "plan_digest", "binding_session_id", "status", "readiness",
+        "choice", "expected_changes", "user_confirmation_required", "created_at"
+      ],
+      "properties": {
+        "plan_id": { "type": "string", "minLength": 1 },
+        "plan_digest": { "$ref": "#/$defs/Digest" },
+        "binding_session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ready", "needs_action"] },
+        "readiness": { "$ref": "#/$defs/HermesTelegramReadinessSnapshot" },
+        "choice": { "type": "string", "enum": ["use_existing", "switch_to_current"] },
+        "expected_changes": { "type": "array", "items": { "type": "string" } },
+        "user_confirmation_required": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "HermesTelegramConfigurationPlanRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_session_id"],
+      "properties": {
+        "binding_session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "choice": { "type": "string", "enum": ["use_existing", "switch_to_current"], "default": "switch_to_current" },
+        "confirmation": { "type": "boolean", "default": false }
+      }
+    },
+    "HermesTelegramApplyRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_id", "plan_digest", "choice", "confirmation"],
+      "properties": {
+        "plan_id": { "type": "string", "minLength": 1 },
+        "plan_digest": { "$ref": "#/$defs/Digest" },
+        "choice": { "type": "string", "enum": ["use_existing", "switch_to_current"] },
+        "confirmation": { "const": true }
       }
     },
     "ExternalCcConnectState": {
