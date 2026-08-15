@@ -81,6 +81,6 @@ Hermes Native Telegram Setup：`PENDING USER LIVE VALIDATION`。
 
 Installer/MSI、卸载器、快捷方式、GitHub Release Asset、签名和 SmartScreen：`DEFERRED`。
 
-CI 证据已回填：Run `31878741409`、GUI artifact `9245537693`、cc-connect artifact `9245538197`、最终 main SHA `582b12a95e69d2494a58856f62cdae886000d3d5`。下一阶段只做用户 Win11 GUI/Hermes live、Windows 10 实机、Installer/Release/签名，不继续扩展核心业务范围。
+CI 证据已回填：Run `31878741409`、GUI artifact `9245537693`、cc-connect artifact `9245538197`、功能收口提交 SHA `582b12a95e69d2494a58856f62cdae886000d3d5`。下一阶段只做用户 Win11 GUI/Hermes live、Windows 10 实机、Installer/Release/签名，不继续扩展核心业务范围。
 
 回滚策略：候选包不写入系统环境；Hermes `.env` 事务使用内存 receipt 回滚，Gateway 恢复原状态；cc-connect 使用产品自有 revision/backup/rollback；代码回滚使用 main 上的正常反向提交，禁止 reset/rebase/force push。
