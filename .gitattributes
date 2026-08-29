@@ -1,1 +1,2 @@
 integrations/cc-connect/patches/*.patch text eol=lf
+integrations/cc-connect/fixtures/*.toml text eol=lf
