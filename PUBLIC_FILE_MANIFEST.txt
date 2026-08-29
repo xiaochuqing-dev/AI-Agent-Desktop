@@ -1,7 +1,7 @@
 PUBLIC_FILE_MANIFEST
 
-Generated: 2026-08-15
-Public file count: 342
+Generated: 2026-08-30
+Public file count: 347
 
 Scope
 This inventory contains every tracked file on final main.
@@ -22,8 +22,19 @@ File list
 03_LATEST_PRODUCT_DECISIONS.md
 04_REFERENCE_BASELINE.md
 05_NEXT_PHASE.md
+CURRENT_RUNTIME_SOURCE_MAP.md
+LICENSE
+PUBLIC_FILE_MANIFEST.txt
+PUBLIC_HANDOFF_READY.md
+README.md
+SECURITY_REVIEW.md
+SHA256SUMS.txt
 architecture/CHANNEL_MODEL_REQUIREMENTS.md
 architecture/CONTROL_PLANE_REQUIREMENTS.md
+architecture/CREDENTIAL_PROVIDER_REQUIREMENTS.md
+architecture/HUMAN_CONTROL_REQUIREMENTS.md
+architecture/MODEL_CONFIGURATION_PROVIDER_REQUIREMENTS.md
+architecture/PROVIDER_CONTRACT_REQUIREMENTS.md
 architecture/control-plane-v1/01_USER_JOURNEY_AND_ONBOARDING.md
 architecture/control-plane-v1/02_CONTROL_PLANE_BOUNDARIES.md
 architecture/control-plane-v1/03_PROVIDER_ADAPTER_CONTRACTS.md
@@ -38,16 +49,12 @@ architecture/control-plane-v1/11_OPEN_SOURCE_DESIGN_REFERENCES.md
 architecture/control-plane-v1/12_CC_CONNECT_MANAGED_RUNTIME_BOUNDARIES.md
 architecture/control-plane-v1/13_TELEGRAM_THREE_BOT_AND_NATIVE_CONFIGURATION.md
 architecture/control-plane-v1/ACCEPTANCE_CHECKLIST.md
+architecture/control-plane-v1/README.md
 architecture/control-plane-v1/adr/ADR-001-implementation-language-and-api-framework.md
 architecture/control-plane-v1/adr/ADR-002-operation-state-and-event-persistence.md
 architecture/control-plane-v1/adr/ADR-003-windows-background-host-and-lifecycle-ownership.md
 architecture/control-plane-v1/adr/ADR-004-credential-backend-and-secret-boundary.md
 architecture/control-plane-v1/adr/README.md
-architecture/control-plane-v1/README.md
-architecture/CREDENTIAL_PROVIDER_REQUIREMENTS.md
-architecture/HUMAN_CONTROL_REQUIREMENTS.md
-architecture/MODEL_CONFIGURATION_PROVIDER_REQUIREMENTS.md
-architecture/PROVIDER_CONTRACT_REQUIREMENTS.md
 config-examples/config.example.toml
 config-examples/multiagent.yaml.example
 config-examples/relay_bindings.example.json
@@ -57,6 +64,7 @@ contracts/control-plane-v1/event-envelope.schema.json
 contracts/control-plane-v1/managed-runtime.schema.json
 contracts/control-plane-v1/onboarding.schema.json
 control-plane/.python-version
+control-plane/README.md
 control-plane/alembic.ini
 control-plane/alembic/env.py
 control-plane/alembic/script.py.mako
@@ -203,7 +211,6 @@ control-plane/control_plane/updates/providers.py
 control-plane/control_plane/validation/__init__.py
 control-plane/control_plane/validation/wizard.py
 control-plane/pyproject.toml
-control-plane/README.md
 control-plane/requirements-build.in
 control-plane/requirements-build.lock
 control-plane/requirements-dev-linux.lock
@@ -211,18 +218,18 @@ control-plane/requirements-dev.lock
 control-plane/requirements-gui.in
 control-plane/requirements-gui.lock
 control-plane/requirements-prod.lock
+control-plane/scripts/USER_VALIDATION_GUIDE.txt
 control-plane/scripts/build_windows_candidate.ps1
 control-plane/scripts/candidate_entry.py
 control-plane/scripts/gui_candidate_entry.py
 control-plane/scripts/production_only_acceptance.py
-control-plane/scripts/USER_VALIDATION_GUIDE.txt
 control-plane/scripts/validate_contracts.py
 control-plane/scripts/validate_gui_candidate.py
+control-plane/scripts/windows10_user_acceptance.ps1
 control-plane/scripts/windows_credential_manager_acceptance.py
 control-plane/scripts/windows_isolated_acceptance.py
 control-plane/scripts/windows_managed_runtime_acceptance.py
 control-plane/scripts/windows_native_runtime_acceptance.py
-control-plane/scripts/windows10_user_acceptance.ps1
 control-plane/tests/__init__.py
 control-plane/tests/conftest.py
 control-plane/tests/fakes.py
@@ -238,8 +245,8 @@ control-plane/tests/test_discovery_service.py
 control-plane/tests/test_domain_models.py
 control-plane/tests/test_event_log.py
 control-plane/tests/test_external_cc_connect_detection.py
-control-plane/tests/test_gui_candidate_validator.py
 control-plane/tests/test_gui.py
+control-plane/tests/test_gui_candidate_validator.py
 control-plane/tests/test_hermes_telegram.py
 control-plane/tests/test_installer_api.py
 control-plane/tests/test_installer_artifacts.py
@@ -248,8 +255,8 @@ control-plane/tests/test_installer_service.py
 control-plane/tests/test_lifecycle_service.py
 control-plane/tests/test_migrations.py
 control-plane/tests/test_native_configuration_and_secrets.py
-control-plane/tests/test_observability_api.py
 control-plane/tests/test_observability.py
+control-plane/tests/test_observability_api.py
 control-plane/tests/test_onboarding_api.py
 control-plane/tests/test_operation_executor.py
 control-plane/tests/test_process_identity_and_ports.py
@@ -260,24 +267,26 @@ control-plane/tests/test_telegram_api_client.py
 control-plane/tests/test_telegram_binding.py
 control-plane/tests/test_update_and_external_boundaries.py
 control-plane/tests/test_validation_wizard.py
-CURRENT_RUNTIME_SOURCE_MAP.md
 history-minimal/HISTORY_INDEX.md
-integrations/cc-connect/manifests/artifact-lock.json
-integrations/cc-connect/manifests/build-manifest.txt
+integrations/cc-connect/README.md
+integrations/cc-connect/fixtures/native-v1-legacy.toml
+integrations/cc-connect/fixtures/native-v2-current.toml
 integrations/cc-connect/manifests/SHA256_MANIFEST.txt
 integrations/cc-connect/manifests/VERSIONS.lock
+integrations/cc-connect/manifests/artifact-lock.json
+integrations/cc-connect/manifests/build-manifest.txt
 integrations/cc-connect/patches/001-telegram-directed-routing.patch
 integrations/cc-connect/patches/002-hook-config-headers.patch
 integrations/cc-connect/patches/003-relay-response-prefix.patch
 integrations/cc-connect/patches/004-message-delivery-hooks.patch
-integrations/cc-connect/patches/005-windows-build-compat.patch
 integrations/cc-connect/patches/README.md
-integrations/cc-connect/README.md
 integrations/cc-connect/scripts/apply-cc-connect-patches.ps1
 integrations/cc-connect/scripts/build-cc-connect.ps1
 integrations/cc-connect/scripts/check-cc-connect-patches.ps1
 integrations/cc-connect/scripts/verify-cc-connect-artifact.ps1
-LICENSE
+integrations/cc-connect/scripts/verify-cc-connect-native-config.ps1
+integrations/cc-connect/scripts/verify-cc-connect-patch-effectiveness.ps1
+integrations/cc-connect/tests/native_config_compat_test.go
 next-agent/NEXT_AGENT_PROMPT.txt
 product/ARCHITECTURE_NON_GOALS.md
 product/COMPONENT_POSITIONING.md
@@ -288,15 +297,13 @@ product/PRODUCT_CONSTITUTION.md
 product/TELEGRAM_AI_CODING_TEAM_SCOPE.md
 product/TELEGRAM_KNOWN_LIMITATIONS.md
 product/TEN_MINUTE_ONBOARDING.md
-PUBLIC_FILE_MANIFEST.txt
-PUBLIC_HANDOFF_READY.md
-README.md
 reference-baseline/E2E_VALIDATION.md
 reference-baseline/KNOWN_ISSUES.md
 reference-baseline/SOURCE_OF_TRUTH.md
 reference-baseline/UPSTREAM_REVISIONS.md
 reference-baseline/VERSION_MATRIX.md
 reports/CC_CONNECT_MANAGED_LIFECYCLE_CONFIGURATION_AND_INTEGRATION_BOUNDARIES_REPORT.md
+reports/CC_CONNECT_V1_5_0_STABLE_FUSION_UPGRADE_REPORT.md
 reports/CC_CONNECT_WINDOWS_ARTIFACT_AND_INSTALLATION_SLICE_REPORT.md
 reports/CONTROL_PLANE_CONTRACT_V1_COMPLETION_REPORT.md
 reports/CONTROL_PLANE_READINESS_SLICE_COMPLETION_REPORT.md
@@ -306,8 +313,6 @@ reports/MINIMAL_GUI_ONBOARDING_AND_WINDOWS_DISTRIBUTION_REPORT.md
 reports/PR1_READINESS_SCOPE_ALIGNMENT_AND_MAINLINE_MERGE_REPORT.md
 reports/SIX_LINK_OBSERVABILITY_LIVE_E2E_AND_USER_VALIDATION_REPORT.md
 reports/TELEGRAM_THREE_BOT_SECURE_BINDING_AND_NATIVE_CONFIG_GENERATION_REPORT.md
-SECURITY_REVIEW.md
-SHA256SUMS.txt
 src/dual-agent-fallback/__init__.py
 src/dual-agent-fallback/aggregate.py
 src/dual-agent-fallback/delegator.py
@@ -333,22 +338,22 @@ src/hermes-adapter/tests/test_policy.py
 src/hermes-adapter/tests/test_relay_client.py
 src/hermes-adapter/tests/test_store.py
 src/hermes-adapter/webhook_receiver.py
+src/lifecycle/Hermes_Gateway.cmd
+src/lifecycle/Hermes_Gateway.vbs
+src/lifecycle/Hermes_Gateway_Watchdog.vbs
+src/lifecycle/cc-connect/CcConnect_Autostart.cmd
+src/lifecycle/cc-connect/CcConnect_Autostart.vbs
 src/lifecycle/cc-connect/apply-cc-connect-patches.ps1
 src/lifecycle/cc-connect/build-cc-connect.ps1
 src/lifecycle/cc-connect/cc_connect_autostart.py
-src/lifecycle/cc-connect/CcConnect_Autostart.cmd
-src/lifecycle/cc-connect/CcConnect_Autostart.vbs
 src/lifecycle/cc-connect/check-cc-connect-patches.ps1
 src/lifecycle/create-junction.ps1
 src/lifecycle/health-check.ps1
-src/lifecycle/Hermes_Gateway_Watchdog.vbs
-src/lifecycle/Hermes_Gateway.cmd
-src/lifecycle/Hermes_Gateway.vbs
 src/lifecycle/remove-junction.ps1
 tests/e2e-summaries/TEST_RESULTS_SUMMARY.md
 tests/unit/__init__.py
-tests/unit/test_dual_agent_root.py
 tests/unit/test_dual_agent.py
+tests/unit/test_dual_agent_root.py
 tests/unit/test_intent.py
 tests/unit/test_orchestrator.py
 tests/unit/test_planner.py

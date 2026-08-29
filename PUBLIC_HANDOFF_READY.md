@@ -9,6 +9,8 @@ cc-connect 历史参考运行版本：v1.4.1-patchset0.1-fc315d2
 cc-connect 当前产品受管版本：v1.5.0-patchset0.2-17c6106
 PR #1 最终 Head：5b47f430cd7c003c00ab6c3a3ad006e8df336b46
 PR #1 合并提交：0952c74e95fa8557b78352f8c30d19de0e021fb0
+本轮 v1.5.0 功能提交：aca96a0a456fa60a0c00fce4452b771e4e6043f0
+本轮 v1.5.0 功能闭环提交：725d371bf2f662fc456fdf4d5df80900f4821624
 
 当前交付
 
@@ -20,7 +22,9 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 历史功能提交 `ee4343e7f2cd99b93e02fd5c6768f73d50c384b2` 的 GitHub Actions Run `31636567632` 已完成，四个 Job 全部 success。GUI Artifact ID 为 `9157449259`，digest 为 `sha256:c5ca4b0ed29bcce80d6ea1a4cfb8f918da60044c5d9d8fef19cdc88b0343a25d`；cc-connect Artifact ID 为 `9157450718`，digest 为 `sha256:5574b3594b7bdce06ad117ca11c3c1eaadb0139c49b8c0894ea67c66400e5b64`。
 
-历史 GUI 收口提交 `582b12a95e69d2494a58856f62cdae886000d3d5` 已推送 `main`。GitHub Actions Run `31878741409` 四个 Job 全部 success；GUI Artifact ID 为 `9245537693`，digest 为 `sha256:14bd224f82eb8d0c2cb1c07f8be6095b21c021147447e182bcb32317284ebf1d`；cc-connect Artifact ID 为 `9245538197`，digest 为 `sha256:97d5ea9d4d438d8de5a75b2db7eb4d866f8fceb9de71dcb72c225b59b609ead3`。本轮 v1.5.0 功能提交与 CI 证据将在最终融合升级报告中固定。
+历史 GUI 收口提交 `582b12a95e69d2494a58856f62cdae886000d3d5` 已推送 `main`。GitHub Actions Run `31878741409` 四个 Job 全部 success；GUI Artifact ID 为 `9245537693`，digest 为 `sha256:14bd224f82eb8d0c2cb1c07f8be6095b21c021147447e182bcb32317284ebf1d`；cc-connect Artifact ID 为 `9245538197`，digest 为 `sha256:97d5ea9d4d438d8de5a75b2db7eb4d866f8fceb9de71dcb72c225b59b609ead3`。
+
+本轮 v1.5.0 功能证据 GitHub Actions Run `33273341357` 四个 Job 全部 success。GUI Artifact ID 为 `9720889896`，digest 为 `sha256:99349df00159bbb26b0d1b013a0b8190b84d3bd8920f64cb802c927e11dc70f4`；cc-connect Artifact ID 为 `9720890261`，digest 为 `sha256:9368d97911e7f5b71e500da29007299081dcbc123f7df0b2f137e03b75e2470e`。完整证据见 `reports/CC_CONNECT_V1_5_0_STABLE_FUSION_UPGRADE_REPORT.md`。
 
 产品范围
 
@@ -38,8 +42,8 @@ Control Plane v1 契约与 ADR 已冻结。除只读发现、Readiness、Diagnos
 
 公开文件保护
 
-本轮未触碰 `reference-baseline/`。Patch 与公开文件清单按最终 v1.5.0 融合升级提交重新计算，`SHA256SUMS.txt` 继续排除自身以避免自引用。
+本轮未触碰 `reference-baseline/`。Patch 与 347 个公开文件清单按最终 v1.5.0 融合升级提交重新计算，`SHA256SUMS.txt` 继续排除自身以避免自引用。
 
 最终分支
 
-远端和本地均只保留 main 作为开发主线。本轮功能 SHA、GitHub Actions Run 与 Artifact 记录在最终融合升级报告中。
+远端和本地均只保留 main 作为开发主线。本轮功能 SHA、GitHub Actions Run 与 Artifact 已记录在最终融合升级报告中。
