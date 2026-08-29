@@ -6,7 +6,7 @@ Telegram 已知限制
 2026-08-15 GUI/Hermes 状态更新
 -----------------------
 
-`0.4.0-prebeta` GUI 已接入正式 SVG 图标、私聊 deep link/QR、群 startgroup、Binding API、独立 Chat Health、Hermes readiness/conflict 与用户确认 Live E2E，但尚未由用户真实复测。Binding、ready_for_test、LIVE_VERIFIED、failed 和 stale 分开显示；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。Hermes Native Telegram Setup 同样等待用户现场确认。
+`0.4.1-prebeta` GUI 已接入正式 SVG 图标、私聊 deep link/QR、群 startgroup、Binding API、独立 Chat Health、Hermes readiness/conflict 与用户确认 Live E2E，但尚未由用户真实复测。Binding、ready_for_test、LIVE_VERIFIED、failed 和 stale 分开显示；Demo/合成测试不能替代。Windows 10 x64 为 `PENDING WINDOWS 10 VALIDATION`。Hermes Native Telegram Setup 同样等待用户现场确认。
 
 一、已知事实
 ------------

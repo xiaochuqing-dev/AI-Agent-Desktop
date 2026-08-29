@@ -1,4 +1,4 @@
-AI-Agent-Desktop 0.4.0-prebeta Windows x64 用户验收指南
+AI-Agent-Desktop 0.4.1-prebeta Windows x64 用户验收指南
 
 一、启动前
 
@@ -40,5 +40,5 @@ Dashboard 和 Diagnostics 只能展示 Control Plane 的脱敏状态；失败时
 
 powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\windows10_user_acceptance.ps1 -ProductBundle . -OutputPath .\windows10-user-acceptance-redacted.json
 
-该脚本只检查 Windows 10 x64、0.4.0-prebeta Manifest、AI-Agent-Desktop.exe、--version 和 --headless，不访问真实 Telegram，也不替代上面的四步人工 GUI 验收。
+该脚本只检查 Windows 10 x64、0.4.1-prebeta Manifest、AI-Agent-Desktop.exe、--version 和 --headless，不访问真实 Telegram，也不替代上面的四步人工 GUI 验收。
 输出报告不包含 Token 或消息正文。即使离线预检通过，在用户完成四步 GUI 前，状态仍为 PENDING_USER_REAL_MACHINE_VALIDATION。

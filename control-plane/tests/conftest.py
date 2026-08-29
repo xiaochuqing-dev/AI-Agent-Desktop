@@ -59,9 +59,10 @@ def managed_runtime_environment(tmp_path, monkeypatch):
     from control_plane.lifecycle.port_ownership import PortOwnershipInspector
     from control_plane.persistence.session import Database
 
-    from .installer_helpers import write_test_bundle
+    from .installer_helpers import bind_test_artifact_lock, write_test_bundle
 
     bundle, manifest = write_test_bundle(tmp_path / "可信 产物 (bundle)")
+    bind_test_artifact_lock(monkeypatch, manifest)
     settings = Settings(
         data_dir=str(tmp_path / "隔离 LocalAppData 中文 (运行)"),
         trusted_artifact_dir=str(bundle),

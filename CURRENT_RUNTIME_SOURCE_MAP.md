@@ -1,8 +1,10 @@
-当前运行源码事实图
+运行源码事实图（2026-07-30 外部运行快照）
 ==================
 
 生成时间: 2026-07-30
-核验结论: CURRENT RUNTIME SOURCE VERIFIED
+快照结论: EXTERNAL REFERENCE RUNTIME SOURCE VERIFIED
+
+说明：本文件保留 2026-07-30 外部/参考运行体的只读证据，不表示 2026-08-30 的产品受管 current 指针，也不随产品受管制品升级而改写。当前产品受管候选为 v1.5.0-patchset0.2-17c6106，精确 source commit 为 17c61062c2f9ce9bcdd45a2082e491f9743a2770，制品 SHA256 为 67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144；外部进程不在升级或回滚事务范围内。
 
 一、核验方法
 ------------
@@ -99,6 +101,6 @@ E. 差异只是 Secret/绝对路径/运行状态: multiagent.yaml 的 dual_agent
 
 六、结论
 --------
-CURRENT RUNTIME SOURCE VERIFIED
+EXTERNAL REFERENCE RUNTIME SOURCE VERIFIED
 当前运行关键代码能映射到正式源码，当前运行二进制能映射到正式 Patch 与构建链，关键修复确实存在，不存在未解释的运行代码差异。
 公开仓库 src/ 中的源码与当前运行体一致。

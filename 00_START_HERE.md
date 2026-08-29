@@ -6,9 +6,9 @@
 2026-08-15 状态提示
 -------------------
 
-本轮起点为 `1506f8d997b1339665462f87d76aa3476bb97acf`。PySide6 四步 GUI 已收口为 `0.4.0-prebeta`：正式 SVG 图标、统一标题栏/设计 Token/对话框、真实 Agent Detection、严格 cc-connect Runtime Readiness、Binding/Chat Health 分离、Hermes Telegram Native Configuration 与准确的 Dashboard/Diagnostics 已接入。新 GUI Telegram 与 Hermes Native Telegram Setup 仍统一记为 `PENDING USER LIVE VALIDATION`。
+本轮起点为 `74c81d077d4f4e7dc72937af5bd9253eb261d670`。PySide6 四步 GUI 已推进为 `0.4.1-prebeta`，产品受管 cc-connect 已精确锁定到 Stable v1.5.0 source `17c61062c2f9ce9bcdd45a2082e491f9743a2770`；Patch 001–004 重放并增加语义有效性门禁，Patch 005 因上游吸收而退役。新 GUI Telegram 与 Hermes Native Telegram Setup 仍统一记为 `PENDING USER LIVE VALIDATION`。
 
-本机 Agent 实测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。`0.4.0-prebeta` candidate 在 Windows 11 x64 完成 validator 与 ordinary-user smoke，EXE SHA256 为 `dbebb193cd1ec3779f1dab796f3b075c061f906bfd4b8270e055bf790c7b8910`。Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。2026-08-07 直接 Telegram 六链路是旧入口历史证据。
+`0.4.1-prebeta` candidate 在 Windows 11 x64 完成 validator 与 ordinary-user smoke，EXE SHA256 为 `dfe9ad2bfef7f9a7afe402753a2cc5c1eacaf7bb2b26c047067ae97b5630d99e`，全程未访问真实 Telegram。Windows 10 x64 仍为 `PENDING WINDOWS 10 VALIDATION`；MSI、正式安装器和代码签名为 `DEFERRED`。2026-08-07 直接 Telegram 六链路是旧入口历史证据。
 
 一、产品与当前状态
 ------------------

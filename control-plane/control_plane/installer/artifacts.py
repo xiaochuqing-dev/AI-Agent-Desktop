@@ -132,6 +132,8 @@ def validate_manifest_lock(manifest: ArtifactManifest) -> None:
         "source_date_epoch": lock["build"]["source_date_epoch"],
         "build_timestamp_policy": "locked_upstream_commit_timestamp_utc",
         "artifact_filename": lock["artifact_filename"],
+        "artifact_size": lock["artifact_size"],
+        "artifact_sha256": lock["artifact_sha256"],
         "signature_status": lock["signature_status"],
         "install_layout_version": lock["install_layout_version"],
         "health_probe_version": lock["health_probe_version"],

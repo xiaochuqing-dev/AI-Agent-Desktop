@@ -5,12 +5,12 @@ AI Agent Desktop
 
 本仓库是当前公开事实源。产品集成 Hermes、Claude Code、Codex、cc-connect、Telegram，并把 CC Switch 作为推荐但非强制的供应商配置入口。核心价值是减少配置和首次使用摩擦，降低失败率，并统一状态、诊断、更新、回滚与恢复；不重复开发成熟上游。
 
-2026-08-15 实施更新
+2026-08-30 实施更新
 -------------------
 
-本轮从 `1506f8d997b1339665462f87d76aa3476bb97acf` 开始，完成 `0.4.0-prebeta` GUI Product Polish 与 Hermes Telegram Native Onboarding 收口：正式 SVG 图标体系、统一标题栏/设计 Token/卡片对比度、统一对话框、Hermes 官方 `.env` 最小 Telegram 配置事务、Gateway 生命周期、Update Lease 交接、冲突确认与回滚。Agent 检测继续使用各自官方 `--version` 做有界无窗口探测；不读取账号、Provider、模型或私有配置。
+本轮从 `74c81d077d4f4e7dc72937af5bd9253eb261d670` 开始，把产品受管 cc-connect 精确升级到上游 Stable `v1.5.0` 的 commit `17c61062c2f9ce9bcdd45a2082e491f9743a2770`。Patch 001–004 已按最新版源码重放并补充语义失效门禁，Patch 005 因上游已吸收而退役；原生配置 Renderer 证据升级为 `cc-connect-17c6106-native-v2`，安装、升级、严格运行证据和回滚仍保持同一受管边界。GUI candidate 同步推进到 `0.4.1-prebeta`。
 
-本机真实检测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，均为 `LOCAL_VERIFIED`。本地门禁为 264 passed、2 skipped，Ruff、format、CI 范围内 mypy 和全部契约验证通过。Windows 11 x64 candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.4.0-prebeta-windows-x64`，EXE 66.09 MiB、SHA256 `dbebb193cd1ec3779f1dab796f3b075c061f906bfd4b8270e055bf790c7b8910`，manifest SHA256 `f85874a6f0308459660e1e13f688bf46a7455f56a93e840bd70936b2121714c1`，package SHA256 `72f93cdf3ad38db8b41f818dc717826d1939404260e65af9e5d2022c0e60e92f`，validator 与 ordinary-user version/headless smoke 通过。新 GUI Telegram 与 Hermes Native Telegram Setup 均为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`；历史 2026-08-07 六链路仅代表旧入口 `LIVE_VERIFIED`。MSI、安装器和签名为 `DEFERRED`。
+本地门禁为 269 passed、2 skipped，Ruff、format、`mypy control_plane`、全部契约验证、Go 定向测试/vet/build、真实 v1.5.0 配置加载、Patch 有效性变异测试和双 PowerShell 可复现构建均通过。Windows 11 x64 candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.4.1-prebeta-windows-x64`，EXE SHA256 `dfe9ad2bfef7f9a7afe402753a2cc5c1eacaf7bb2b26c047067ae97b5630d99e`，manifest SHA256 `10a148e3ac827476b034d6549f258c98034af80b81e96c71e80e23ceb4ef18dd`，package SHA256 `70c6827007e418348b4a52e89344113abcf2e75ed5306fa5e077b09604df41ea`；validator 与 ordinary-user version/headless smoke 通过且未访问真实 Telegram。Windows 10、真实新 GUI Telegram、MSI、签名仍按原边界保持待验证或延期。
 
 一、当前状态
 ------------
@@ -20,7 +20,7 @@ AI Agent Desktop
 - Control Plane v1 契约与四项 ADR 已冻结，基础运行代码已实现于 control-plane/。
 - Control Plane 已实现只读发现、Readiness、Dry-run、持久化 Operation/SSE、脱敏诊断，以及 cc-connect 锁定产物的隔离安装、配置、所有权交接和产品管理生命周期。
 - Windows CredentialBackend 已真实落到当前普通用户的 Windows Credential Manager；支持 put、replace、status、resolve_for_operation、delete、元数据列表与 revision，不允许退化到明文文件后端。
-- 产品管理状态与锁定版 cc-connect 原生运行配置已分离为 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。Renderer 绑定 fc315d2，只输出锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。
+- 产品管理状态与锁定版 cc-connect 原生运行配置已分离为 state/managed/cc-connect-state.json 与 state/runtime-config/cc-connect.toml。当前 Renderer `cc-connect-17c6106-native-v2` 绑定 v1.5.0 精确源码，只输出锁定 Schema 支持的 Project、Agent、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。
 - 三个固定 Bot slot、getMe 身份验证、Webhook 检查、Update Lease、一次性绑定码、防重放、User ID/Group ID 自动发现和三 Bot 3/3 一致性已实现并通过 Fake Telegram 合成验收。
 - 合法 Claude/Codex Project 的真实 cc-connect 进程已在 Windows 11 普通用户、非系统盘、中文空格括号路径下通过持续运行、stop、restart、Control Plane 重启 reconcile、PID/exe SHA/config revision/端口所有权和 Bearer management API 验收。
 - 六链路可观测性、消息关联、Session 隔离探针、显式一次性 E2E 计划、代理策略、脱敏用户验收向导和 Windows x64 候选包已实现。

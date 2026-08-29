@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from ..application.operation_store import OperationStore
 from ..configuration.models import LifecycleOwner, ManagementOwner
@@ -318,6 +318,31 @@ class CcConnectNativeConfigurationService:
                 runtime_config=runtime,
                 managed_state=managed,
                 diagnostic_code="NATIVE_CONFIGURATION_DRIFT",
+            )
+        try:
+            current_artifact = self.version_store.current()
+        except InstallerError:
+            return NativeConfigurationState(
+                status="invalid",
+                revision=record.revision,
+                runtime_config=runtime,
+                managed_state=managed,
+                diagnostic_code="NATIVE_CONFIGURATION_ARTIFACT_UNAVAILABLE",
+            )
+        if (
+            record.artifact_id != managed.artifact_id
+            or current_artifact.artifact_id != managed.artifact_id
+            or runtime.renderer_version != managed.renderer_version
+            or runtime.source_commit != managed.source_commit
+        ):
+            return NativeConfigurationState(
+                status="invalid",
+                revision=record.revision,
+                runtime_config_digest=runtime_digest,
+                managed_state_digest=managed_digest,
+                runtime_config=runtime,
+                managed_state=managed,
+                diagnostic_code="NATIVE_CONFIGURATION_ARTIFACT_MISMATCH",
             )
         return NativeConfigurationState(
             status="valid",
@@ -706,10 +731,19 @@ class CcConnectNativeConfigurationService:
 
     def _record_renderer(self) -> None:
         capability = self.renderer.capability()
+        renderer_id = f"cc-connect:{self.renderer.renderer_version}"
         with self.db.session() as session:
+            session.execute(
+                update(ComponentConfigRendererRecord)
+                .where(
+                    ComponentConfigRendererRecord.component_id == COMPONENT_ID,
+                    ComponentConfigRendererRecord.renderer_id != renderer_id,
+                )
+                .values(active=0)
+            )
             session.merge(
                 ComponentConfigRendererRecord(
-                    renderer_id=f"cc-connect:{self.renderer.renderer_version}",
+                    renderer_id=renderer_id,
                     component_id=COMPONENT_ID,
                     renderer_version=self.renderer.renderer_version,
                     source_commit=self.renderer.source_commit,

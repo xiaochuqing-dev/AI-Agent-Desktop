@@ -1,8 +1,8 @@
 安全审查
 ========
 
-更新时间：2026-08-15
-结论：Control Plane、Fake、Windows 11 合成门禁、真实 Agent Detection、Hermes Telegram Native Adapter 和 `0.4.0-prebeta` candidate 本地验证通过；新 GUI Telegram 与 Hermes Native Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体保持 `PARTIAL`。
+更新时间：2026-08-30
+结论：Control Plane、Fake、Windows 11 合成门禁、真实 Agent Detection、Hermes Telegram Native Adapter、产品受管 cc-connect v1.5.0 和 `0.4.1-prebeta` candidate 本地验证通过；新 GUI Telegram 与 Hermes Native Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体保持 `PARTIAL`。
 
 一、仓库内容
 ------------
@@ -18,7 +18,7 @@
 - 普通 Telegram Adapter 只判断配置或 Token 引用文件是否存在，不读取内容，不验证或输出 Token；Hermes Native Adapter 只在显式配置计划中使用当前绑定 Token，并通过官方公开配置面完成最小写入，不把值写入 API、日志、argv 或持久化计划。
 - CC Switch Adapter 只检查 PATH 与官方 ccswitch 协议注册，不读取供应商配置或 Secret。
 - Diagnostic 不包含私有路径、异常堆栈或底层配置正文。
-- 安装下载仅允许锁定 HTTPS 主机并保留 TLS 校验；重定向、大小、文件名、平台、架构和 SHA256 均在执行前校验。
+- 安装下载仅允许锁定 HTTPS 主机并保留 TLS 校验；重定向、大小、文件名、平台、架构和 SHA256 均在执行前校验。生产锁同时固定制品 ID、版本、SHA256 `67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144` 与字节数 `54266368`，测试只能在测试夹具内替换合成 PE 的锁值。
 - 安装目标限制在 platformdirs 生成的当前用户 LocalAppData 产品目录，拒绝路径穿越、符号链接和 junction 逃逸。
 - 健康探针使用参数数组、隔离环境、临时配置、随机 loopback 端口、无窗口进程和进程树清理，不读取真实用户配置。
 - 产品配置仅能写入固定的产品自有路径；使用不可变计划、revision、备份、同目录临时文件、fsync、os.replace、重解析和回滚。
@@ -53,7 +53,7 @@
 五、验证
 --------
 
-Control Plane 自动化覆盖上述安全矩阵，并增加 PATH 顺序、wrapper、timeout、Unicode/空格路径、版本未知、Agent missing、严格 Runtime Ready、Binding/Live/stale 语义、Hermes unconfigured/same/different/invalid/partial 矩阵、`.env` 原子写入/回滚、Lease 冲突与 1280×720 GUI 回归。当前本地 pytest 为 264 passed、2 skipped；Ruff、format、`mypy control_plane` 112 files、契约验证和 `0.4.0-prebeta` candidate validator 均通过。最终 EXE SHA256 为 `dbebb193cd1ec3779f1dab796f3b075c061f906bfd4b8270e055bf790c7b8910`，普通用户 smoke 未访问真实 Telegram。详细边界见 `reports/GUI_PRODUCT_POLISH_AND_HERMES_TELEGRAM_CLOSURE_REPORT.md`。
+Control Plane 自动化覆盖上述安全矩阵，并增加 PATH 顺序、wrapper、timeout、Unicode/空格路径、版本未知、Agent missing、严格 Runtime Ready、Binding/Live/stale 语义、Hermes unconfigured/same/different/invalid/partial 矩阵、`.env` 原子写入/回滚、Lease 冲突与 1280×720 GUI 回归。当前本地 pytest 为 269 passed、2 skipped；Ruff、format、`mypy control_plane` 112 files、契约验证、cc-connect Go 定向测试/vet/build、真实 v1.5.0 配置加载、Patch 有效性变异测试、双 PowerShell 可复现构建和 `0.4.1-prebeta` candidate validator 均通过。最终 EXE SHA256 为 `dfe9ad2bfef7f9a7afe402753a2cc5c1eacaf7bb2b26c047067ae97b5630d99e`，普通用户 smoke 未访问真实 Telegram。
 
 六、分发限制
 ------------

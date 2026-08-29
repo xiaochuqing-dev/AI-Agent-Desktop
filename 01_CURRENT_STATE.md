@@ -1,14 +1,14 @@
 01 当前状态
 ============
 
-更新时间：2026-08-15
+更新时间：2026-08-30
 
 一、Reference Baseline
 ----------------------
 
-Git Tag 为 v0.1-reference-baseline，baseline HEAD 为 cd3493b191fdc19114e0ae037746ab3d23a58a79。公开仓库 src/ 与该 HEAD 对齐，当前运行 cc-connect 为 v1.4.1-patchset0.1-fc315d2，Patch-set 0.1 共 5 个 Patch。
+Git Tag 为 v0.1-reference-baseline，baseline HEAD 为 cd3493b191fdc19114e0ae037746ab3d23a58a79。公开仓库 src/ 与该 HEAD 对齐。2026-07-30 记录的外部参考运行体仍是 v1.4.1-patchset0.1-fc315d2，这一历史快照不随产品受管制品升级而改写。
 
-本阶段未修改 src/、dual_agent、integrations/cc-connect/patches/、真实 Bot/Provider 配置、计划任务定义、PATH、注册表或 Reference Baseline。针对用户反馈的 Hermes 黑窗口，仅在本机外部运行层调整了启动 VBS、Watchdog VBS、Python startup hook 和 env_probe 子进程无窗口标志，并保留独立备份；该修复不属于本仓库源码，也未改变产品方向。
+当前产品受管 cc-connect 已精确锁定为 `v1.5.0-patchset0.2-17c6106`，Artifact ID `cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64`，源码 commit `17c61062c2f9ce9bcdd45a2082e491f9743a2770`。Patch 001–004 已按最新版源码重放，Patch 005 因上游已吸收而退役。`src/`、`dual_agent`、真实 Bot/Provider 配置、计划任务定义、PATH、注册表与 Reference Baseline 均未修改。
 
 二、Control Plane
 ----------------
@@ -33,21 +33,21 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 - 显式 ManagementOwner/LifecycleOwner 交接与 cc-connect start/stop/restart/status/reconcile
 - 进程身份、PID 复用、exe SHA256、命令摘要、配置 revision、端口到 PID 所有权和崩溃恢复检查
 - cc-connect/Hermes 更新边界与 CC Switch ExternalToolProvider 边界；CC Switch 仅支持可执行文件检测和普通打开
-- managed state 与 cc-connect 原生配置分离；Renderer 固定绑定 fc315d2，并验证环境变量占位符、Project/Agent/Platform Schema
+- managed state 与 cc-connect 原生配置分离；Renderer `cc-connect-17c6106-native-v2` 固定绑定 v1.5.0 精确源码，并验证环境变量占位符、Project/Agent/Platform Schema
 - Hermes、Claude、Codex 三个固定 Bot 凭据引用，getMe 唯一身份、Webhook 显式处理和脱敏 Telegram Client
 - Telegram Update Lease、一次性 HMAC 绑定码、offset 单调前进、防旧 Update/重放/抢绑定/跨群冲突，以及同一 User/Group 的 3/3 绑定状态
 - Claude Code/Codex 两个原生 Project 的计划、revision、备份、原子写入、漂移检测、回滚和 Agent 可执行入口预检
 - external cc-connect 状态拆分；PATH 仅安装不阻塞，目标端口、相同配置作用域或 Supervisor 冲突才硬阻塞
 - Hermes 未安装时准确返回 pending_component_install，不阻塞 Claude/Codex
 - PySide6 GUI 已实现于 `control-plane/control_plane/gui/`：统一标题栏和 StepRail、Welcome、四步 Onboarding、二维码弹窗、Dashboard、Diagnostics、Demo 合成客户端以及 HTTP/Embedded Control Plane 客户端。
-- GUI 当前版本为 `0.4.0-prebeta`。Agent Detection 由 `control_plane/agent_detection/` 实现，Hermes、Claude Code、Codex 使用独立规则、共享安全 Windows discovery/version probe，并接入 Onboarding、Dashboard、Diagnostics 和全局刷新。GUI 图标来自本地小型 SVG 子集，未依赖 emoji 字体。
+- GUI 当前版本为 `0.4.1-prebeta`。Agent Detection 由 `control_plane/agent_detection/` 实现，Hermes、Claude Code、Codex 使用独立规则、共享安全 Windows discovery/version probe，并接入 Onboarding、Dashboard、Diagnostics 和全局刷新。GUI 图标来自本地小型 SVG 子集，未依赖 emoji 字体。
 - 本机真实检测为 Hermes 0.19.0、Claude Code 2.1.228、Codex 0.147.0，状态均 healthy；这是 `LOCAL_VERIFIED`，不等于认证或聊天 live。
 - Step 4 会确保 cc-connect 安装、Owner、原生配置、start/reconcile，并严格核验 PID、exe、configuration revision、port ownership、startup stability 和 fatal log；未 ready 不得完成 Onboarding。
 - Telegram Binding、Chat Live Health 与历史 evidence revision 已分离。GUI Live E2E 需要用户确认六条消息，每条最多一次、失败不自动重试；可跳过并从 Dashboard 后续执行。
 - GUI 只调用 onboarding/dashboard snapshot、Telegram credential/verify/binding/poll 等本地 API；Token 不由 GUI 状态快照保存，二维码只承载短时 deep-link binding payload。
 - 新 GUI 私聊激活、群自动检测与 Hermes Native Telegram Setup 的真实用户复测为 `PENDING USER LIVE VALIDATION`；GUI 单元/合成测试通过不等于 Telegram live 通过。
 
-当前不具备：其他组件安装或生命周期接管、自动更新、正式 Installer、代码签名。candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.4.0-prebeta-windows-x64`，Windows 11 x64 validator 与 ordinary-user version/headless smoke 通过；EXE 66.09 MiB，SHA256 `dbebb193cd1ec3779f1dab796f3b075c061f906bfd4b8270e055bf790c7b8910`。本地质量门禁为 264 passed、2 skipped，Ruff、format、CI 范围内 mypy 和契约验证通过。Windows 10 仍为 `PENDING WINDOWS 10 VALIDATION`。
+当前不具备：其他组件安装或生命周期接管、自动更新、正式 Installer、代码签名。candidate 位于 `control-plane/dist/AI-Agent-Desktop-0.4.1-prebeta-windows-x64`，Windows 11 x64 validator 与 ordinary-user version/headless smoke 通过；EXE SHA256 `dfe9ad2bfef7f9a7afe402753a2cc5c1eacaf7bb2b26c047067ae97b5630d99e`。本地质量门禁为 269 passed、2 skipped，Ruff、format、`mypy control_plane`、契约验证和 cc-connect Go/配置/Patch/制品门禁通过。Windows 10 仍为 `PENDING WINDOWS 10 VALIDATION`。
 
 三、Telegram 运行证据
 --------------------
@@ -64,4 +64,4 @@ Control Plane v1 机器契约和 ADR-001..004 已冻结。基础运行代码已�
 五、下一阶段
 ------------
 
-下一阶段收口门禁为：用 `0.4.0-prebeta` candidate 完成新 GUI 三 Bot 私聊/同群、Hermes Native Telegram 分支和可选六链路用户现场验证，再在 Windows 10 x64 普通用户实机重复；之后才进入 Installer、卸载、快捷方式、Release Asset 与签名准备。详见 `reports/GUI_PRODUCT_POLISH_AND_HERMES_TELEGRAM_CLOSURE_REPORT.md`。
+下一阶段收口门禁为：用 `0.4.1-prebeta` candidate 完成新 GUI 三 Bot 私聊/同群、Hermes Native Telegram 分支和可选六链路用户现场验证，再在 Windows 10 x64 普通用户实机重复；之后才进入 Installer、卸载、快捷方式、Release Asset 与签名准备。

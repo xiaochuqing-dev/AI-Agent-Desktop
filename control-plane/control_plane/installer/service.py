@@ -27,6 +27,7 @@ from ..persistence.models import (
     InstallPlanRecord,
     InstallRecordRecord,
     InstallSnapshotRecord,
+    ManagedProcessRecord,
     OperationEventRecord,
     PendingCleanupRecord,
 )
@@ -379,6 +380,16 @@ class CcConnectInstaller:
             self._phase(operation_id, "snapshotting", "Recording the pre-install product state")
             snapshot = self._capture_snapshot(operation_id, plan, disk_free)
             self._persist_snapshot(snapshot)
+            if (
+                snapshot.current_pointer
+                and snapshot.current_pointer.get("artifact_id") != manifest.artifact_id
+                and snapshot.product_managed_process_running
+            ):
+                raise InstallerError(
+                    "PRODUCT_MANAGED_PROCESS_MUST_STOP_FOR_UPGRADE",
+                    "Stop the product-managed cc-connect process before switching artifacts.",
+                    recovery_actions=["stop_product_managed_cc_connect", "retry_installation"],
+                )
             self._check_cancellation(operation_id)
 
             acquired_dir = self._stage_child(operation_id, "acquired")
@@ -1505,6 +1516,12 @@ class CcConnectInstaller:
         return False
 
     def _product_process_running(self) -> bool:
+        with self.db.session() as session:
+            managed = session.get(ManagedProcessRecord, COMPONENT_ID)
+        if managed is not None and (
+            managed.pid is not None or managed.observed_state in {"starting", "running_partial"}
+        ):
+            return True
         root = self.layout.root.resolve(strict=False)
         for process in psutil.process_iter(["exe"]):
             try:

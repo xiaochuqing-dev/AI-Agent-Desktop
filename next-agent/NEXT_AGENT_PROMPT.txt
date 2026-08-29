@@ -20,7 +20,7 @@ TelegramBotApiClient、三个固定 Bot getMe 唯一身份、Webhook 显式处�
 
 当前 GUI 事实
 
-control-plane/control_plane/gui/ 已实现 PySide6 6.7.2 + Qt Widgets + QSS 的 `0.4.0-prebeta` GUI：Welcome、固定四步 Wizard Shell、Token、私聊激活、同群检测、Completion、Dashboard、Diagnostics、Hermes readiness/conflict、QR dialog、Telegram tg:///HTTPS fallback、SVG IconRegistry、Design Tokens、统一 TitleBar/GlassDialog、Demo/HTTP/Embedded Control Plane 客户端。requirements-gui.lock 固定 PySide6 6.7.2、qrcode 8.2、Pillow 11.3.0。
+control-plane/control_plane/gui/ 已实现 PySide6 6.7.2 + Qt Widgets + QSS 的 `0.4.1-prebeta` GUI：Welcome、固定四步 Wizard Shell、Token、私聊激活、同群检测、Completion、Dashboard、Diagnostics、Hermes readiness/conflict、QR dialog、Telegram tg:///HTTPS fallback、SVG IconRegistry、Design Tokens、统一 TitleBar/GlassDialog、Demo/HTTP/Embedded Control Plane 客户端。requirements-gui.lock 固定 PySide6 6.7.2、qrcode 8.2、Pillow 11.3.0。产品受管 cc-connect 已锁定到 Stable v1.5.0 source 17c61062c2f9ce9bcdd45a2082e491f9743a2770。
 
 GUI 通过 /api/v1/onboarding/snapshot、/api/v1/dashboard/snapshot、/api/v1/telegram/client-availability 以及现有 credentials、telegram verify、binding、poll API 工作。GUI 不读取 Telegram tdata、登录状态、群列表、聊天正文或上游私有配置。Demo 模式只用于截图和自动化测试，标题栏必须显示预览状态，Demo 结果不算真实证据。
 
@@ -40,7 +40,7 @@ Hermes 已有配置保持 external-first，不由 Control Plane 静默接管 Pro
 
 当前本地验证
 
-当前工作区全量 pytest 为 264 passed、2 skipped、1 warning；Ruff、format、`mypy control_plane` 112 files、契约验证和 `0.4.0-prebeta` candidate validator 均通过。新 GUI candidate 已在 Windows 11 x64 构建；远端 CI 仍以最新 GitHub Actions run 为准。scripts 目录额外 mypy 不计入 CI 门禁。
+当前工作区全量 pytest 为 269 passed、2 skipped；Ruff、format、`mypy control_plane` 112 files、契约验证、cc-connect Go/配置/Patch/制品门禁和 `0.4.1-prebeta` candidate validator 均通过。新 GUI candidate 已在 Windows 11 x64 构建；远端 CI 仍以最新 GitHub Actions run 为准。scripts 目录额外 mypy 不计入 CI 门禁。
 
 下一步允许
 

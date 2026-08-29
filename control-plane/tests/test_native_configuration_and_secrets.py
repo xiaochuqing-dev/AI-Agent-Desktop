@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -12,23 +13,33 @@ from sqlalchemy import select
 from control_plane.cc_connect.native_config_models import (
     NativeConfigurationConfirmation,
     NativeConfigurationPlanRequest,
+    NativeProject,
     NativeRuntimeConfig,
+    NativeTelegramPlatform,
 )
+from control_plane.cc_connect.native_config_renderer import CcConnectNativeConfigRenderer
 from control_plane.cc_connect.native_configuration_service import (
     CcConnectNativeConfigurationService,
 )
 from control_plane.cc_connect.runtime_secret_injector import RuntimeSecretInjector
+from control_plane.credentials.models import INTERNAL_CC_CONNECT_MANAGEMENT_REFERENCE
 from control_plane.hermes.config_renderer import HermesConfigurationPlanner
 from control_plane.hermes.models import HermesConfigurationPlanRequest
+from control_plane.installer.models import ArtifactManifest, RestoreRequest
 from control_plane.lifecycle.managed_process import ManagedProcessService
 from control_plane.operations import OperationExecutionError
 from control_plane.persistence.models import (
+    ComponentConfigRendererRecord,
+    ComponentVersionRecord,
+    ManagedProcessRecord,
     NativeConfigurationBackupRecord,
+    NativeConfigurationRevisionRecord,
     RuntimeSecretInjectionAuditRecord,
 )
 from control_plane.telegram.models import UpdateOwner
 
 from .telegram_helpers import build_telegram_services, complete_binding
+from .test_installer_service import confirm_plan, load_operation, make_plan
 from .test_lifecycle_service import FakeIdentityInspector, FakeLauncher, FakePortInspector, execute
 
 
@@ -88,6 +99,53 @@ def prepared_native_environment(environment, tmp_path):
     }
 
 
+def test_locked_renderer_matches_legacy_and_current_native_toml_fixtures():
+    config = NativeRuntimeConfig(
+        data_dir=r"C:\AIAD\cc-connect",
+        log_dir=r"C:\AIAD\logs",
+        management_port=59020,
+        management_credential_reference_id=INTERNAL_CC_CONNECT_MANAGEMENT_REFERENCE,
+        projects=[
+            NativeProject(
+                project_id="claude-private",
+                display_name="Claude private",
+                slot="claude",
+                agent_type="claudecode",
+                workspace_root=r"C:\AIAD\workspaces\claude",
+                admin_from="123456789",
+                operator_user_id=123456789,
+                group_chat_id=-100123456789,
+                binding_revision=1,
+                telegram=NativeTelegramPlatform(
+                    credential_reference_id="credential://telegram/claude",
+                    environment_variable="AIAD_TELEGRAM_CLAUDE_BOT_TOKEN",
+                    allow_from="123456789",
+                ),
+            ),
+            NativeProject(
+                project_id="codex-group",
+                display_name="Codex group",
+                slot="codex",
+                agent_type="codex",
+                workspace_root=r"C:\AIAD\workspaces\codex",
+                admin_from="123456789",
+                operator_user_id=123456789,
+                group_chat_id=-100123456789,
+                binding_revision=1,
+                telegram=NativeTelegramPlatform(
+                    credential_reference_id="credential://telegram/codex",
+                    environment_variable="AIAD_TELEGRAM_CODEX_BOT_TOKEN",
+                    allow_from="123456789",
+                ),
+            ),
+        ],
+    )
+    rendered = CcConnectNativeConfigRenderer().render(config)
+    fixture_root = Path(__file__).resolve().parents[2] / "integrations" / "cc-connect" / "fixtures"
+    assert rendered == (fixture_root / "native-v1-legacy.toml").read_bytes()
+    assert rendered == (fixture_root / "native-v2-current.toml").read_bytes()
+
+
 def test_native_config_separates_product_state_and_locked_upstream_toml(
     managed_runtime_environment, tmp_path
 ):
@@ -120,7 +178,29 @@ def test_native_config_separates_product_state_and_locked_upstream_toml(
         assert secret not in runtime_text
         assert secret not in managed_text
         assert secret.encode() not in database_bytes
-    assert plan.renderer_version == "cc-connect-fc315d2-native-v1"
+    assert plan.renderer_version == "cc-connect-17c6106-native-v2"
+    assert state.runtime_config.source_commit == "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
+    assert state.managed_state.source_commit == "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
+
+    legacy_runtime = state.runtime_config.model_copy(
+        update={
+            "renderer_version": "cc-connect-fc315d2-native-v1",
+            "source_commit": "fc315d213b49d62e9d90ea4a510189d4115e636f",
+        }
+    )
+    legacy_managed = state.managed_state.model_copy(
+        update={
+            "renderer_version": "cc-connect-fc315d2-native-v1",
+            "source_commit": "fc315d213b49d62e9d90ea4a510189d4115e636f",
+        }
+    )
+    assert CcConnectNativeConfigRenderer().render(legacy_runtime) == runtime_text.encode()
+    assert legacy_managed.renderer_version == "cc-connect-fc315d2-native-v1"
+
+    mismatched = state.runtime_config.model_dump()
+    mismatched["renderer_version"] = "cc-connect-fc315d2-native-v1"
+    with pytest.raises(ValidationError, match="renderer version and locked cc-connect source"):
+        NativeRuntimeConfig.model_validate(mismatched)
 
 
 def test_native_config_revision_backup_drift_and_rollback(managed_runtime_environment, tmp_path):
@@ -146,6 +226,163 @@ def test_native_config_revision_backup_drift_and_rollback(managed_runtime_enviro
     drifted = service.state()
     assert drifted.status == "drifted"
     assert drifted.diagnostic_code == "NATIVE_CONFIGURATION_DRIFT"
+
+
+def _add_v141_managed_version(environment) -> ArtifactManifest:
+    installer = environment["installer"]
+    database = environment["database"]
+    target_manifest = environment["manifest"]
+    artifact = (
+        Path(environment["settings"].trusted_artifact_dir) / target_manifest.artifact_filename
+    ).read_bytes()
+    payload = target_manifest.model_dump(mode="json")
+    payload.update(
+        {
+            "artifact_id": "cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64",
+            "version": "v1.4.1-patchset0.1-fc315d2",
+            "upstream_version": "1.4.1",
+            "patchset_version": "0.1",
+            "source_commit": "fc315d213b49d62e9d90ea4a510189d4115e636f",
+        }
+    )
+    legacy = ArtifactManifest.model_validate(payload)
+    version_dir = installer.layout.version_dir(legacy.artifact_id)
+    version_dir.mkdir(parents=True)
+    (version_dir / legacy.artifact_filename).write_bytes(artifact)
+    (version_dir / "cc-connect-artifact-manifest.json").write_text(
+        json.dumps(legacy.model_dump(mode="json"), sort_keys=True), encoding="utf-8"
+    )
+    (version_dir / "install-record.json").write_text(
+        json.dumps(
+            {
+                "component_id": "cc-connect",
+                "artifact_id": legacy.artifact_id,
+                "artifact_sha256": legacy.artifact_sha256,
+                "operation_id": "legacy-v141-fixture",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    with database.session() as session:
+        session.add(
+            ComponentVersionRecord(
+                artifact_id=legacy.artifact_id,
+                component_id="cc-connect",
+                version=legacy.version,
+                relative_path=f"versions/{legacy.artifact_id}",
+                artifact_sha256=legacy.artifact_sha256,
+                artifact_size=legacy.artifact_size,
+                status="installed",
+                installed_at=datetime.now(UTC),
+                removed_at=None,
+            )
+        )
+    return legacy
+
+
+def test_v141_to_v150_native_upgrade_and_controlled_rollback(managed_runtime_environment, tmp_path):
+    installer = managed_runtime_environment["installer"]
+    database = managed_runtime_environment["database"]
+    target_manifest = managed_runtime_environment["manifest"]
+    legacy = _add_v141_managed_version(managed_runtime_environment)
+    current = installer.layout.read_current()
+    assert current is not None
+    current.update(
+        {
+            "artifact_id": legacy.artifact_id,
+            "version": legacy.version,
+            "artifact_sha256": legacy.artifact_sha256,
+            "previous_artifact_id": None,
+            "operation_id": "legacy-v141-fixture",
+            "revision": "legacy-v141-current",
+        }
+    )
+    installer.layout.write_current(current)
+    with database.session() as session:
+        session.add(
+            ComponentConfigRendererRecord(
+                renderer_id="cc-connect:cc-connect-fc315d2-native-v1",
+                component_id="cc-connect",
+                renderer_version="cc-connect-fc315d2-native-v1",
+                source_commit="fc315d213b49d62e9d90ea4a510189d4115e636f",
+                capability_json="{}",
+                active=1,
+                updated_at=datetime.now(UTC),
+            )
+        )
+
+    prepared = prepared_native_environment(managed_runtime_environment, tmp_path)
+    native = prepared["service"]
+    first_plan, _ = apply_native(native, prepared["request"])
+    first_runtime = native.store.runtime_path.read_bytes()
+    assert native.state().managed_state.artifact_id == legacy.artifact_id
+
+    install_plan = make_plan(installer, target_manifest)
+    install_operation, _, _, _ = confirm_plan(installer, install_plan, "native-upgrade-v150-target")
+    installer.execute_install(install_operation.operation_id, install_plan.plan_id, "test")
+    completed = load_operation(database, install_operation.operation_id)
+    assert completed and completed.status.value == "succeeded"
+    assert installer.layout.read_current()["artifact_id"] == target_manifest.artifact_id
+    transitional = native.state()
+    assert transitional.status == "invalid"
+    assert transitional.diagnostic_code == "NATIVE_CONFIGURATION_ARTIFACT_MISMATCH"
+
+    second_plan, _ = apply_native(native, prepared["request"])
+    upgraded = native.state()
+    assert (first_plan.target_revision, second_plan.target_revision) == (1, 2)
+    assert upgraded.status == "valid"
+    assert upgraded.managed_state.artifact_id == target_manifest.artifact_id
+    assert upgraded.managed_state.renderer_version == "cc-connect-17c6106-native-v2"
+    assert native.store.runtime_path.read_bytes() == first_runtime
+    with database.session() as session:
+        active_revision = session.scalar(
+            select(NativeConfigurationRevisionRecord).where(
+                NativeConfigurationRevisionRecord.component_id == "cc-connect",
+                NativeConfigurationRevisionRecord.status == "active",
+            )
+        )
+        managed_process = session.get(ManagedProcessRecord, "cc-connect")
+        renderers = {
+            item.renderer_version: item.active
+            for item in session.scalars(select(ComponentConfigRendererRecord))
+        }
+    assert active_revision.artifact_id == target_manifest.artifact_id
+    assert managed_process.artifact_id == target_manifest.artifact_id
+    assert managed_process.configuration_revision == 2
+    assert renderers["cc-connect-fc315d2-native-v1"] == 0
+    assert renderers["cc-connect-17c6106-native-v2"] == 1
+
+    restore_request = RestoreRequest(confirm=True)
+    restore_operation, _ = installer.create_restore_operation(
+        restore_request,
+        idempotency_key="native-upgrade-restore-v141",
+        body=restore_request.model_dump_json().encode(),
+    )
+    installer.execute_restore(restore_operation.operation_id, restore_request, "test")
+    assert installer.layout.read_current()["artifact_id"] == legacy.artifact_id
+    assert native.state().diagnostic_code == "NATIVE_CONFIGURATION_ARTIFACT_MISMATCH"
+
+    rollback_request = prepared["request"].model_copy(update={"rollback_to_revision": 1})
+    rollback_plan, _ = apply_native(native, rollback_request)
+    rolled_back = native.state()
+    assert rollback_plan.target_revision == 3
+    assert rolled_back.status == "valid"
+    assert rolled_back.managed_state.artifact_id == legacy.artifact_id
+    assert native.store.runtime_path.read_bytes() == first_runtime
+    assert installer.layout.version_dir(target_manifest.artifact_id).is_dir()
+    assert installer.layout.version_dir(legacy.artifact_id).is_dir()
+    with database.session() as session:
+        active_revision = session.scalar(
+            select(NativeConfigurationRevisionRecord).where(
+                NativeConfigurationRevisionRecord.component_id == "cc-connect",
+                NativeConfigurationRevisionRecord.status == "active",
+            )
+        )
+        managed_process = session.get(ManagedProcessRecord, "cc-connect")
+    assert active_revision.artifact_id == legacy.artifact_id
+    assert managed_process.artifact_id == legacy.artifact_id
+    assert managed_process.configuration_revision == 3
 
 
 def test_native_apply_rejects_missing_workspace_and_empty_projects(

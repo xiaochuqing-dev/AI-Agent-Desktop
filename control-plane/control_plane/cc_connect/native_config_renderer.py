@@ -14,9 +14,9 @@ class NativeConfigRenderError(ValueError):
 
 
 class CcConnectNativeConfigRenderer:
-    renderer_version: Literal["cc-connect-fc315d2-native-v1"] = "cc-connect-fc315d2-native-v1"
-    source_commit: Literal["fc315d213b49d62e9d90ea4a510189d4115e636f"] = (
-        "fc315d213b49d62e9d90ea4a510189d4115e636f"
+    renderer_version: Literal["cc-connect-17c6106-native-v2"] = "cc-connect-17c6106-native-v2"
+    source_commit: Literal["17c61062c2f9ce9bcdd45a2082e491f9743a2770"] = (
+        "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
     )
 
     def capability(self) -> NativeRendererCapability:

@@ -28,6 +28,7 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) {
 $PythonExe = [IO.Path]::GetFullPath($PythonExe)
 $VerifyScript = Join-Path $ControlPlaneRoot "..\integrations\cc-connect\scripts\verify-cc-connect-artifact.ps1"
 $VerifyLock = Join-Path $ControlPlaneRoot "..\integrations\cc-connect\manifests\artifact-lock.json"
+$ControlPlaneLock = Join-Path $ControlPlaneRoot "control_plane\installer\artifact-lock.json"
 
 if (-not (Test-Path -LiteralPath $CcConnectBundle -PathType Container)) {
     throw "cc-connect bundle directory does not exist: $CcConnectBundle"
@@ -37,6 +38,9 @@ if (-not (Test-Path -LiteralPath $VerifyScript -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
     throw "Python executable does not exist: $PythonExe"
+}
+if ((Get-FileHash -LiteralPath $VerifyLock -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $ControlPlaneLock -Algorithm SHA256).Hash) {
+    throw "integration and Control Plane artifact locks differ"
 }
 $PythonVersion = (& $PythonExe -c "import sys; print('.'.join(map(str, sys.version_info[:3])))").Trim()
 if ($PythonVersion -ne "3.12.10") {
@@ -97,6 +101,7 @@ Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-prod.lock") -D
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-build.lock") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot "requirements-gui.lock") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $ControlPlaneRoot ".python-version") -Destination $OutputDir -Force
+Copy-Item -LiteralPath $ControlPlaneLock -Destination (Join-Path $OutputDir "artifact-lock.json") -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "windows10_user_acceptance.ps1") -Destination $OutputDir -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "USER_VALIDATION_GUIDE.txt") -Destination $OutputDir -Force
 
@@ -110,8 +115,22 @@ function Get-FileEntry {
     }
 }
 
-$CandidateVersion = "0.4.0-prebeta"
+$CandidateVersion = "0.4.1-prebeta"
 $CcManifest = Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect-artifact-manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+$CcLock = Get-Content -LiteralPath $ControlPlaneLock -Raw -Encoding UTF8 | ConvertFrom-Json
+Push-Location -LiteralPath $ControlPlaneRoot
+try {
+    $RendererFactsOutput = & $PythonExe -c 'import json; from control_plane.cc_connect.native_config_renderer import CcConnectNativeConfigRenderer; value = CcConnectNativeConfigRenderer().capability(); print(json.dumps(dict(renderer_version=value.renderer_version, source_commit=value.source_commit), sort_keys=True))'
+    if ($LASTEXITCODE -ne 0) { throw "failed to read native renderer release facts" }
+    $RendererFactsJson = ($RendererFactsOutput -join "").Trim()
+}
+finally {
+    Pop-Location
+}
+$RendererFacts = $RendererFactsJson | ConvertFrom-Json
+if ([string]$RendererFacts.source_commit -ne [string]$CcLock.source_commit) {
+    throw "native renderer source commit does not match the artifact lock"
+}
 $CcSha = (Get-Content -LiteralPath (Join-Path $CcOutput "cc-connect.sha256") -Raw -Encoding UTF8).Trim().Split(' ')[0].ToLowerInvariant()
 $PayloadFiles = @(Get-ChildItem -LiteralPath $OutputDir -Recurse -File | Where-Object {
     $_.Name -notin @("candidate-manifest.json", "candidate-manifest.sha256", "SHA256SUMS.txt", "candidate-package.sha256")
@@ -138,9 +157,14 @@ $Manifest = [ordered]@{
     black_window = $false
     changes_external_environment = $false
     chrome_agent_required = $false
+    cc_connect_artifact_id = [string]$CcManifest.artifact_id
     cc_connect_version = [string]$CcManifest.version
     cc_connect_source_commit = [string]$CcManifest.source_commit
+    cc_connect_patchset_version = [string]$CcManifest.patchset_version
+    cc_connect_active_patch_count = @($CcManifest.patch_files).Count
     cc_connect_artifact_sha256 = $CcSha
+    cc_connect_renderer_version = [string]$RendererFacts.renderer_version
+    cc_connect_renderer_source_commit = [string]$RendererFacts.source_commit
     package_sha256 = $PackageHash
     package_sha256_basis = "UTF-8 SHA256 of sorted payload '<sha256>  <relative path>' lines"
     files = $Entries

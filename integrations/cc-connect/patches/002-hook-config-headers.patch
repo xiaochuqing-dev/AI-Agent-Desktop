@@ -1,24 +1,71 @@
 diff --git a/cmd/cc-connect/main.go b/cmd/cc-connect/main.go
-index 96c887a..86aea16 100644
+index acdbd3527c5c9c8308022dc655fa371e03992360..868de009752b2321b80ce3ebf8cf5a59314768b5 100644
 --- a/cmd/cc-connect/main.go
 +++ b/cmd/cc-connect/main.go
-@@ -599,6 +599,11 @@ func main() {
- 					URL:     h.URL,
- 					Timeout: h.Timeout,
- 					Async:   h.Async,
-+					// Stage 2 fix: Headers (e.g. Authorization: Bearer) MUST be
-+					// propagated to the HookManager, otherwise executeHTTP sends
-+					// hook POSTs with no auth header and the receiver rejects them
-+					// all (root cause of msgid_agent_map staying empty).
-+					Headers: h.Headers,
- 				}
+@@ -573,14 +573,7 @@ func main() {
+ 		if len(cfg.Hooks) > 0 {
+ 			coreHooks := make([]core.HookConfig, len(cfg.Hooks))
+ 			for i, h := range cfg.Hooks {
+-				coreHooks[i] = core.HookConfig{
+-					Event:   h.Event,
+-					Type:    h.Type,
+-					Command: h.Command,
+-					URL:     h.URL,
+-					Timeout: h.Timeout,
+-					Async:   h.Async,
+-				}
++				coreHooks[i] = projectHookConfig(h)
  			}
  			engine.SetHooks(core.NewHookManager(proj.Name, coreHooks, shell, shellFlag, shellProfile))
+ 		}
+@@ -1381,6 +1374,18 @@ func main() {
+ 	slog.Info("bye")
+ }
+ 
++func projectHookConfig(h config.HookConfig) core.HookConfig {
++	return core.HookConfig{
++		Event:   h.Event,
++		Type:    h.Type,
++		Command: h.Command,
++		URL:     h.URL,
++		Timeout: h.Timeout,
++		Async:   h.Async,
++		Headers: h.Headers,
++	}
++}
++
+ func runTopLevelCommand(args []string) bool {
+ 	if len(args) == 0 {
+ 		return false
+diff --git a/cmd/cc-connect/main_test.go b/cmd/cc-connect/main_test.go
+index e90f64746813a5e81861a5ebae22853db7e048e8..f67fa48690280c91be719500386ac4e34ed171d5 100644
+--- a/cmd/cc-connect/main_test.go
++++ b/cmd/cc-connect/main_test.go
+@@ -51,6 +51,19 @@ func (s *stubMainAgentSession) Close() error
+ func (s *stubMainAgentSession) CurrentSessionID() string                              { return "" }
+ func (s *stubMainAgentSession) Alive() bool                                           { return true }
+ 
++func TestProjectHookConfigPreservesHeaders(t *testing.T) {
++	input := config.HookConfig{
++		Event:   "message.received",
++		Type:    "http",
++		URL:     "https://receiver.invalid/hooks",
++		Headers: map[string]string{"Authorization": "Bearer dummy-hook-token"},
++	}
++	got := projectHookConfig(input)
++	if got.Headers["Authorization"] != "Bearer dummy-hook-token" {
++		t.Fatalf("projected headers = %#v", got.Headers)
++	}
++}
++
+ func TestProjectStatePath(t *testing.T) {
+ 	dataDir := t.TempDir()
+ 	got := projectStatePath(dataDir, "my/project:one")
 diff --git a/config/config.go b/config/config.go
-index 908027d..eb336c3 100644
+index 908027db386d2d55ea9ee7558a92cae032228b0f..3c84d83c8e11620c67deafa9359e640b5c64ca5c 100644
 --- a/config/config.go
 +++ b/config/config.go
-@@ -167,12 +167,17 @@ type BridgeConfig struct {
+@@ -167,12 +167,13 @@ type BridgeConfig struct {
  
  // HookConfig is a single event hook rule.
  type HookConfig struct {
@@ -34,36 +81,246 @@ index 908027d..eb336c3 100644
 +	URL     string            `toml:"url,omitempty"`     // HTTP endpoint (type=http)
 +	Timeout int               `toml:"timeout,omitempty"` // seconds; 0 = default
 +	Async   *bool             `toml:"async,omitempty"`   // nil = true (async by default)
-+	// Stage 2 fix: Headers MUST be present on the config struct too, otherwise
-+	// TOML parsing silently drops the [hooks.headers] table and the value never
-+	// reaches core.HookManager (root cause of receiver rejecting all POSTs as
-+	// unauthenticated).  Mirrors core.HookConfig.Headers.
-+	Headers map[string]string `toml:"headers,omitempty"`
++	Headers map[string]string `toml:"headers,omitempty"` // extra HTTP headers (type=http)
  }
  
  // ManagementConfig controls the HTTP Management API for external tools.
+diff --git a/config/config_test.go b/config/config_test.go
+index 505067234ef76d22aebcfcbd8ae60d5f0500edeb..c67bdf54c386a325262010627ee6bfb8004dadcf 100644
+--- a/config/config_test.go
++++ b/config/config_test.go
+@@ -10,6 +10,31 @@ import (
+ 	"github.com/BurntSushi/toml"
+ )
+ 
++func TestHookConfigHeadersDecode(t *testing.T) {
++	var cfg Config
++	if _, err := toml.Decode(`
++[[hooks]]
++event = "message.received"
++type = "http"
++url = "https://receiver.invalid/hooks"
++
++[hooks.headers]
++Authorization = "Bearer dummy-hook-token"
++X-Governance = "enabled"
++`, &cfg); err != nil {
++		t.Fatalf("decode hook headers: %v", err)
++	}
++	if len(cfg.Hooks) != 1 {
++		t.Fatalf("hooks = %d, want 1", len(cfg.Hooks))
++	}
++	if got := cfg.Hooks[0].Headers["Authorization"]; got != "Bearer dummy-hook-token" {
++		t.Fatalf("Authorization = %q", got)
++	}
++	if got := cfg.Hooks[0].Headers["X-Governance"]; got != "enabled" {
++		t.Fatalf("X-Governance = %q", got)
++	}
++}
++
+ func TestConfigValidate(t *testing.T) {
+ 	tests := []struct {
+ 		name    string
 diff --git a/core/hooks.go b/core/hooks.go
-index 02dae79..bb5c4fa 100644
+index 02dae79a0c499f4d7d53c7dde3ba29571f21b2ae..2b7d0a5202829d92950ef0bae5a73e0e0ab0a416 100644
 --- a/core/hooks.go
 +++ b/core/hooks.go
-@@ -43,6 +49,9 @@ type HookConfig struct {
- 	URL     string `toml:"url" json:"url,omitempty"`
- 	Timeout int    `toml:"timeout" json:"timeout,omitempty"` // seconds; 0 = default (10s cmd, 5s http)
- 	Async   *bool  `toml:"async" json:"async,omitempty"`     // nil = true (async by default)
-+	// Headers are extra HTTP headers sent with type="http" hooks.  Used to pass
-+	// an Authorization bearer token without leaking it into the URL query.
-+	Headers map[string]string `toml:"headers" json:"headers,omitempty"`
+@@ -17,14 +17,14 @@ import (
+ type HookEventType string
+ 
+ const (
+-	HookEventMessageReceived    HookEventType = "message.received"
+-	HookEventMessageSent        HookEventType = "message.sent"
+-	HookEventSessionStarted     HookEventType = "session.started"
+-	HookEventSessionEnded       HookEventType = "session.ended"
+-	HookEventCronTriggered      HookEventType = "cron.triggered"
+-	HookEventTimerTriggered     HookEventType = "timer.triggered"
++	HookEventMessageReceived     HookEventType = "message.received"
++	HookEventMessageSent         HookEventType = "message.sent"
++	HookEventSessionStarted      HookEventType = "session.started"
++	HookEventSessionEnded        HookEventType = "session.ended"
++	HookEventCronTriggered       HookEventType = "cron.triggered"
++	HookEventTimerTriggered      HookEventType = "timer.triggered"
+ 	HookEventPermissionRequested HookEventType = "permission.requested"
+-	HookEventError              HookEventType = "error"
++	HookEventError               HookEventType = "error"
+ )
+ 
+ // HookHandlerType is the execution strategy for a hook.
+@@ -37,12 +37,13 @@ const (
+ 
+ // HookConfig is the user-facing configuration for a single hook rule.
+ type HookConfig struct {
+-	Event   string `toml:"event" json:"event"`
+-	Type    string `toml:"type" json:"type"`       // "command" or "http"
+-	Command string `toml:"command" json:"command,omitempty"`
+-	URL     string `toml:"url" json:"url,omitempty"`
+-	Timeout int    `toml:"timeout" json:"timeout,omitempty"` // seconds; 0 = default (10s cmd, 5s http)
+-	Async   *bool  `toml:"async" json:"async,omitempty"`     // nil = true (async by default)
++	Event   string            `toml:"event" json:"event"`
++	Type    string            `toml:"type" json:"type"` // "command" or "http"
++	Command string            `toml:"command" json:"command,omitempty"`
++	URL     string            `toml:"url" json:"url,omitempty"`
++	Timeout int               `toml:"timeout" json:"timeout,omitempty"` // seconds; 0 = default (10s cmd, 5s http)
++	Async   *bool             `toml:"async" json:"async,omitempty"`     // nil = true (async by default)
++	Headers map[string]string `toml:"headers" json:"-"`                 // secrets must never be serialized
  }
  
  func (h *HookConfig) isAsync() bool {
-@@ -215,6 +224,10 @@ func (hm *HookManager) executeHTTP(h *HookConfig, event HookEvent) {
+@@ -75,13 +76,13 @@ type HookEvent struct {
+ 
+ // HookManager dispatches lifecycle events to configured hook handlers.
+ type HookManager struct {
+-	hooks       []HookConfig
+-	project     string
+-	shell       string // shell binary (e.g. "sh", "/bin/zsh")
+-	shellFlag   string // shell flag (e.g. "-c", "-Command")
++	hooks        []HookConfig
++	project      string
++	shell        string // shell binary (e.g. "sh", "/bin/zsh")
++	shellFlag    string // shell flag (e.g. "-c", "-Command")
+ 	shellProfile string // prepended to every command
+-	mu          sync.RWMutex
+-	client      *http.Client
++	mu           sync.RWMutex
++	client       *http.Client
+ }
+ 
+ // NewHookManager creates a manager for the given project name.
+@@ -95,12 +96,12 @@ func NewHookManager(project string, hooks []HookConfig, shell, shellFlag, shellP
+ 		valid = append(valid, h)
+ 	}
+ 	return &HookManager{
+-		hooks:       valid,
+-		project:     project,
+-		shell:       shell,
+-		shellFlag:   shellFlag,
++		hooks:        valid,
++		project:      project,
++		shell:        shell,
++		shellFlag:    shellFlag,
+ 		shellProfile: shellProfile,
+-		client:      &http.Client{},
++		client:       &http.Client{},
+ 	}
+ }
+ 
+@@ -212,6 +213,11 @@ func (hm *HookManager) executeHTTP(h *HookConfig, event HookEvent) {
+ 		slog.Warn("hooks: create request failed", "url", h.URL, "error", err)
+ 		return
+ 	}
++	for name, value := range h.Headers {
++		req.Header.Set(name, value)
++	}
++	// Protocol-owned headers are applied last so custom configuration cannot
++	// alter the payload type, hook identity, or client identity.
  	req.Header.Set("Content-Type", "application/json")
  	req.Header.Set("User-Agent", "CC-Connect-Hooks/1.0")
  	req.Header.Set("X-Hook-Event", string(event.Event))
-+	// Apply any custom headers from config (e.g. Authorization: Bearer <secret>).
-+	for k, v := range h.Headers {
-+		req.Header.Set(k, v)
+@@ -276,5 +282,14 @@ func (hm *HookManager) Hooks() []HookConfig {
+ 	defer hm.mu.RUnlock()
+ 	out := make([]HookConfig, len(hm.hooks))
+ 	copy(out, hm.hooks)
++	for i := range out {
++		if out[i].Headers == nil {
++			continue
++		}
++		out[i].Headers = make(map[string]string, len(out[i].Headers))
++		for name, value := range hm.hooks[i].Headers {
++			out[i].Headers[name] = value
++		}
 +	}
+ 	return out
+ }
+diff --git a/core/hooks_test.go b/core/hooks_test.go
+index c3537a28c569a4dd52001d4a04ec2a61ad9bef2a..c752c83027554a520541be560b8dcc1e2d90f991 100644
+--- a/core/hooks_test.go
++++ b/core/hooks_test.go
+@@ -20,11 +20,11 @@ func boolPtr(v bool) *bool { return &v }
+ func TestNewHookManager_ValidatesConfig(t *testing.T) {
+ 	hooks := []HookConfig{
+ 		{Event: "message.received", Type: "command", Command: "echo ok"},
+-		{Event: "", Type: "command", Command: "echo bad"},         // missing event
+-		{Event: "error", Type: "http", URL: ""},                   // missing url
+-		{Event: "error", Type: "http", URL: "ftp://bad"},          // bad url scheme
+-		{Event: "error", Type: "unknown", Command: "echo"},        // bad type
+-		{Event: "error", Type: "command", Command: ""},            // missing command
++		{Event: "", Type: "command", Command: "echo bad"},  // missing event
++		{Event: "error", Type: "http", URL: ""},            // missing url
++		{Event: "error", Type: "http", URL: "ftp://bad"},   // bad url scheme
++		{Event: "error", Type: "unknown", Command: "echo"}, // bad type
++		{Event: "error", Type: "command", Command: ""},     // missing command
+ 		{Event: "message.sent", Type: "http", URL: "http://ok.com"},
+ 	}
+ 	hm := NewHookManager("test", hooks, "sh", "-c", "")
+@@ -106,6 +106,70 @@ func TestEmit_NilManager(t *testing.T) {
+ 	hm.Emit(HookEvent{Event: HookEventError, Error: "boom"})
+ }
  
- 	resp, err := hm.client.Do(req)
- 	if err != nil {
++func TestEmit_HTTPHookCustomHeadersPreserveProtocolHeaders(t *testing.T) {
++	type observedRequest struct {
++		headers http.Header
++		body    HookEvent
++	}
++	observed := make(chan observedRequest, 1)
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		var event HookEvent
++		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
++			http.Error(w, "invalid body", http.StatusBadRequest)
++			return
++		}
++		observed <- observedRequest{headers: r.Header.Clone(), body: event}
++		w.WriteHeader(http.StatusNoContent)
++	}))
++	defer server.Close()
++
++	hm := NewHookManager("headers-test", []HookConfig{{
++		Event: "message.received",
++		Type:  "http",
++		URL:   server.URL,
++		Async: boolPtr(false),
++		Headers: map[string]string{
++			"Authorization": "Bearer dummy-hook-token",
++			"Content-Type":  "text/plain",
++			"User-Agent":    "custom-agent",
++			"X-Hook-Event":  "spoofed.event",
++		},
++	}}, "sh", "-c", "")
++	hm.Emit(HookEvent{Event: HookEventMessageReceived, Content: "hello"})
++
++	got := <-observed
++	if value := got.headers.Get("Authorization"); value != "Bearer dummy-hook-token" {
++		t.Fatalf("Authorization = %q", value)
++	}
++	if value := got.headers.Get("Content-Type"); value != "application/json" {
++		t.Fatalf("Content-Type = %q", value)
++	}
++	if value := got.headers.Get("User-Agent"); value != "CC-Connect-Hooks/1.0" {
++		t.Fatalf("User-Agent = %q", value)
++	}
++	if value := got.headers.Get("X-Hook-Event"); value != "message.received" {
++		t.Fatalf("X-Hook-Event = %q", value)
++	}
++	if got.body.Project != "headers-test" || got.body.Content != "hello" {
++		t.Fatalf("event = %#v", got.body)
++	}
++}
++
++func TestHookConfigJSONOmitsHeaders(t *testing.T) {
++	data, err := json.Marshal(HookConfig{
++		Event:   "message.received",
++		Type:    "http",
++		URL:     "https://receiver.invalid/hooks",
++		Headers: map[string]string{"Authorization": "Bearer dummy-hook-token"},
++	})
++	if err != nil {
++		t.Fatalf("marshal HookConfig: %v", err)
++	}
++	if strings.Contains(string(data), "dummy-hook-token") || strings.Contains(string(data), "Authorization") {
++		t.Fatalf("serialized HookConfig exposed headers: %s", data)
++	}
++}
++
+ func TestEmit_CommandHook(t *testing.T) {
+ 	if runtime.GOOS == "windows" {
+ 		t.Skip("Unix shell commands (touch, env) not available on Windows")

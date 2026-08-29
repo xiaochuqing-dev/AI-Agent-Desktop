@@ -363,7 +363,7 @@ def test_live_test_runs_six_one_shot_plans_without_retry(monkeypatch):
 
 
 def test_gui_version_matches_candidate_manifest():
-    assert APP_VERSION == "0.4.0-prebeta"
+    assert APP_VERSION == "0.4.1-prebeta"
 
 
 def test_binding_poll_timer_only_runs_on_binding_steps(qt_app):

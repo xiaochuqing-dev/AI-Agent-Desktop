@@ -93,6 +93,12 @@ finally {
 
 $artifactHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $artifactSize = (Get-Item -LiteralPath $artifactPath).Length
+if ($null -eq $lock.PSObject.Properties["artifact_sha256"] -or $null -eq $lock.PSObject.Properties["artifact_size"]) {
+  throw "locked artifact digest and size are required"
+}
+if ($artifactHash -ne [string]$lock.artifact_sha256 -or $artifactSize -ne [long]$lock.artifact_size) {
+  throw "built artifact does not match the locked digest and size"
+}
 $patchFiles = @()
 foreach ($patch in $lock.patch_files) {
   $patchFiles += [ordered]@{

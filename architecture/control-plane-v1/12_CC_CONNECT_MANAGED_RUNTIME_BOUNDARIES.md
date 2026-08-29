@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施更新：2026-08-15。GUI Step 4 已正式调用安装/Owner/原生配置/start/reconcile，并只在 PID、artifact/exe、configuration revision、port ownership、startup stability 和 fatal-log 证据满足时标记 Runtime Ready。Claude/Codex connected 还要求各自 Agent detector acceptable；Hermes Native Telegram readiness 单独建模，不映射为 cc-connect connected。整体仍为 PARTIAL：新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+实施更新：2026-08-30。产品受管 cc-connect 已锁定到 Stable v1.5.0 source `17c61062c2f9ce9bcdd45a2082e491f9743a2770`，Patch 001–004 重放，Patch 005 退役。GUI Step 4 已正式调用安装/Owner/原生配置/start/reconcile，并只在 PID、artifact/exe、configuration revision、port ownership、startup stability 和 fatal-log 证据满足时标记 Runtime Ready。整体仍为 PARTIAL：新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 ## 范围与非目标
 
@@ -14,7 +14,7 @@
 |---|---|---|
 | OperationExecutor | 有界队列、组件互斥、持久化 Operation、幂等、取消、关机和恢复探测 | 分布式任务、通用工作流 |
 | ConfigurationService/ConfigStore | 保留旧 managed 配置兼容；不可变计划、revision、备份、原子替换、漂移检测与回滚 | 任意路径或外部配置编辑 |
-| CcConnectNativeConfigRenderer/Store | 从稳定产品模型生成 fc315d2 原生 TOML，并分离 managed state、revision、备份与回滚 | API 或 lifecycle 直接拼 TOML |
+| CcConnectNativeConfigRenderer/Store | 从稳定产品模型生成 17c6106 原生 TOML，Renderer 为 cc-connect-17c6106-native-v2，并分离 managed state、revision、备份与回滚 | API 或 lifecycle 直接拼 TOML |
 | CredentialBackend | Windows Credential Manager 固定引用、metadata/revision 与受限 Operation resolve；InMemory 仅测试 | 通用 Vault、明文回退、读取用户旧 Secret |
 | Telegram Identity/Binding/Lease | getMe、Webhook、一次性绑定、offset 和 getUpdates 单一 Owner | 业务消息发送、完整 Bot Framework |
 | ManagedProcessService | 所有权计划、start/stop/restart/status/reconcile、身份验证、日志与恢复 | 外部 supervisor 或通用服务管理器 |
@@ -31,7 +31,7 @@
 
 ## 所有权与生命周期
 
-ManagementOwner 与 LifecycleOwner 独立建模。安装不自动获取生命周期，配置写入不停止 external 进程。Owner 交接使用独立不可变计划和显式确认，只在结果为 product/product 时允许 start。
+ManagementOwner 与 LifecycleOwner 独立建模。安装不自动获取生命周期，配置写入不停止 external 进程。Owner 交接使用独立不可变计划和显式确认，只在结果为 product/product 时允许 start。切换 current artifact 前若产品受管进程仍运行，安装器以 `PRODUCT_MANAGED_PROCESS_MUST_STOP_FOR_UPGRADE` 拒绝升级；外部进程不被停止或接管。
 
 启动前校验 current/manifest/SQLite 一致性、artifact SHA256、native configuration revision、Owner、三 Bot 身份、Webhook、Update Lease、Claude/Codex 可执行入口、CredentialRef 和端口。Secret 从 Windows Credential Manager 临时解析，只注入目标子进程；argv 与 TOML 不含值。环境白名单保留 PATH 等必要非敏感系统变量，避免锁定版 cc-connect 无法发现已安装 Agent，但不修改系统 PATH。停止前完整匹配持久化身份并释放 runtime Lease。
 
@@ -49,7 +49,7 @@ Alembic 0003 保留 Operation、旧配置和生命周期表；0004 新增 creden
 
 ## 更新与外部工具
 
-cc-connect 当前版本由 artifact lock、manifest、current 指针和持久化状态唯一确定。更新评估要求精确候选版本、来源、兼容性、迁移计划和回滚点，不支持 latest。Hermes 更新仍无可执行 Adapter，准确返回 unsupported；本轮只实现已安装 Hermes 的 Telegram `.env`/Gateway 最小配置，不执行 Hermes 安装或更新。
+cc-connect 当前版本由 artifact lock、manifest、current 指针和持久化状态唯一确定。更新评估要求精确候选版本、来源、兼容性、原生配置刷新计划和回滚点，不支持 latest。v1.4.1 到 v1.5.0 必须生成绑定新 artifact、Renderer 与 source SHA 的新配置 revision，即使 TOML 业务字段字节等价也不能复用旧证据。回滚保留旧版本目录、旧 current 指针和旧配置 revision。Hermes 更新仍无可执行 Adapter，准确返回 unsupported。
 
 CC Switch 只根据公开可执行入口返回安装状态并可普通打开。install/update/configuration/ownership_handoff 缺少稳定公开接口证据时标为 unknown，不读取私有配置或 Secret，不修改 CC Switch 源码。
 
@@ -57,4 +57,4 @@ CC Switch 只根据公开可执行入口返回安装状态并可普通打开。i
 
 OpenAPI v1 以向后兼容增量方式增加配置计划/状态、Owner 计划/状态、start/stop/restart/reconcile/health、process identity、port ownership、update assessment 和 CC Switch detect/launch。`managed-runtime.schema.json` 为对应 Draft 2020-12 模型。
 
-自动化覆盖 Credential 错误与 Secret 不回显、Telegram API/Lease/绑定攻击矩阵、Renderer 正反 Schema、中文空格括号路径、配置竞态/漂移/备份/回滚、Agent 缺失、external 检测、生命周期 PID/SHA/revision/端口/Owner、management Bearer 和 Control Plane 重启。真实 Telegram、Windows 10、Group Chat 原生过滤和 deep health 不得标为 COMPLETE。
+自动化覆盖 Credential 错误与 Secret 不回显、Telegram API/Lease/绑定攻击矩阵、Renderer 正反 Schema、v1.4.1 与 v1.5.0 配置 Loader、中文空格括号路径、配置竞态/漂移/备份/回滚、运行中升级拒绝、旧版回滚证据一致性、Agent 缺失、external 检测、生命周期 PID/SHA/revision/端口/Owner、management Bearer 和 Control Plane 重启。真实 Telegram、Windows 10、Group Chat 原生过滤和 deep health 不得标为 COMPLETE。

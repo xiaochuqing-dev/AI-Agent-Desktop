@@ -1,6 +1,6 @@
 GUI 状态体验模型 GUI_STATUS_EXPERIENCE
 
-本文档同时记录正式 GUI 的目标体验与当前 `0.4.0-prebeta` 实现。真实 Agent Detection、严格 Runtime Readiness、Binding/Live 分离、Hermes Telegram Native Onboarding 和 Live E2E GUI 已接入，但完整发布体验和真实 Telegram 复测尚未完成。
+本文档同时记录正式 GUI 的目标体验与当前 `0.4.1-prebeta` 实现。真实 Agent Detection、严格 Runtime Readiness、Binding/Live 分离、Hermes Telegram Native Onboarding 和 Live E2E GUI 已接入，但完整发布体验和真实 Telegram 复测尚未完成。
 GUI 是 Control Plane 状态的视图，不是状态所有者。它只通过稳定本地 API 读取 StateSnapshot 和下发 Operation，不直接读取上游目录、进程或配置。
 关闭 GUI 只断开本地客户端，不能停止 Control Plane 或已经运行的 Agent/Channel 服务。
 

@@ -74,3 +74,15 @@ def write_test_bundle(
         encoding="utf-8",
     )
     return root, manifest
+
+
+def bind_test_artifact_lock(monkeypatch, manifest: ArtifactManifest) -> None:
+    """Bind the product lock to a synthetic PE without weakening production checks."""
+
+    test_lock = load_artifact_lock()
+    test_lock["artifact_size"] = manifest.artifact_size
+    test_lock["artifact_sha256"] = manifest.artifact_sha256
+    monkeypatch.setattr(
+        "control_plane.installer.artifacts.load_artifact_lock",
+        lambda: test_lock,
+    )

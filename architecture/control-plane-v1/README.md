@@ -7,7 +7,7 @@
 - 适配基准：`v0.1-reference-baseline`，基线来源 HEAD 为 `cd3493b191fdc19114e0ae037746ab3d23a58a79`
 - 公开仓库起始基线：`8a6ba2a130195a82a07fa2bb9c8a54e6f50b8835`
 - 实现决策：ADR-001..004 已冻结（见 `adr/`）
-- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、三个真实 Agent Detector、Update Lease、managed/native 分离、Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和受管生命周期；`0.4.0-prebeta` GUI、SVG IconRegistry、Design Tokens、TitleBar、GlassDialog、Live E2E、Dashboard、Diagnostics、QR 与 Telegram 深链接已实现。Fake 与 Windows 11 本地验收通过；新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
+- 实现状态：Control Plane 已完成 cc-connect 隔离安装、Windows Credential Manager、三 Bot 身份/绑定、三个真实 Agent Detector、Update Lease、managed/native 分离、Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和受管生命周期；`0.4.1-prebeta` GUI 已实现。产品受管 cc-connect 已精确升级到 Stable v1.5.0 source `17c61062c2f9ce9bcdd45a2082e491f9743a2770`；新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL
 
 本设计包把 Local Control Plane 定义为安装、配置、状态、生命周期、能力与人类控制的统一管理层。它不是新的 Agent Runtime、消息总线、通用 DAG 或智能编排大脑。
 
@@ -88,7 +88,7 @@
 - 不在当前切片实现其他组件安装、外部生命周期接管、六链路真实消息 E2E、MSI/正式安装器或代码签名；PySide6 最小 GUI 已实现但仍处于候选和用户验证阶段
 - 不新增 Channel 或 Runtime
 - 不重写 Hermes、Claude Code、Codex 或 cc-connect
-- 不扩大 dual_agent 或 5 个 cc-connect Patch
+- 不扩大 dual_agent，也不在 v1.5.0 已收敛的 Patch 001–004 之外增加 Patch
 - 不定义通用 DAG、低代码工作流、插件市场或分布式控制平面
 - 不把当前 Adapter 私有字段写入通用模型
 - 不修改、重启、停止或测试当前在线系统

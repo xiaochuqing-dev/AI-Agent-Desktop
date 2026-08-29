@@ -117,6 +117,20 @@ class CcConnectArtifactProvider:
                     reason="Target comes from the verified Windows AMD64 artifact lock.",
                 )
             ]
+            if current is not None:
+                compatibility.append(
+                    CompatibilityRule(
+                        rule_id="native-configuration-revision-refresh",
+                        status="compatible",
+                        reason=(
+                            "After the stopped artifact switch, apply a new native configuration "
+                            "revision before restarting the product-managed runtime."
+                        ),
+                    )
+                )
+        configuration_refresh_required = bool(
+            current is not None and target is not None and current.artifact_id != target.artifact_id
+        )
         assessment = UpdateAssessment(
             assessment_id=new_id("update"),
             component_id="cc-connect",
@@ -125,11 +139,19 @@ class CcConnectArtifactProvider:
             status=status,
             compatibility=compatibility,
             migration=MigrationPlan(
-                required=False,
-                entrypoint="configuration.migrations.assess",
+                required=configuration_refresh_required,
+                entrypoint=(
+                    "cc_connect.native_configuration.create_plan"
+                    if configuration_refresh_required
+                    else "configuration.migrations.assess"
+                ),
                 from_schema_version="1.0" if current else None,
                 to_schema_version="1.0" if target else None,
-                status="not_required" if target else "unknown",
+                status=(
+                    "planned"
+                    if configuration_refresh_required
+                    else ("not_required" if target else "unknown")
+                ),
             ),
             rollback_version=current,
         )

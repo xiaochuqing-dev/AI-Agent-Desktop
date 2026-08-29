@@ -1,33 +1,28 @@
 diff --git a/core/engine.go b/core/engine.go
-index ea74ea4..7647770 100644
+index e40f25ca7ad3796fb41e3252dee50b6762d8f6c7..f8fb52fa74ef2aac1838a9496ecbbf225b91ec8e 100644
 --- a/core/engine.go
 +++ b/core/engine.go
-@@ -38,6 +38,49 @@ const defaultMaxQueuedMessages = 5 // default cap for queued messages per sessio
+@@ -38,6 +38,30 @@ const defaultMaxQueuedMessages = 5 // default cap for queued messages per sessio
  // platform does not block startup logging indefinitely.
  const defaultPendingRestartTimeout = 10 * time.Second
  
-+// messageReceivedExtra builds the Extra map for the message.received hook,
-+// exposing metadata that already exists on core.Message but was previously
-+// dropped at the hook boundary.  This lets an external multi-agent governance
-+// layer (Hermes HTTP receiver) record full Transcript entries without a second
-+// Telegram poller.
 +func messageReceivedExtra(msg *Message) map[string]any {
 +	if msg == nil {
 +		return nil
 +	}
++	senderType := "human"
++	if msg.SenderIsBot {
++		senderType = "bot"
++	}
 +	extra := map[string]any{
-+		"message_id": msg.MessageID,
-+		"chat_id":    msg.ChatID,
-+		"thread_id":  msg.ThreadID,
-+		"sender_type": func() string {
-+			if msg.SenderIsBot {
-+				return "bot"
-+			}
-+			return "human"
-+		}(),
-+		"has_images": len(msg.Images) > 0,
-+		"has_files":  len(msg.Files) > 0,
-+		"has_audio":  msg.Audio != nil,
++		"message_id":    msg.MessageID,
++		"chat_id":       msg.ChatID,
++		"thread_id":     msg.ThreadID,
++		"sender_type":   senderType,
++		"sender_is_bot": msg.SenderIsBot,
++		"has_images":    len(msg.Images) > 0,
++		"has_files":     len(msg.Files) > 0,
++		"has_audio":     msg.Audio != nil,
 +	}
 +	if msg.ReplyToMessageID != "" {
 +		extra["reply_to_message_id"] = msg.ReplyToMessageID
@@ -35,24 +30,65 @@ index ea74ea4..7647770 100644
 +	return extra
 +}
 +
-+// messageSentDeliveredExtra builds the Extra map for the
-+// message.sent_delivered hook, carrying the real outbound Telegram
-+// message_id (the one the user sees) so the governance layer can map it back
-+// to the agent that produced it.
-+func messageSentDeliveredExtra(sessionKey, platform, sentMessageID, chatID, threadID, msgType string) map[string]any {
-+	extra := map[string]any{
-+		"message_id":  sentMessageID,
-+		"chat_id":     chatID,
-+		"thread_id":   threadID,
-+		"message_type": msgType,
-+	}
-+	return extra
-+}
-+
  // previewText truncates s to maxRunes runes for safe inclusion in debug logs.
  // Truncation uses runes (not bytes) so multi-byte characters render cleanly.
  // Newlines are replaced with literal "\n" to keep each log entry on one line.
-@@ -2765,6 +2808,7 @@ func (e *Engine) handleMessage(p Platform, msg *Message) {
+@@ -768,6 +792,9 @@ func NewEngine(name string, ag Agent, platforms []Platform, sessionStorePath str
+ 	if sp, ok := ag.(SkillProvider); ok {
+ 		e.skills.SetDirs(sp.SkillDirs())
+ 	}
++	for _, p := range platforms {
++		e.wireDeliveryReporter(p)
++	}
+ 
+ 	return e
+ }
+@@ -1068,6 +1095,44 @@ func (e *Engine) SetModelSaveFunc(fn func(model string) error) {
+ // or if the engine is already running, it is started immediately.
+ func (e *Engine) AddPlatform(p Platform) {
+ 	e.platforms = append(e.platforms, p)
++	e.wireDeliveryReporter(p)
++}
++
++func (e *Engine) wireDeliveryReporter(p Platform) {
++	reporter, ok := p.(DeliveryReporter)
++	if !ok {
++		return
++	}
++	reporter.SetDeliveryHandler(func(delivery DeliveredMessage) {
++		defer func() {
++			if recovered := recover(); recovered != nil {
++				slog.Debug("delivered hook callback recovered", "platform", p.Name(), "panic", recovered)
++			}
++		}()
++		e.emitSentDelivered(p, delivery)
++	})
++}
++
++func (e *Engine) emitSentDelivered(p Platform, delivery DeliveredMessage) {
++	if delivery.MessageID == "" {
++		return
++	}
++	extra := map[string]any{
++		"message_id":   delivery.MessageID,
++		"chat_id":      delivery.ChatID,
++		"thread_id":    delivery.ThreadID,
++		"message_type": delivery.MessageType,
++	}
++	if delivery.PartCount > 1 {
++		extra["part_index"] = delivery.PartIndex
++		extra["part_count"] = delivery.PartCount
++	}
++	e.hooks.Emit(HookEvent{
++		Event:    HookEventMessageSentDelivered,
++		Platform: p.Name(),
++		Content:  delivery.Content,
++		Extra:    extra,
++	})
+ }
+ 
+ func (e *Engine) SetCronScheduler(cs *CronScheduler) {
+@@ -2818,6 +2883,7 @@ func (e *Engine) handleMessage(p Platform, msg *Message) {
  		UserID:     msg.UserID,
  		UserName:   msg.UserName,
  		Content:    msg.Content,
@@ -60,168 +96,678 @@ index ea74ea4..7647770 100644
  	})
  
  	// Voice message: transcribe to text first
-@@ -5742,6 +5786,14 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
- 				slog.Debug("EventResult: suppressed duplicate side-channel text", "response_len", len(fullResponse))
- 			} else if sp.finish(fullResponse, statusFooter) {
- 				slog.Debug("EventResult: finalized via stream preview", "response_len", len(fullResponse), "footer_len", len(statusFooter))
-+				// Stage 2: the stream-preview path finalizes the message in-place via
-+				// UpdateMessage (editing the preview started by SendPreviewStart), so it
-+				// never goes through sendAlreadyRenderedWithError and its
-+				// emitSentDelivered call.  Fire the delivered hook here so the
-+				// governance Transcript records the real outbound message_id (the
-+				// preview message_id, which is the one the user sees).  The platform's
-+				// recordSent still holds that id from SendPreviewStart.
-+				e.emitSentDelivered(p, fullResponse, "text")
- 			} else {
- 				slog.Debug("EventResult: sending via p.Send (preview inactive or failed)", "response_len", len(fullResponse), "footer_len", len(statusFooter))
- 				if !sendChunksWithStatusFooter(e.ctx, p, replyCtx, fullResponse, statusFooter, sendWorkspaceWithError) {
-@@ -6054,6 +6106,10 @@ channelClosed:
- 			}
- 		} else if sp.finish(fullResponse, "") {
- 			slog.Debug("stream preview: finalized in-place (process exited)")
-+			// Stage 2: same gap as the EventResult stream-preview branch above -
-+			// in-place finalize skips sendAlreadyRenderedWithError, so fire the
-+			// delivered hook here to record the outbound message_id.
-+			e.emitSentDelivered(p, fullResponse, "text")
- 		} else {
- 			for _, chunk := range splitMessage(fullResponse, maxPlatformMessageLen) {
- 				if err := sendWorkspaceWithError(p, replyCtx, chunk); err != nil {
-@@ -11678,9 +11734,33 @@ func (e *Engine) sendAlreadyRenderedWithError(p Platform, replyCtx any, content
- 	if elapsed := time.Since(start); elapsed >= slowPlatformSend {
- 		slog.Warn("slow platform send", "platform", p.Name(), "elapsed", elapsed, "content_len", len(content))
- 	}
-+	// Fire the delivered hook so the governance layer can record the real
-+	// outbound message_id.  Only platforms implementing SentMessageRecorder
-+	// (Telegram) can supply it; others are skipped silently.
-+	e.emitSentDelivered(p, content, "text")
- 	return nil
- }
- 
-+// emitSentDelivered queries the platform for the just-sent message_id and, if
-+// available, fires the message.sent_delivered hook.  Best-effort: failures are
-+// logged at debug level only so they never break the send path.
-+func (e *Engine) emitSentDelivered(p Platform, content, msgType string) {
-+	rec, ok := p.(SentMessageRecorder)
-+	if !ok {
-+		return
-+	}
-+	sentID, chatID, threadID, ok := rec.LastSentMessageID()
-+	if !ok || sentID == "" {
-+		return
-+	}
-+	rec.ClearLastSent()
-+	e.hooks.Emit(HookEvent{
-+		Event:   HookEventMessageSentDelivered,
-+		Content: content,
-+		Extra:   messageSentDeliveredExtra("", p.Name(), sentID, chatID, threadID, msgType),
-+	})
-+}
-+
- // send wraps p.Send with error logging, slow-operation warnings, and outgoing rate limiting.
- func (e *Engine) send(p Platform, replyCtx any, content string) {
- 	_ = e.sendWithError(p, replyCtx, content)
 diff --git a/core/hooks.go b/core/hooks.go
-index 02dae79..bb5c4fa 100644
+index 2b7d0a5202829d92950ef0bae5a73e0e0ab0a416..27997684804ea2957131aa8a9102bc291087d5ad 100644
 --- a/core/hooks.go
 +++ b/core/hooks.go
-@@ -19,6 +19,12 @@ type HookEventType string
+@@ -17,14 +17,15 @@ import (
+ type HookEventType string
+ 
  const (
- 	HookEventMessageReceived    HookEventType = "message.received"
- 	HookEventMessageSent        HookEventType = "message.sent"
-+	// HookEventMessageSentDelivered fires AFTER a platform send succeeds and
-+	// carries the real outbound message_id (the Telegram message_id of the
-+	// message the user actually sees).  Unlike message.sent (which fires
-+	// pre-send with only the reply text), this lets an external governance
-+	// layer record the delivered message_id for transcript/audit/Studio.
+-	HookEventMessageReceived     HookEventType = "message.received"
+-	HookEventMessageSent         HookEventType = "message.sent"
+-	HookEventSessionStarted      HookEventType = "session.started"
+-	HookEventSessionEnded        HookEventType = "session.ended"
+-	HookEventCronTriggered       HookEventType = "cron.triggered"
+-	HookEventTimerTriggered      HookEventType = "timer.triggered"
+-	HookEventPermissionRequested HookEventType = "permission.requested"
+-	HookEventError               HookEventType = "error"
++	HookEventMessageReceived      HookEventType = "message.received"
++	HookEventMessageSent          HookEventType = "message.sent"
 +	HookEventMessageSentDelivered HookEventType = "message.sent_delivered"
- 	HookEventSessionStarted     HookEventType = "session.started"
- 	HookEventSessionEnded       HookEventType = "session.ended"
- 	HookEventCronTriggered      HookEventType = "cron.triggered"
++	HookEventSessionStarted       HookEventType = "session.started"
++	HookEventSessionEnded         HookEventType = "session.ended"
++	HookEventCronTriggered        HookEventType = "cron.triggered"
++	HookEventTimerTriggered       HookEventType = "timer.triggered"
++	HookEventPermissionRequested  HookEventType = "permission.requested"
++	HookEventError                HookEventType = "error"
+ )
+ 
+ // HookHandlerType is the execution strategy for a hook.
 diff --git a/core/interfaces.go b/core/interfaces.go
-index 81f4d1c..6bbea38 100644
+index 81f4d1c1493d9fc057896f9b914136dbbae226e7..5303e130c9eb2d0de228ddf586bd63d7388ae788 100644
 --- a/core/interfaces.go
 +++ b/core/interfaces.go
-@@ -47,6 +47,26 @@ type MessageRecallDetector interface {
+@@ -47,6 +47,31 @@ type MessageRecallDetector interface {
  	IsMessageRecalled(ctx context.Context, replyCtx any) (bool, error)
  }
  
-+// SentMessageRecorder is an optional interface for platforms that can report
-+// the real platform message_id of the message they most recently sent (the one
-+// the user actually sees in chat).  The engine queries it right after a
-+// successful Send/SendImage/SendFile/preview-finalize so the governance layer
-+// can record the delivered message_id for transcript/audit/Studio via the
-+// message.sent_delivered hook.
-+//
-+// Platforms that cannot capture the sent message_id simply don't implement
-+// this interface; the engine skips the delivered-hook silently.
-+//
-+// The returned chatID/threadID let the hook carry full routing context
-+// without parsing session keys.
-+type SentMessageRecorder interface {
-+	// LastSentMessageID returns (sentMessageID, chatID, threadID, ok).
-+	// ok=false means no send happened or the id is unavailable.
-+	LastSentMessageID() (sentMessageID, chatID, threadID string, ok bool)
-+	// ClearLastSent resets the tracked id so it is never read twice.
-+	ClearLastSent()
++// DeliveredMessage identifies one message that a platform confirmed as sent.
++// PartIndex is one-based when a logical message is split across multiple
++// platform messages; PartCount is zero for non-chunked sends.
++type DeliveredMessage struct {
++	MessageID   string
++	ChatID      string
++	ThreadID    string
++	MessageType string
++	Content     string
++	PartIndex   int
++	PartCount   int
++}
++
++// DeliveryReporter is implemented by platforms that can expose the native
++// message identifier returned by a successful send operation.
++type DeliveryReporter interface {
++	SetDeliveryHandler(func(DeliveredMessage))
++}
++
++// PreviewDeliveryReporter finalizes delivery evidence for a message created
++// by SendPreviewStart and subsequently edited in place.
++type PreviewDeliveryReporter interface {
++	ReportPreviewDelivered(previewHandle any, content string)
 +}
 +
  // CronReplyTargetResolver is an optional interface for platforms that need to
  // map a logical cron session key to the actual reply target used at execution
  // time. This is useful for platforms where proactive replies may need to create
 diff --git a/core/message.go b/core/message.go
-index efd94a6..c5bf804 100644
+index fc071c952f985cdb5a1241001dd2c492400a5bf6..503bda435c5a4483e5552dc8cb094daa0d8ad991 100644
 --- a/core/message.go
 +++ b/core/message.go
-@@ -347,6 +347,21 @@ type Message struct {
- 	UserName     string
- 	ChatName     string // human-readable chat/group name (optional)
- 	Content      string
-+	// ChatID is the platform chat identifier (e.g. Telegram chat.ID).  Populated
-+	// by platforms so the multi-agent governance hook can record it without
-+	// parsing SessionKey.  Empty for platforms that don't expose a stable id.
-+	ChatID string
-+	// ThreadID is the forum topic / message-thread identifier (Telegram
-+	// message_thread_id).  Empty when not applicable.
-+	ThreadID string
-+	// ReplyToMessageID is the platform message_id of the message this one
-+	// replies to.  Populated by platforms from the native reply context so the
-+	// governance layer can build cross-agent reference chains.  Empty when not a
-+	// reply.
+@@ -361,22 +361,27 @@ type LocationAttachment struct {
+ 
+ // Message represents a unified incoming message from any platform.
+ type Message struct {
+-	SessionKey   string // unique key for user context, e.g. "feishu:{chatID}:{userID}"
+-	Platform     string
+-	MessageID    string // platform message ID for tracing
+-	Recalled     bool   // true for platform message recall/delete events targeting MessageID
+-	ChannelID    string
+-	UserID       string
+-	UserName     string
+-	ChatName     string // human-readable chat/group name (optional)
+-	Content      string
+-	Images       []ImageAttachment   // attached images (if any)
+-	Files        []FileAttachment    // attached files (if any)
+-	Audio        *AudioAttachment    // voice message (if any)
+-	Location     *LocationAttachment // geographical location (if any)
+-	ExtraContent string              // platform-enriched content (e.g. location text, reply quote) prepended for the agent
+-	OnAccepted   func()              // called once when the engine accepts this message for an agent turn
+-	ChannelKey   string              // platform-provided channel identifier for workspace binding (optional)
++	SessionKey string // unique key for user context, e.g. "feishu:{chatID}:{userID}"
++	Platform   string
++	MessageID  string // platform message ID for tracing
++	Recalled   bool   // true for platform message recall/delete events targeting MessageID
++	ChannelID  string
++	UserID     string
++	UserName   string
++	ChatName   string // human-readable chat/group name (optional)
++	Content    string
++	ChatID     string // stable platform chat identifier, when available
++	ThreadID   string // platform topic/thread identifier, when available
++	// ReplyToMessageID identifies the native message this message replies to.
 +	ReplyToMessageID string
-+	// SenderIsBot is true when the sender is a bot account.  Used by the
-+	// governance anti-loop rule (bot-origin messages never auto-trigger agents).
-+	SenderIsBot bool
- 	Images       []ImageAttachment   // attached images (if any)
- 	Files        []FileAttachment    // attached files (if any)
- 	Audio        *AudioAttachment    // voice message (if any)
++	SenderIsBot      bool
++	Images           []ImageAttachment   // attached images (if any)
++	Files            []FileAttachment    // attached files (if any)
++	Audio            *AudioAttachment    // voice message (if any)
++	Location         *LocationAttachment // geographical location (if any)
++	ExtraContent     string              // platform-enriched content (e.g. location text, reply quote) prepended for the agent
++	OnAccepted       func()              // called once when the engine accepts this message for an agent turn
++	ChannelKey       string              // platform-provided channel identifier for workspace binding (optional)
+ 	// LegacyChannelKey is the platform-provided channel identifier used by an
+ 	// older workspace-binding scope. When both keys are set, multi-workspace
+ 	// routing atomically migrates the legacy binding to ChannelKey.
+diff --git a/core/multiagent_hook_test.go b/core/multiagent_hook_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..5fbb66ac111c6ab216c2757437b95d7e08a66398
+--- /dev/null
++++ b/core/multiagent_hook_test.go
+@@ -0,0 +1,174 @@
++package core
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"path/filepath"
++	"sync"
++	"testing"
++	"time"
++)
++
++func TestMessageReceivedExtra(t *testing.T) {
++	msg := &Message{
++		MessageID:        "999",
++		ChatID:           "-100123",
++		ThreadID:         "88",
++		ReplyToMessageID: "555",
++		SenderIsBot:      true,
++		Images:           []ImageAttachment{{}},
++		Files:            []FileAttachment{{}},
++		Audio:            &AudioAttachment{},
++	}
++	extra := messageReceivedExtra(msg)
++	want := map[string]any{
++		"message_id":          "999",
++		"chat_id":             "-100123",
++		"thread_id":           "88",
++		"reply_to_message_id": "555",
++		"sender_type":         "bot",
++		"sender_is_bot":       true,
++		"has_images":          true,
++		"has_files":           true,
++		"has_audio":           true,
++	}
++	for key, value := range want {
++		if extra[key] != value {
++			t.Fatalf("%s = %#v, want %#v", key, extra[key], value)
++		}
++	}
++	if messageReceivedExtra(nil) != nil {
++		t.Fatal("nil message should produce nil metadata")
++	}
++}
++
++type deliveryTestPlatform struct {
++	mu      sync.Mutex
++	handler func(DeliveredMessage)
++}
++
++func (p *deliveryTestPlatform) Name() string                             { return "delivery-test" }
++func (p *deliveryTestPlatform) Start(MessageHandler) error               { return nil }
++func (p *deliveryTestPlatform) Reply(context.Context, any, string) error { return nil }
++func (p *deliveryTestPlatform) Send(context.Context, any, string) error  { return nil }
++func (p *deliveryTestPlatform) Stop() error                              { return nil }
++func (p *deliveryTestPlatform) SetDeliveryHandler(handler func(DeliveredMessage)) {
++	p.mu.Lock()
++	p.handler = handler
++	p.mu.Unlock()
++}
++func (p *deliveryTestPlatform) deliver(delivery DeliveredMessage) {
++	p.mu.Lock()
++	handler := p.handler
++	p.mu.Unlock()
++	if handler != nil {
++		handler(delivery)
++	}
++}
++
++func TestEngineDeliveryReporterEmitsExactHook(t *testing.T) {
++	received := make(chan HookEvent, 1)
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		defer r.Body.Close()
++		var event HookEvent
++		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
++			t.Errorf("decode hook: %v", err)
++			w.WriteHeader(http.StatusBadRequest)
++			return
++		}
++		received <- event
++		w.WriteHeader(http.StatusNoContent)
++	}))
++	defer server.Close()
++
++	p := &deliveryTestPlatform{}
++	e := NewEngine("test", nil, []Platform{p}, filepath.Join(t.TempDir(), "sessions.json"), LangEnglish)
++	e.SetHooks(NewHookManager("test", []HookConfig{{
++		Event: string(HookEventMessageSentDelivered), Type: "http", URL: server.URL, Async: boolPtr(false),
++	}}, "", "", ""))
++	p.deliver(DeliveredMessage{
++		MessageID: "777", ChatID: "-100", ThreadID: "88", MessageType: "text",
++		Content: "delivered", PartIndex: 2, PartCount: 3,
++	})
++
++	var event HookEvent
++	select {
++	case event = <-received:
++	case <-time.After(time.Second):
++		t.Fatal("delivered hook was not observed")
++	}
++	if event.Event != HookEventMessageSentDelivered || event.Platform != p.Name() || event.Content != "delivered" {
++		t.Fatalf("event = %#v", event)
++	}
++	want := map[string]any{
++		"message_id": "777", "chat_id": "-100", "thread_id": "88",
++		"message_type": "text", "part_index": float64(2), "part_count": float64(3),
++	}
++	for key, value := range want {
++		if event.Extra[key] != value {
++			t.Fatalf("extra[%q] = %#v, want %#v", key, event.Extra[key], value)
++		}
++	}
++}
++
++type previewDeliveryTestPlatform struct {
++	mu         sync.Mutex
++	updateErr  error
++	deliveries []DeliveredMessage
++}
++
++func (p *previewDeliveryTestPlatform) Name() string                             { return "preview-test" }
++func (p *previewDeliveryTestPlatform) Start(MessageHandler) error               { return nil }
++func (p *previewDeliveryTestPlatform) Reply(context.Context, any, string) error { return nil }
++func (p *previewDeliveryTestPlatform) Send(context.Context, any, string) error  { return nil }
++func (p *previewDeliveryTestPlatform) Stop() error                              { return nil }
++func (p *previewDeliveryTestPlatform) SendPreviewStart(context.Context, any, string) (any, error) {
++	return "preview-42", nil
++}
++func (p *previewDeliveryTestPlatform) UpdateMessage(context.Context, any, string) error {
++	return p.updateErr
++}
++func (p *previewDeliveryTestPlatform) KeepPreviewOnFinish() bool { return true }
++func (p *previewDeliveryTestPlatform) ReportPreviewDelivered(handle any, content string) {
++	p.mu.Lock()
++	p.deliveries = append(p.deliveries, DeliveredMessage{MessageID: handle.(string), Content: content})
++	p.mu.Unlock()
++}
++func (p *previewDeliveryTestPlatform) getDeliveries() []DeliveredMessage {
++	p.mu.Lock()
++	defer p.mu.Unlock()
++	return append([]DeliveredMessage(nil), p.deliveries...)
++}
++
++func TestStreamPreviewReportsOnlySuccessfulFinalDelivery(t *testing.T) {
++	cfg := StreamPreviewCfg{Enabled: true, IntervalMs: 0, MinDeltaChars: 0, MaxChars: 2000}
++	p := &previewDeliveryTestPlatform{}
++	sp := newStreamPreview(cfg, p, nil, context.Background(), nil)
++	sp.appendText("draft")
++	if got := p.getDeliveries(); len(got) != 0 {
++		t.Fatalf("preview start reported delivery: %#v", got)
++	}
++	if !sp.finish("final", "") {
++		t.Fatal("successful final update should retain the preview")
++	}
++	if !sp.finish("final", "") {
++		t.Fatal("repeated finish should remain successful")
++	}
++	got := p.getDeliveries()
++	if len(got) != 1 || got[0].MessageID != "preview-42" || got[0].Content != "final" {
++		t.Fatalf("deliveries = %#v", got)
++	}
++
++	failing := &previewDeliveryTestPlatform{updateErr: errors.New("edit failed")}
++	failedPreview := newStreamPreview(cfg, failing, nil, context.Background(), nil)
++	failedPreview.appendText("draft")
++	if failedPreview.finish("final", "") {
++		t.Fatal("failed final update should fall back to a fresh send")
++	}
++	if got := failing.getDeliveries(); len(got) != 0 {
++		t.Fatalf("failed update reported delivery: %#v", got)
++	}
++}
+diff --git a/core/streaming.go b/core/streaming.go
+index 8c4aa1adc7d8dcbfe7b3ee7134db289da9dd5cf9..ab46f83990968b37640e462e4999161e3933329b 100644
+--- a/core/streaming.go
++++ b/core/streaming.go
+@@ -45,6 +45,7 @@ type streamPreview struct {
+ 	lastSentAt        time.Time
+ 	lastSentViaUpdate bool // true if lastSentText was delivered via UpdateMessage (not SendPreviewStart)
+ 	previewMsgID      any  // platform-specific ID for the preview message (returned by SendPreviewStart)
++	deliveryReported  bool // final delivery evidence was emitted for previewMsgID
+ 	degraded          bool // if true, stop trying (platform doesn't support it or permanent error)
+ 
+ 	timer     *time.Timer
+@@ -156,6 +157,27 @@ func newStreamPreview(cfg StreamPreviewCfg, p Platform, replyCtx any, ctx contex
+ 	}
+ }
+ 
++// reportPreviewDeliveredLocked confirms the stable preview message only after
++// its final update succeeds. It must be called while sp.mu is held.
++func (sp *streamPreview) reportPreviewDeliveredLocked(content string) {
++	if sp.deliveryReported || sp.previewMsgID == nil || content == "" {
++		return
++	}
++	reporter, ok := sp.platform.(PreviewDeliveryReporter)
++	if !ok {
++		return
++	}
++	sp.deliveryReported = true
++	func() {
++		defer func() {
++			if recovered := recover(); recovered != nil {
++				slog.Debug("stream preview: delivery reporter recovered", "platform", sp.platform.Name(), "panic", recovered)
++			}
++		}()
++		reporter.ReportPreviewDelivered(sp.previewMsgID, content)
++	}()
++}
++
+ // canPreview returns true if the platform supports message updating and is not disabled.
+ func (sp *streamPreview) canPreview() bool {
+ 	sp.mu.Lock()
+@@ -312,7 +334,10 @@ func (sp *streamPreview) freeze() {
+ 				if sp.transform != nil {
+ 					text = sp.transform(text)
+ 				}
+-				_ = updater.UpdateMessage(sp.ctx, sp.previewMsgID, text)
++				if err := updater.UpdateMessage(sp.ctx, sp.previewMsgID, text); err == nil {
++					sp.lastSentText = text
++					sp.lastSentViaUpdate = true
++				}
+ 			}
+ 		}
+ 	}
+@@ -357,6 +382,7 @@ func (sp *streamPreview) unfreeze() {
+ 	sp.lastSentText = ""
+ 	sp.lastSentViaUpdate = false
+ 	sp.pendingStatus = ""
++	sp.deliveryReported = false
+ 
+ 	// previewMsgID stays nil (set by the matching detachPreview()). The
+ 	// next flushLocked() will see nil and call SendPreviewStart, opening
+@@ -415,6 +441,7 @@ func (sp *streamPreview) finish(finalText, statusFooter string) bool {
+ 	if sp.transform != nil {
+ 		finalText = sp.transform(finalText)
+ 	}
++	deliveryContent := finalText
+ 	if sp.previewMsgID == nil || sp.degraded {
+ 		if sp.previewMsgID != nil && sp.degraded {
+ 			// Try to recover degraded preview via UpdateMessage before falling back to delete
+@@ -426,6 +453,7 @@ func (sp *streamPreview) finish(finalText, statusFooter string) bool {
+ 								statusUpdater.SetPreviewStatus(sp.previewMsgID, sp.pendingStatus)
+ 							}
+ 						}
++						sp.reportPreviewDeliveredLocked(deliveryContent)
+ 						return true
+ 					} else {
+ 						slog.Debug("stream preview finish: degraded UpdateMessage failed, cleaning up", "error", err)
+@@ -477,6 +505,7 @@ func (sp *streamPreview) finish(finalText, statusFooter string) bool {
+ 	if finalText == sp.lastSentText && sp.lastSentViaUpdate && statusFooter == "" {
+ 		slog.Debug("stream preview finish: text unchanged and no footer, skipping",
+ 			"text_len", len(finalText))
++		sp.reportPreviewDeliveredLocked(deliveryContent)
+ 		return true
+ 	}
+ 
+@@ -494,6 +523,7 @@ func (sp *streamPreview) finish(finalText, statusFooter string) bool {
+ 		if sfu, ok := sp.platform.(StatusFooterUpdater); ok {
+ 			if err := sfu.UpdateMessageWithStatusFooter(sp.ctx, sp.previewMsgID, finalText, statusFooter); err == nil {
+ 				slog.Debug("stream preview finish: success via UpdateMessageWithStatusFooter")
++				sp.reportPreviewDeliveredLocked(deliveryContent)
+ 				return true
+ 			} else {
+ 				slog.Debug("stream preview finish: UpdateMessageWithStatusFooter failed, falling back", "error", err)
+@@ -518,6 +548,7 @@ func (sp *streamPreview) finish(finalText, statusFooter string) bool {
+ 		}
+ 	}
+ 	slog.Debug("stream preview finish: success via UpdateMessage")
++	sp.reportPreviewDeliveredLocked(deliveryContent)
+ 	return true
+ }
+ 
+@@ -542,6 +573,7 @@ func (sp *streamPreview) setStatus(status CardStatus) {
+ func (sp *streamPreview) detachPreview() {
+ 	sp.mu.Lock()
+ 	defer sp.mu.Unlock()
++	sp.reportPreviewDeliveredLocked(sp.lastSentText)
+ 	sp.previewMsgID = nil
+ }
+ 
+diff --git a/platform/telegram/multiagent_metadata_test.go b/platform/telegram/multiagent_metadata_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..e473098f1857ed31c154c46f9abe8495ab503f47
+--- /dev/null
++++ b/platform/telegram/multiagent_metadata_test.go
+@@ -0,0 +1,248 @@
++package telegram
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"strconv"
++	"strings"
++	"sync"
++	"testing"
++
++	"github.com/chenhg5/cc-connect/core"
++	tgbot "github.com/go-telegram/bot"
++	"github.com/go-telegram/bot/models"
++)
++
++type scriptedSendResult struct {
++	id  int
++	err error
++}
++
++type scriptedDeliveryBot struct {
++	*stubTelegramBot
++	mu       sync.Mutex
++	results  []scriptedSendResult
++	nextID   int
++	callText map[int]string
++}
++
++func newScriptedDeliveryBot(nextID int, results ...scriptedSendResult) *scriptedDeliveryBot {
++	return &scriptedDeliveryBot{
++		stubTelegramBot: newStubTelegramBot(),
++		results:         append([]scriptedSendResult(nil), results...),
++		nextID:          nextID,
++		callText:        make(map[int]string),
++	}
++}
++
++func (b *scriptedDeliveryBot) SendMessage(_ context.Context, params *tgbot.SendMessageParams) (*models.Message, error) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	var result scriptedSendResult
++	if len(b.results) > 0 {
++		result = b.results[0]
++		b.results = b.results[1:]
++	} else {
++		result.id = b.nextID
++		b.nextID++
++	}
++	if result.err != nil {
++		return nil, result.err
++	}
++	if result.id == 0 {
++		result.id = b.nextID
++		b.nextID++
++	}
++	b.callText[result.id] = params.Text
++	return &models.Message{ID: result.id}, nil
++}
++
++func (b *scriptedDeliveryBot) textFor(id int) string {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	return b.callText[id]
++}
++
++type deliveryCapture struct {
++	mu      sync.Mutex
++	records []core.DeliveredMessage
++}
++
++func (c *deliveryCapture) add(delivery core.DeliveredMessage) {
++	c.mu.Lock()
++	c.records = append(c.records, delivery)
++	c.mu.Unlock()
++}
++
++func (c *deliveryCapture) get() []core.DeliveredMessage {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return append([]core.DeliveredMessage(nil), c.records...)
++}
++
++func deliveryPlatform(bot telegramBot) (*Platform, *deliveryCapture) {
++	capture := &deliveryCapture{}
++	p := &Platform{bot: bot, selfUser: &models.User{ID: 1, Username: "testbot"}}
++	p.SetDeliveryHandler(capture.add)
++	return p, capture
++}
++
++func TestDispatchMessagePopulatesGovernanceMetadata(t *testing.T) {
++	p := &Platform{}
++	var captured *core.Message
++	p.handler = func(_ core.Platform, msg *core.Message) { captured = msg }
++	tgMsg := &models.Message{
++		ID:              999,
++		Chat:            models.Chat{ID: -100123, Type: models.ChatTypeSupergroup},
++		MessageThreadID: 88,
++		From:            &models.User{ID: 2, IsBot: true, Username: "otherbot"},
++		ReplyToMessage:  &models.Message{ID: 555},
++		Text:            "hello",
++	}
++	p.dispatchMessage(&core.Message{MessageID: "999", Content: "hello"}, tgMsg)
++	if captured == nil {
++		t.Fatal("handler was not called")
++	}
++	if captured.ChatID != "-100123" || captured.ThreadID != "88" || captured.ReplyToMessageID != "555" || !captured.SenderIsBot {
++		t.Fatalf("metadata = %#v", captured)
++	}
++}
++
++func TestDeliveryReportingDirectFallbackAndFailure(t *testing.T) {
++	rc := replyContext{chatID: 42, threadID: 7, messageID: 10}
++
++	directBot := newScriptedDeliveryBot(101)
++	direct, directCapture := deliveryPlatform(directBot)
++	if err := direct.Reply(context.Background(), rc, "hello"); err != nil {
++		t.Fatalf("Reply: %v", err)
++	}
++	got := directCapture.get()
++	if len(got) != 1 || got[0].MessageID != "101" || got[0].ChatID != "42" || got[0].ThreadID != "7" || got[0].Content != "hello" {
++		t.Fatalf("direct deliveries = %#v", got)
++	}
++
++	fallbackBot := newScriptedDeliveryBot(0,
++		scriptedSendResult{err: errors.New("can't parse entities")},
++		scriptedSendResult{id: 202},
++	)
++	fallback, fallbackCapture := deliveryPlatform(fallbackBot)
++	if err := fallback.Send(context.Background(), rc, "fallback"); err != nil {
++		t.Fatalf("Send fallback: %v", err)
++	}
++	got = fallbackCapture.get()
++	if len(got) != 1 || got[0].MessageID != "202" || got[0].Content != "fallback" {
++		t.Fatalf("fallback deliveries = %#v", got)
++	}
++
++	failingBot := newScriptedDeliveryBot(0, scriptedSendResult{err: errors.New("network unavailable")})
++	failing, failingCapture := deliveryPlatform(failingBot)
++	if err := failing.Send(context.Background(), rc, "not delivered"); err == nil {
++		t.Fatal("Send should fail")
++	}
++	if got := failingCapture.get(); len(got) != 0 {
++		t.Fatalf("failed send reported delivery: %#v", got)
++	}
++}
++
++func TestDeliveryReportingAttachmentsButtonsAndPreview(t *testing.T) {
++	bot := newScriptedDeliveryBot(303)
++	p, capture := deliveryPlatform(bot)
++	rc := replyContext{chatID: 42, threadID: 7}
++	if err := p.SendImage(context.Background(), rc, core.ImageAttachment{FileName: "image.png", Data: []byte("x")}); err != nil {
++		t.Fatal(err)
++	}
++	if err := p.SendFile(context.Background(), rc, core.FileAttachment{FileName: "report.txt", Data: []byte("x")}); err != nil {
++		t.Fatal(err)
++	}
++	if err := p.SendWithButtons(context.Background(), rc, "choose", [][]core.ButtonOption{{{Text: "A", Data: "a"}}}); err != nil {
++		t.Fatal(err)
++	}
++	handle, err := p.SendPreviewStart(context.Background(), rc, "draft")
++	if err != nil {
++		t.Fatal(err)
++	}
++	got := capture.get()
++	if len(got) != 3 || got[0].MessageType != "image" || got[1].MessageType != "file" || got[2].MessageType != "buttons" {
++		t.Fatalf("deliveries before preview finalize = %#v", got)
++	}
++	p.ReportPreviewDelivered(handle, "final")
++	got = capture.get()
++	if len(got) != 4 || got[3].MessageID != "304" || got[3].MessageType != "text" || got[3].Content != "final" {
++		t.Fatalf("deliveries after preview finalize = %#v", got)
++	}
++}
++
++func TestChunkedDeliveryReportsEachSuccessfulNativeMessage(t *testing.T) {
++	rc := replyContext{chatID: -100, threadID: 88, messageID: 5}
++	bot := newScriptedDeliveryBot(400, scriptedSendResult{err: errors.New("message is too long")})
++	p, capture := deliveryPlatform(bot)
++	if err := p.Reply(context.Background(), rc, strings.Repeat("x", 9000)); err != nil {
++		t.Fatalf("Reply chunked: %v", err)
++	}
++	got := capture.get()
++	if len(got) < 3 {
++		t.Fatalf("chunk deliveries = %#v", got)
++	}
++	for i, delivery := range got {
++		if delivery.MessageID != strconv.Itoa(400+i) || delivery.PartIndex != i+1 || delivery.PartCount != len(got) {
++			t.Fatalf("chunk %d = %#v", i, delivery)
++		}
++	}
++
++	partialBot := newScriptedDeliveryBot(0,
++		scriptedSendResult{err: errors.New("message is too long")},
++		scriptedSendResult{id: 501},
++		scriptedSendResult{err: errors.New("network unavailable")},
++	)
++	partial, partialCapture := deliveryPlatform(partialBot)
++	if err := partial.Send(context.Background(), rc, strings.Repeat("y", 9000)); err == nil {
++		t.Fatal("partial chunk send should fail")
++	}
++	got = partialCapture.get()
++	if len(got) != 1 || got[0].MessageID != "501" || got[0].PartIndex != 1 || got[0].PartCount < 2 {
++		t.Fatalf("partial deliveries = %#v", got)
++	}
++}
++
++func TestConcurrentDeliveryReportingDoesNotReuseMessageIDs(t *testing.T) {
++	bot := newScriptedDeliveryBot(1000)
++	p, capture := deliveryPlatform(bot)
++	rc := replyContext{chatID: 42}
++	const sends = 32
++	var wg sync.WaitGroup
++	for i := 0; i < sends; i++ {
++		wg.Add(1)
++		go func(i int) {
++			defer wg.Done()
++			content := fmt.Sprintf("message%d", i)
++			if err := p.Send(context.Background(), rc, content); err != nil {
++				t.Errorf("Send(%d): %v", i, err)
++			}
++		}(i)
++	}
++	wg.Wait()
++	got := capture.get()
++	if len(got) != sends {
++		t.Fatalf("delivery count = %d, want %d", len(got), sends)
++	}
++	seen := make(map[string]bool, sends)
++	for _, delivery := range got {
++		if seen[delivery.MessageID] {
++			t.Fatalf("duplicate message id %q", delivery.MessageID)
++		}
++		seen[delivery.MessageID] = true
++		id, err := strconv.Atoi(delivery.MessageID)
++		if err != nil || bot.textFor(id) != delivery.Content {
++			t.Fatalf("message %q content mismatch: sent=%q delivered=%q", delivery.MessageID, bot.textFor(id), delivery.Content)
++		}
++	}
++}
++
++func TestDeliveryHandlerPanicCannotFailSuccessfulSend(t *testing.T) {
++	p := &Platform{bot: newScriptedDeliveryBot(600)}
++	p.SetDeliveryHandler(func(core.DeliveredMessage) { panic("hook failed") })
++	if err := p.Send(context.Background(), replyContext{chatID: 42}, "still delivered"); err != nil {
++		t.Fatalf("Send: %v", err)
++	}
++}
 diff --git a/platform/telegram/telegram.go b/platform/telegram/telegram.go
-index 95a78ee..733fec6 100644
+index a366e7f19aac185f740f87b5cda1b627719810fe..346961bb4efbd4801797951689c89b0c258a3507 100644
 --- a/platform/telegram/telegram.go
 +++ b/platform/telegram/telegram.go
-@@ -126,6 +126,15 @@ type Platform struct {
+@@ -126,6 +126,9 @@ type Platform struct {
  	newBot              botFactory
  	newBackoffTimer     func(time.Duration) backoffTimer
  	newTypingTicker     func(time.Duration) typingTicker
 +
-+	// lastSent tracks the most recently delivered Telegram message_id (the one
-+	// the user sees) plus its chat/thread, so the engine can emit a
-+	// message.sent_delivered hook for the governance layer.  Guarded by mu.
-+	// Reset to zero on each successful send so a stale value is never read.
-+	lastSentMu     sync.Mutex
-+	lastSentMsgID  string
-+	lastSentChatID string
-+	lastSentThread string
++	deliveryMu      sync.RWMutex
++	deliveryHandler func(core.DeliveredMessage)
  }
  
  const (
-@@ -582,6 +591,21 @@ func (p *Platform) handleMessage(ctx context.Context, msg *models.Message) {
+@@ -582,6 +585,17 @@ func (p *Platform) handleMessage(ctx context.Context, msg *models.Message) {
  }
  
  func (p *Platform) dispatchMessage(msg *core.Message, tgMsg *models.Message) {
-+	// Populate governance metadata fields on core.Message from the raw Telegram
-+	// message.  These already-exist internally but were not surfaced; the
-+	// message.received hook (engine.go) reads them to build the hook Extra map
-+	// so an external governance layer can record full Transcript entries.
 +	msg.ChatID = strconv.FormatInt(tgMsg.Chat.ID, 10)
 +	if tgMsg.MessageThreadID != 0 {
 +		msg.ThreadID = strconv.Itoa(tgMsg.MessageThreadID)
@@ -236,53 +782,58 @@ index 95a78ee..733fec6 100644
  	// Enrich with platform-specific context (reply quotes, location text, etc.)
  	var extras []string
  	if replyText := enrichReplyContent(tgMsg); replyText != "" {
-@@ -607,6 +631,45 @@ func (p *Platform) dispatchMessage(msg *core.Message, tgMsg *models.Message) {
+@@ -607,6 +621,50 @@ func (p *Platform) dispatchMessage(msg *core.Message, tgMsg *models.Message) {
  	handler(p, msg)
  }
  
-+// recordSent stores the just-delivered Telegram message_id so the engine can
-+// emit a message.sent_delivered hook via LastSentMessageID().  Called by every
-+// Send/SendImage/SendFile/SendWithButtons path after a successful platform send.
-+func (p *Platform) recordSent(sentMsgID string, chatID int64, threadID int) {
-+	if sentMsgID == "" {
++// SetDeliveryHandler registers the engine callback used to emit delivery
++// evidence. The callback is copied under lock and invoked without the lock.
++func (p *Platform) SetDeliveryHandler(handler func(core.DeliveredMessage)) {
++	p.deliveryMu.Lock()
++	p.deliveryHandler = handler
++	p.deliveryMu.Unlock()
++}
++
++func (p *Platform) reportDelivered(sent *models.Message, rc replyContext, messageType, content string, partIndex, partCount int) {
++	if sent == nil || sent.ID == 0 {
 +		return
 +	}
-+	p.lastSentMu.Lock()
-+	p.lastSentMsgID = sentMsgID
-+	p.lastSentChatID = strconv.FormatInt(chatID, 10)
-+	if threadID != 0 {
-+		p.lastSentThread = strconv.Itoa(threadID)
-+	} else {
-+		p.lastSentThread = ""
++	p.deliveryMu.RLock()
++	handler := p.deliveryHandler
++	p.deliveryMu.RUnlock()
++	if handler == nil {
++		return
 +	}
-+	p.lastSentMu.Unlock()
++	delivery := core.DeliveredMessage{
++		MessageID:   strconv.Itoa(sent.ID),
++		ChatID:      strconv.FormatInt(rc.chatID, 10),
++		ThreadID:    optionalTelegramID(rc.threadID),
++		MessageType: messageType,
++		Content:     content,
++		PartIndex:   partIndex,
++		PartCount:   partCount,
++	}
++	func() {
++		defer func() {
++			if recovered := recover(); recovered != nil {
++				slog.Debug("telegram: delivery handler recovered", "panic", recovered)
++			}
++		}()
++		handler(delivery)
++	}()
 +}
 +
-+// LastSentMessageID implements core.SentMessageRecorder.  Returns the message_id
-+// of the most recent successful send.  The engine reads (then clears) this right
-+// after a Send call to fire the message.sent_delivered hook.
-+func (p *Platform) LastSentMessageID() (sentMessageID, chatID, threadID string, ok bool) {
-+	p.lastSentMu.Lock()
-+	defer p.lastSentMu.Unlock()
-+	if p.lastSentMsgID == "" {
-+		return "", "", "", false
++func optionalTelegramID(id int) string {
++	if id == 0 {
++		return ""
 +	}
-+	return p.lastSentMsgID, p.lastSentChatID, p.lastSentThread, true
-+}
-+
-+// ClearLastSent resets the tracked sent id so it is never read twice.
-+func (p *Platform) ClearLastSent() {
-+	p.lastSentMu.Lock()
-+	p.lastSentMsgID = ""
-+	p.lastSentChatID = ""
-+	p.lastSentThread = ""
-+	p.lastSentMu.Unlock()
++	return strconv.Itoa(id)
 +}
 +
  func (p *Platform) messageHandler() core.MessageHandler {
  	p.mu.RLock()
  	defer p.mu.RUnlock()
-@@ -1054,7 +1133,8 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+@@ -1053,7 +1111,8 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
  		ReplyParameters: &models.ReplyParameters{MessageID: rc.messageID},
  	}
  
@@ -292,7 +843,7 @@ index 95a78ee..733fec6 100644
  		errMsg := err.Error()
  		// Handle HTML parsing errors by falling back to plain text
  		if strings.Contains(errMsg, "can't parse") {
-@@ -1066,7 +1146,7 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+@@ -1065,7 +1124,7 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
  			)
  			params.Text = content
  			params.ParseMode = ""
@@ -301,17 +852,15 @@ index 95a78ee..733fec6 100644
  		} else if strings.Contains(errMsg, "message is too long") {
  			// Handle message too long by splitting and sending as multiple messages
  			slog.Warn("telegram: message too long, splitting into chunks",
-@@ -1079,6 +1159,9 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
+@@ -1078,6 +1137,7 @@ func (p *Platform) Reply(ctx context.Context, rctx any, content string) error {
  			return fmt.Errorf("telegram: send: %w", err)
  		}
  	}
-+	if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
-+	}
++	p.reportDelivered(sent, rc, "text", content, 0, 0)
  	return nil
  }
  
-@@ -1101,7 +1184,8 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+@@ -1100,7 +1160,8 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
  		ParseMode:       models.ParseModeHTML,
  	}
  
@@ -321,7 +870,7 @@ index 95a78ee..733fec6 100644
  		errMsg := err.Error()
  		// Handle HTML parsing errors by falling back to plain text
  		if strings.Contains(errMsg, "can't parse") {
-@@ -1113,7 +1197,7 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+@@ -1112,7 +1173,7 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
  			)
  			params.Text = content
  			params.ParseMode = ""
@@ -330,65 +879,63 @@ index 95a78ee..733fec6 100644
  		} else if strings.Contains(errMsg, "message is too long") {
  			// Handle message too long by splitting and sending as multiple messages
  			slog.Warn("telegram: message too long, splitting into chunks",
-@@ -1126,6 +1210,9 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
+@@ -1125,6 +1186,7 @@ func (p *Platform) Send(ctx context.Context, rctx any, content string) error {
  			return fmt.Errorf("telegram: send: %w", err)
  		}
  	}
-+	if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
-+	}
++	p.reportDelivered(sent, rc, "text", content, 0, 0)
  	return nil
  }
  
-@@ -1149,8 +1236,10 @@ func (p *Platform) SendImage(ctx context.Context, rctx any, img core.ImageAttach
+@@ -1148,8 +1210,10 @@ func (p *Platform) SendImage(ctx context.Context, rctx any, img core.ImageAttach
  		MessageThreadID: rc.threadID,
  		Photo:           &models.InputFileUpload{Filename: name, Data: bytes.NewReader(img.Data)},
  	}
 -	if _, err := bot.SendPhoto(ctx, params); err != nil {
 +	if sent, err := bot.SendPhoto(ctx, params); err != nil {
  		return fmt.Errorf("telegram: send image: %w", err)
-+	} else if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	} else {
++		p.reportDelivered(sent, rc, "image", name, 0, 0)
  	}
  	return nil
  }
-@@ -1174,8 +1263,10 @@ func (p *Platform) SendFile(ctx context.Context, rctx any, file core.FileAttachm
+@@ -1173,8 +1237,10 @@ func (p *Platform) SendFile(ctx context.Context, rctx any, file core.FileAttachm
  		MessageThreadID: rc.threadID,
  		Document:        &models.InputFileUpload{Filename: name, Data: bytes.NewReader(file.Data)},
  	}
 -	if _, err := bot.SendDocument(ctx, params); err != nil {
 +	if sent, err := bot.SendDocument(ctx, params); err != nil {
  		return fmt.Errorf("telegram: send file: %w", err)
-+	} else if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	} else {
++		p.reportDelivered(sent, rc, "file", name, 0, 0)
  	}
  	return nil
  }
-@@ -1235,8 +1326,10 @@ func (p *Platform) sendVoice(ctx context.Context, rc replyContext, audio []byte,
+@@ -1234,8 +1300,10 @@ func (p *Platform) sendVoice(ctx context.Context, rc replyContext, audio []byte,
  		MessageThreadID: rc.threadID,
  		Voice:           &models.InputFileUpload{Filename: "tts_audio." + telegramAudioFileExt(format), Data: bytes.NewReader(audio)},
  	}
 -	if _, err := bot.SendVoice(ctx, params); err != nil {
 +	if sent, err := bot.SendVoice(ctx, params); err != nil {
  		return err
-+	} else if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	} else {
++		p.reportDelivered(sent, rc, "voice", "tts_audio."+telegramAudioFileExt(format), 0, 0)
  	}
  	return nil
  }
-@@ -1251,8 +1344,10 @@ func (p *Platform) sendAudio(ctx context.Context, rc replyContext, audio []byte,
+@@ -1250,8 +1318,10 @@ func (p *Platform) sendAudio(ctx context.Context, rc replyContext, audio []byte,
  		MessageThreadID: rc.threadID,
  		Audio:           &models.InputFileUpload{Filename: "tts_audio." + telegramAudioFileExt(format), Data: bytes.NewReader(audio)},
  	}
 -	if _, err := bot.SendAudio(ctx, params); err != nil {
 +	if sent, err := bot.SendAudio(ctx, params); err != nil {
  		return err
-+	} else if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++	} else {
++		p.reportDelivered(sent, rc, "audio", "tts_audio."+telegramAudioFileExt(format), 0, 0)
  	}
  	return nil
  }
-@@ -1297,7 +1392,8 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+@@ -1296,7 +1366,8 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
  		ReplyMarkup:     &models.InlineKeyboardMarkup{InlineKeyboard: rows},
  	}
  
@@ -398,7 +945,7 @@ index 95a78ee..733fec6 100644
  		errMsg := err.Error()
  		// Handle HTML parsing errors by falling back to plain text
  		if strings.Contains(errMsg, "can't parse") {
-@@ -1309,7 +1405,7 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+@@ -1308,7 +1379,7 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
  			)
  			params.Text = content
  			params.ParseMode = ""
@@ -407,29 +954,39 @@ index 95a78ee..733fec6 100644
  		} else if strings.Contains(errMsg, "message is too long") {
  			// Handle message too long: first chunk with buttons, rest without
  			slog.Warn("telegram: message too long, splitting into chunks",
-@@ -1322,6 +1418,9 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
+@@ -1321,6 +1392,7 @@ func (p *Platform) SendWithButtons(ctx context.Context, rctx any, content string
  			return fmt.Errorf("telegram: sendWithButtons: %w", err)
  		}
  	}
-+	if sent != nil {
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
-+	}
++	p.reportDelivered(sent, rc, "buttons", content, 0, 0)
  	return nil
  }
  
-@@ -1462,6 +1561,11 @@ func (p *Platform) SendPreviewStart(ctx context.Context, rctx any, content strin
- 			return nil, fmt.Errorf("telegram: send preview: %w", err)
- 		}
- 	}
-+	if sent != nil {
-+		// The preview message_id is the one the user ultimately sees (later
-+		// UpdateMessage calls edit it in place, never creating a new id).
-+		p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
-+	}
+@@ -1464,6 +1536,23 @@ func (p *Platform) SendPreviewStart(ctx context.Context, rctx any, content strin
  	return &telegramPreviewHandle{chatID: rc.chatID, threadID: rc.threadID, messageID: sent.ID}, nil
  }
  
-@@ -1536,18 +1640,24 @@ func (p *Platform) sendChunked(ctx context.Context, bot telegramBot, rc replyCon
++// ReportPreviewDelivered emits evidence for the stable message that remains
++// after the stream preview has been finalized successfully.
++func (p *Platform) ReportPreviewDelivered(previewHandle any, content string) {
++	h, ok := previewHandle.(*telegramPreviewHandle)
++	if !ok || h == nil {
++		return
++	}
++	p.reportDelivered(
++		&models.Message{ID: h.messageID},
++		replyContext{chatID: h.chatID, threadID: h.threadID},
++		"text",
++		content,
++		0,
++		0,
++	)
++}
++
+ // UpdateMessage edits an existing message identified by previewHandle.
+ func (p *Platform) UpdateMessage(ctx context.Context, previewHandle any, content string) error {
+ 	h, ok := previewHandle.(*telegramPreviewHandle)
+@@ -1535,18 +1624,21 @@ func (p *Platform) sendChunked(ctx context.Context, bot telegramBot, rc replyCon
  		if i == 0 && rc.messageID != 0 {
  			params.ReplyParameters = &models.ReplyParameters{MessageID: rc.messageID}
  		}
@@ -450,14 +1007,11 @@ index 95a78ee..733fec6 100644
  				return fmt.Errorf("telegram: send chunk %d: %w", i, err)
  			}
  		}
-+		// Record the last chunk's message_id (the final one the user sees).
-+		if sent != nil {
-+			p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
-+		}
++		p.reportDelivered(sent, rc, "text", chunk, i+1, len(chunks))
  	}
  	return nil
  }
-@@ -1567,18 +1677,23 @@ func (p *Platform) sendChunkedWithButtons(ctx context.Context, bot telegramBot,
+@@ -1566,18 +1658,25 @@ func (p *Platform) sendChunkedWithButtons(ctx context.Context, bot telegramBot,
  		if i == 0 {
  			params.ReplyMarkup = &models.InlineKeyboardMarkup{InlineKeyboard: rows}
  		}
@@ -478,268 +1032,11 @@ index 95a78ee..733fec6 100644
  				return fmt.Errorf("telegram: send chunk %d: %w", i, err)
  			}
  		}
-+		if sent != nil {
-+			p.recordSent(strconv.Itoa(sent.ID), rc.chatID, rc.threadID)
++		messageType := "text"
++		if i == 0 {
++			messageType = "buttons"
 +		}
++		p.reportDelivered(sent, rc, messageType, chunk, i+1, len(chunks))
  	}
  	return nil
  }
-
-diff --git a/core/multiagent_hook_test.go b/core/multiagent_hook_test.go
-new file mode 100644
-index 0000000..676055b
---- /dev/null
-+++ b/core/multiagent_hook_test.go
-@@ -0,0 +1,85 @@
-+package core
-+
-+import (
-+	"testing"
-+)
-+
-+// TestMessageReceivedExtra verifies the helper that builds the Extra map for
-+// the message.received hook carries the governance metadata fields.
-+func TestMessageReceivedExtra(t *testing.T) {
-+	t.Run("human message with reply and attachments", func(t *testing.T) {
-+		msg := &Message{
-+			MessageID:        "999",
-+			ChatID:           "-100123",
-+			ThreadID:         "88",
-+			ReplyToMessageID: "555",
-+			SenderIsBot:      false,
-+			Images:           []ImageAttachment{{}},
-+			Files:            []FileAttachment{{}},
-+		}
-+		extra := messageReceivedExtra(msg)
-+		if extra["message_id"] != "999" {
-+			t.Fatalf("message_id = %v, want 999", extra["message_id"])
-+		}
-+		if extra["chat_id"] != "-100123" {
-+			t.Fatalf("chat_id = %v, want -100123", extra["chat_id"])
-+		}
-+		if extra["thread_id"] != "88" {
-+			t.Fatalf("thread_id = %v, want 88", extra["thread_id"])
-+		}
-+		if extra["reply_to_message_id"] != "555" {
-+			t.Fatalf("reply_to_message_id = %v, want 555", extra["reply_to_message_id"])
-+		}
-+		if extra["sender_type"] != "human" {
-+			t.Fatalf("sender_type = %v, want human", extra["sender_type"])
-+		}
-+		if extra["has_images"] != true {
-+			t.Fatalf("has_images = %v, want true", extra["has_images"])
-+		}
-+		if extra["has_files"] != true {
-+			t.Fatalf("has_files = %v, want true", extra["has_files"])
-+		}
-+	})
-+
-+	t.Run("bot sender no reply no attachments", func(t *testing.T) {
-+		msg := &Message{
-+			MessageID:   "100",
-+			ChatID:      "-200",
-+			SenderIsBot: true,
-+		}
-+		extra := messageReceivedExtra(msg)
-+		if extra["sender_type"] != "bot" {
-+			t.Fatalf("sender_type = %v, want bot", extra["sender_type"])
-+		}
-+		if _, ok := extra["reply_to_message_id"]; ok {
-+			t.Fatal("reply_to_message_id should be absent when empty")
-+		}
-+		if extra["has_images"] != false {
-+			t.Fatalf("has_images = %v, want false", extra["has_images"])
-+		}
-+	})
-+
-+	t.Run("nil message", func(t *testing.T) {
-+		if extra := messageReceivedExtra(nil); extra != nil {
-+			t.Fatalf("expected nil for nil message, got %v", extra)
-+		}
-+	})
-+}
-+
-+// TestMessageSentDeliveredExtra verifies the delivered hook Extra carries the
-+// sent message_id and routing context.
-+func TestMessageSentDeliveredExtra(t *testing.T) {
-+	extra := messageSentDeliveredExtra("telegram:-100:88:123", "telegram", "777", "-100", "88", "text")
-+	if extra["message_id"] != "777" {
-+		t.Fatalf("message_id = %v, want 777", extra["message_id"])
-+	}
-+	if extra["chat_id"] != "-100" {
-+		t.Fatalf("chat_id = %v, want -100", extra["chat_id"])
-+	}
-+	if extra["thread_id"] != "88" {
-+		t.Fatalf("thread_id = %v, want 88", extra["thread_id"])
-+	}
-+	if extra["message_type"] != "text" {
-+		t.Fatalf("message_type = %v, want text", extra["message_type"])
-+	}
-+}
-diff --git a/platform/telegram/multiagent_metadata_test.go b/platform/telegram/multiagent_metadata_test.go
-new file mode 100644
-index 0000000..334e8ef
---- /dev/null
-+++ b/platform/telegram/multiagent_metadata_test.go
-@@ -0,0 +1,161 @@
-+package telegram
-+
-+import (
-+	"context"
-+	"testing"
-+
-+	"github.com/chenhg5/cc-connect/core"
-+	"github.com/go-telegram/bot/models"
-+)
-+
-+// TestSendRecordsMessageID verifies that Send captures the returned Telegram
-+// message_id via the SentMessageRecorder interface, so the engine can emit
-+// message.sent_delivered for the governance Transcript.
-+func TestSendRecordsMessageID(t *testing.T) {
-+	p := &Platform{
-+		bot:      newStubTelegramBot(),
-+		selfUser: &models.User{ID: 1, Username: "testbot"},
-+	}
-+	rc := replyContext{chatID: 42, threadID: 7, messageID: 10}
-+
-+	if err := p.Send(context.Background(), rc, "hello"); err != nil {
-+		t.Fatalf("Send: %v", err)
-+	}
-+
-+	id, chatID, threadID, ok := p.LastSentMessageID()
-+	if !ok {
-+		t.Fatal("LastSentMessageID: expected ok=true after Send")
-+	}
-+	if id != "99" {
-+		t.Fatalf("sent id = %q, want 99", id)
-+	}
-+	if chatID != "42" {
-+		t.Fatalf("chatID = %q, want 42", chatID)
-+	}
-+	if threadID != "7" {
-+		t.Fatalf("threadID = %q, want 7", threadID)
-+	}
-+
-+	// ClearLastSent should reset so a stale value is never read twice.
-+	p.ClearLastSent()
-+	if _, _, _, ok := p.LastSentMessageID(); ok {
-+		t.Fatal("expected ok=false after ClearLastSent")
-+	}
-+}
-+
-+// TestSendImageRecordsMessageID verifies the image send path records the id.
-+func TestSendImageRecordsMessageID(t *testing.T) {
-+	p := &Platform{
-+		bot:      newStubTelegramBot(),
-+		selfUser: &models.User{ID: 1, Username: "testbot"},
-+	}
-+	rc := replyContext{chatID: 42}
-+	if err := p.SendImage(context.Background(), rc, core.ImageAttachment{Data: []byte("x")}); err != nil {
-+		t.Fatalf("SendImage: %v", err)
-+	}
-+	id, _, _, ok := p.LastSentMessageID()
-+	if !ok || id != "99" {
-+		t.Fatalf("after SendImage: id=%q ok=%v, want 99/true", id, ok)
-+	}
-+}
-+
-+// TestSendFileRecordsMessageID verifies the file send path records the id.
-+func TestSendFileRecordsMessageID(t *testing.T) {
-+	p := &Platform{
-+		bot:      newStubTelegramBot(),
-+		selfUser: &models.User{ID: 1, Username: "testbot"},
-+	}
-+	rc := replyContext{chatID: 42}
-+	if err := p.SendFile(context.Background(), rc, core.FileAttachment{Data: []byte("x")}); err != nil {
-+		t.Fatalf("SendFile: %v", err)
-+	}
-+	id, _, _, ok := p.LastSentMessageID()
-+	if !ok || id != "99" {
-+		t.Fatalf("after SendFile: id=%q ok=%v, want 99/true", id, ok)
-+	}
-+}
-+
-+// TestDispatchMessagePopulatesMetadata verifies dispatchMessage fills the new
-+// governance fields (ChatID, ThreadID, ReplyToMessageID, SenderIsBot) on
-+// core.Message from the raw Telegram message, so the engine's message.received
-+// hook Extra carries them.
-+func TestDispatchMessagePopulatesMetadata(t *testing.T) {
-+	p := &Platform{
-+		bot:      newStubTelegramBot(),
-+		selfUser: &models.User{ID: 1, Username: "testbot"},
-+	}
-+
-+	// A human message that replies to a bot message (ID 555) in a forum topic.
-+	tgMsg := &models.Message{
-+		ID: 999,
-+		Chat: models.Chat{
-+			ID:   -100123,
-+			Type: models.ChatTypeSupergroup,
-+		},
-+		MessageThreadID: 88,
-+		From: &models.User{
-+			ID:       1000000001,
-+			IsBot:    false,
-+			Username: "test_human_user",
-+		},
-+		Text: "hello @testbot",
-+		ReplyToMessage: &models.Message{
-+			ID: 555,
-+			From: &models.User{ID: 1, IsBot: true, Username: "testbot"},
-+			Text: "previous bot reply",
-+		},
-+	}
-+
-+	msg := &core.Message{
-+		SessionKey: "telegram:-100123:88:1000000001",
-+		Platform:   "telegram",
-+		MessageID:  "999",
-+		Content:    "hello @testbot",
-+	}
-+
-+	// dispatchMessage reads tgMsg; we don't need the handler to fire.
-+	var captured *core.Message
-+	p.handler = func(_ core.Platform, m *core.Message) {
-+		captured = m
-+	}
-+	// Avoid nil-messageHandler path.
-+	p.dispatchMessage(msg, tgMsg)
-+
-+	if captured == nil {
-+		t.Fatal("handler was not called")
-+	}
-+	if captured.ChatID != "-100123" {
-+		t.Fatalf("ChatID = %q, want -100123", captured.ChatID)
-+	}
-+	if captured.ThreadID != "88" {
-+		t.Fatalf("ThreadID = %q, want 88", captured.ThreadID)
-+	}
-+	if captured.ReplyToMessageID != "555" {
-+		t.Fatalf("ReplyToMessageID = %q, want 555", captured.ReplyToMessageID)
-+	}
-+	if captured.SenderIsBot {
-+		t.Fatal("SenderIsBot = true, want false (human sender)")
-+	}
-+}
-+
-+// TestDispatchMessageBotSender verifies SenderIsBot is set when the sender is a bot.
-+func TestDispatchMessageBotSender(t *testing.T) {
-+	p := &Platform{
-+		bot:      newStubTelegramBot(),
-+		selfUser: &models.User{ID: 1, Username: "testbot"},
-+	}
-+	tgMsg := &models.Message{
-+		ID:   100,
-+		Chat: models.Chat{ID: -100, Type: models.ChatTypeSupergroup},
-+		From: &models.User{ID: 2, IsBot: true, Username: "other_bot"},
-+		Text: "a bot message",
-+	}
-+	msg := &core.Message{SessionKey: "telegram:-100:2", Platform: "telegram", MessageID: "100"}
-+	var captured *core.Message
-+	p.handler = func(_ core.Platform, m *core.Message) { captured = m }
-+	p.dispatchMessage(msg, tgMsg)
-+
-+	if !captured.SenderIsBot {
-+		t.Fatal("SenderIsBot = false, want true (bot sender)")
-+	}
-+}

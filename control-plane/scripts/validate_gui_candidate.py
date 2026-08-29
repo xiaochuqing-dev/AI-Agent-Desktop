@@ -20,7 +20,7 @@ from typing import NoReturn
 
 EXPECTED_MANIFEST = {
     "schema_version": "1",
-    "candidate_version": "0.4.0-prebeta",
+    "candidate_version": "0.4.1-prebeta",
     "product": "AI-Agent-Desktop",
     "platform": "windows",
     "architecture": "x64",
@@ -33,6 +33,24 @@ EXPECTED_MANIFEST = {
     "chrome_agent_required": False,
 }
 
+EXPECTED_CC_CONNECT = {
+    "artifact_id": "cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64",
+    "version": "v1.5.0-patchset0.2-17c6106",
+    "source_commit": "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+    "upstream_version": "1.5.0",
+    "patchset_version": "0.2",
+    "artifact_size": 54266368,
+    "artifact_sha256": "67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144",
+    "renderer_version": "cc-connect-17c6106-native-v2",
+}
+
+EXPECTED_PATCH_FILES = (
+    "001-telegram-directed-routing.patch",
+    "002-hook-config-headers.patch",
+    "003-relay-response-prefix.patch",
+    "004-message-delivery-hooks.patch",
+)
+
 METADATA_FILES = {
     "candidate-manifest.json",
     "candidate-manifest.sha256",
@@ -43,6 +61,7 @@ METADATA_FILES = {
 REQUIRED_PAYLOAD_FILES = {
     ".python-version",
     "AI-Agent-Desktop.exe",
+    "artifact-lock.json",
     "production_only_acceptance.py",
     "requirements-build.lock",
     "requirements-gui.lock",
@@ -185,13 +204,19 @@ def _validate_manifest_and_hashes(candidate: Path) -> dict[str, object]:
         if manifest.get(key) != expected:
             _fail(f"manifest field {key!r} must be {expected!r}")
     for key in (
+        "cc_connect_artifact_id",
         "cc_connect_version",
         "cc_connect_source_commit",
+        "cc_connect_patchset_version",
         "cc_connect_artifact_sha256",
+        "cc_connect_renderer_version",
+        "cc_connect_renderer_source_commit",
         "package_sha256",
     ):
         if not isinstance(manifest.get(key), str) or not manifest[key]:
             _fail(f"manifest field {key!r} is missing or empty")
+    if manifest.get("cc_connect_active_patch_count") != len(EXPECTED_PATCH_FILES):
+        _fail("manifest cc_connect_active_patch_count mismatch")
 
     raw_entries = manifest.get("files")
     if not isinstance(raw_entries, list) or not raw_entries:
@@ -265,7 +290,7 @@ def _validate_manifest_and_hashes(candidate: Path) -> dict[str, object]:
     return manifest
 
 
-def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> None:
+def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> dict[str, object]:
     raw_files = manifest.get("files")
     if not isinstance(raw_files, list):
         _fail("manifest files must be a list")
@@ -281,6 +306,7 @@ def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> No
             _fail(f"required payload file is missing: {relative}")
 
     cc_dir = candidate / "cc-connect"
+    artifact_lock = _read_json(candidate / "artifact-lock.json")
     cc_manifest = _read_json(cc_dir / "cc-connect-artifact-manifest.json")
     cc_exe = cc_dir / "cc-connect.exe"
     cc_digest = _parse_checksum_line(cc_dir / "cc-connect.sha256", "cc-connect.exe")
@@ -288,12 +314,48 @@ def _validate_required_files(candidate: Path, manifest: dict[str, object]) -> No
         _fail("cc-connect.sha256 does not match cc-connect.exe")
     if cc_digest != str(manifest["cc_connect_artifact_sha256"]).lower():
         _fail("candidate manifest cc_connect_artifact_sha256 mismatch")
-    for key in ("version", "source_commit"):
+    if cc_exe.stat().st_size != EXPECTED_CC_CONNECT["artifact_size"]:
+        _fail("cc-connect executable size does not match the locked artifact")
+
+    for key, expected in EXPECTED_CC_CONNECT.items():
+        if key == "renderer_version":
+            continue
+        if artifact_lock.get(key) != expected:
+            _fail(f"artifact lock field {key!r} must be {expected!r}")
+    patch_files = artifact_lock.get("patch_files")
+    if not isinstance(patch_files, list):
+        _fail("artifact lock patch_files must be a list")
+    patch_names = tuple(item.get("filename") for item in patch_files if isinstance(item, dict))
+    if patch_names != EXPECTED_PATCH_FILES:
+        _fail(f"artifact lock active patch list mismatch: {patch_names!r}")
+    if any(name.startswith("005-") for name in patch_names):
+        _fail("retired Patch 005 is still active")
+
+    for key in (
+        "artifact_id",
+        "version",
+        "source_commit",
+        "upstream_version",
+        "patchset_version",
+        "artifact_size",
+        "artifact_sha256",
+        "patch_files",
+    ):
+        if cc_manifest.get(key) != artifact_lock.get(key):
+            _fail(f"cc-connect manifest and artifact lock differ for {key}")
+    for key in ("artifact_id", "version", "source_commit", "patchset_version"):
         if str(cc_manifest.get(key, "")) != str(manifest[f"cc_connect_{key}"]):
             _fail(f"cc-connect manifest {key} mismatch")
+    if manifest.get("cc_connect_active_patch_count") != len(patch_files):
+        _fail("candidate manifest active patch count differs from artifact lock")
+    if manifest.get("cc_connect_renderer_version") != EXPECTED_CC_CONNECT["renderer_version"]:
+        _fail("candidate renderer version is not locked to v1.5.0")
+    if manifest.get("cc_connect_renderer_source_commit") != EXPECTED_CC_CONNECT["source_commit"]:
+        _fail("candidate renderer source commit is not locked to v1.5.0")
+    return cc_manifest
 
 
-def _run_executable_smoke(executable: Path) -> None:
+def _run_executable_smoke(executable: Path, expected_version: str) -> None:
     child_env = os.environ.copy()
     child_env["CONTROL_PLANE_DISABLE_LIVE_TELEGRAM"] = "1"
     child_env["QT_QPA_PLATFORM"] = "offscreen"
@@ -317,7 +379,7 @@ def _run_executable_smoke(executable: Path) -> None:
                 stderr=subprocess.PIPE,
                 creationflags=creationflags,
             )
-            process.communicate(timeout=45)
+            stdout, _stderr = process.communicate(timeout=45)
         except subprocess.TimeoutExpired as exc:
             if process is not None:
                 _terminate_process_tree(process)
@@ -327,6 +389,46 @@ def _run_executable_smoke(executable: Path) -> None:
         if process is None or process.returncode != 0:
             return_code = process.returncode if process is not None else None
             _fail(f"GUI executable {argument} smoke returned {return_code}")
+        output = stdout.decode("utf-8", errors="replace").strip()
+        if argument == "--version" and output != expected_version:
+            _fail(f"GUI executable version output mismatch: {output!r}")
+        if argument == "--headless":
+            try:
+                headless = json.loads(output)
+            except json.JSONDecodeError:
+                _fail("GUI executable headless output is not JSON")
+            if headless.get("status") != "ready" or headless.get("version") != expected_version:
+                _fail("GUI executable headless release facts mismatch")
+
+
+def _run_cc_connect_version_smoke(executable: Path, manifest: dict[str, object]) -> None:
+    child_env = {
+        "SystemRoot": os.environ.get("SystemRoot", r"C:\Windows"),
+        "WINDIR": os.environ.get("WINDIR", r"C:\Windows"),
+        "PATH": os.environ.get("SystemRoot", r"C:\Windows") + r"\System32",
+        "NO_PROXY": "*",
+        "HTTP_PROXY": "",
+        "HTTPS_PROXY": "",
+        "ALL_PROXY": "",
+    }
+    try:
+        completed = subprocess.run(
+            [str(executable), "--version"],
+            cwd=executable.parent,
+            env=child_env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=15,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _fail(f"cc-connect --version smoke failed: {type(exc).__name__}")
+    output = (completed.stdout + completed.stderr).decode("utf-8", errors="replace")
+    version = str(manifest.get("version", ""))
+    commit = str(manifest.get("source_commit", ""))[:7]
+    if completed.returncode != 0 or version not in output or commit not in output:
+        _fail("cc-connect --version does not expose the locked version and source commit")
 
 
 def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
@@ -537,9 +639,10 @@ def validate(candidate: Path) -> dict[str, object]:
     if not candidate.is_dir():
         _fail(f"candidate directory does not exist: {candidate}")
     manifest = _validate_manifest_and_hashes(candidate)
-    _validate_required_files(candidate, manifest)
+    cc_manifest = _validate_required_files(candidate, manifest)
     executable = candidate / "AI-Agent-Desktop.exe"
-    _run_executable_smoke(executable)
+    _run_executable_smoke(executable, str(manifest["candidate_version"]))
+    _run_cc_connect_version_smoke(candidate / "cc-connect" / "cc-connect.exe", cc_manifest)
     _validate_pe_subsystem(executable)
     findings: list[str] = []
     _scan_candidate_files(candidate, findings)

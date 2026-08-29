@@ -1,6 +1,6 @@
 # Control Plane v1 验收清单
 
-实施状态更新（2026-08-15）：当前已实现 Windows Credential Manager、三 Bot 绑定、真实 Agent Detection、managed/native 分离、合法 Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和 `0.4.0-prebeta` PySide6 GUI/Live E2E；新 GUI Telegram 与 Hermes Native Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
+实施状态更新（2026-08-30）：当前已实现 Windows Credential Manager、三 Bot 绑定、真实 Agent Detection、managed/native 分离、合法 Claude/Codex 原生配置、Hermes Telegram Native Configuration、严格 Runtime Readiness 和 `0.4.1-prebeta` PySide6 GUI/Live E2E；产品受管 cc-connect v1.5.0 升级、Patch 有效性、配置兼容、制品锁和回滚门禁已通过。新 GUI Telegram 与 Hermes Native Telegram 仍为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`，MSI/签名为 `DEFERRED`，整体为 PARTIAL。
 
 状态定义：`PASS` 已通过并有证据；`N/A` 按本轮范围不适用且有原因；`PENDING` 尚待本轮后续验证；`FAIL` 未满足。
 

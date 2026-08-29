@@ -39,7 +39,7 @@ Control Plane
 GUI
 ---
 
-当前实现为 PySide6 + Qt Widgets + QSS `0.4.0-prebeta`，包含 Welcome、四步 Onboarding、真实 Agent 状态、严格 Runtime、QR/深链接、Hermes readiness/conflict、Live E2E、Dashboard 和 Diagnostics。它只调用 Control Plane 稳定契约，不读取 Hermes 私有数据，不直接写 Claude Code、Codex、Telegram 或 CC Switch 私有配置；Hermes 仅使用官方公开 `.env` 的两个 allowlisted Telegram key，产品自有 cc-connect 受管路径可写。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+当前实现为 PySide6 + Qt Widgets + QSS `0.4.1-prebeta`，包含 Welcome、四步 Onboarding、真实 Agent 状态、严格 Runtime、QR/深链接、Hermes readiness/conflict、Live E2E、Dashboard 和 Diagnostics。产品自有 cc-connect 受管路径锁定 v1.5.0 source `17c61062c2f9ce9bcdd45a2082e491f9743a2770`；其余外部配置边界不变。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 dual_agent 与 cc-connect Patch
 -----------------------------

@@ -2,7 +2,7 @@
 
 ## 状态
 
-实施更新：2026-08-15。代码、Fake Telegram、Credential Manager、Windows 11 受管运行、真实 Agent Detection、Hermes Native Adapter 和 `0.4.0-prebeta` GUI 已通过本地自动化/合成检查；整体为 PARTIAL。Telegram Bot Identity、Binding、ready_for_test、LIVE_VERIFIED、failed 与 stale 已分离。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
+实施更新：2026-08-30。代码、Fake Telegram、Credential Manager、Windows 11 受管运行、真实 Agent Detection、Hermes Native Adapter、产品受管 cc-connect v1.5.0 和 `0.4.1-prebeta` GUI 已通过本地自动化/合成检查；整体为 PARTIAL。Telegram Bot Identity、Binding、ready_for_test、LIVE_VERIFIED、failed 与 stale 已分离。新 GUI Telegram 与 Hermes Native Telegram 为 `PENDING USER LIVE VALIDATION`，Windows 10 为 `PENDING WINDOWS 10 VALIDATION`。
 
 ## 门禁顺序
 
@@ -36,7 +36,7 @@ TelegramUpdateLease 以 bot slot 为键保存 owner、operation_id、credential_
 
 state/managed/cc-connect-state.json 保存 product instance、artifact、ManagementOwner/LifecycleOwner、configuration/runtime revision、CredentialRef、Bot/binding metadata、进程/健康/备份/审计引用。
 
-state/runtime-config/cc-connect.toml 由 cc-connect-fc315d2-native-v1 Renderer 生成，只包含锁定 commit 支持的 data_dir、management、Project、Agent、work_dir、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。Renderer 不输出产品 Owner、Operation、CredentialRef、group_chat_id 或审计字段。
+state/runtime-config/cc-connect.toml 由 `cc-connect-17c6106-native-v2` Renderer 生成并绑定 source `17c61062c2f9ce9bcdd45a2082e491f9743a2770`，只包含锁定 commit 支持的 data_dir、management、Project、Agent、work_dir、Telegram Platform、allow_from/admin_from 和 Secret 环境变量占位符。旧 v1 Renderer 只用于读取和回滚历史 revision。Renderer 不输出产品 Owner、Operation、CredentialRef、group_chat_id 或审计字段。
 
 Claude slot 映射 claudecode 与 AIAD_TELEGRAM_CLAUDE_BOT_TOKEN；Codex slot 映射 codex 与 AIAD_TELEGRAM_CODEX_BOT_TOKEN。启动前验证 claude/codex 可执行入口存在，认证证据不足返回 unknown，不安装 Agent、不写模型 API Key、不接管 CC Switch Provider。
 
@@ -62,4 +62,4 @@ PySide6 GUI 使用固定四步 Shell。Step 4 展示独立 Agent Detection、严
 
 锁定 commit 为 fc315d213b49d62e9d90ea4a510189d4115e636f，既有 patchset 为 0.1，产物 SHA256 为 cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec。Windows 11 合成验收完成三 Fake getMe、三私聊、三同群、revision 4、三份备份、漂移恢复、真实进程 start/stop/restart/reconcile、Bearer 200/401、Lease 释放、Secret 扫描与无残留进程。真实 Token 和 Windows 10 证据仍待用户现场完成。
 
-新 GUI 代码与合成测试不改变上述 Telegram 证据等级；`0.4.0-prebeta` candidate 已在 Windows 11 x64 构建并通过 validator 与 ordinary-user smoke，但不能由此推断真实 GUI Telegram、Hermes Native Telegram 或 Windows 10 已验证。
+新 GUI 代码与合成测试不改变上述 Telegram 证据等级；`0.4.1-prebeta` candidate 已在 Windows 11 x64 构建并通过 validator 与 ordinary-user smoke，但不能由此推断真实 GUI Telegram、Hermes Native Telegram 或 Windows 10 已验证。

@@ -18,7 +18,7 @@ from .api_client import (
 from .main_window import MainWindow
 from .widgets import ASSET_DIR
 
-APP_VERSION = "0.4.0-prebeta"
+APP_VERSION = "0.4.1-prebeta"
 
 
 def _parser() -> argparse.ArgumentParser:

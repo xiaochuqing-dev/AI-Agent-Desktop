@@ -1,0 +1,54 @@
+data_dir = "C:\\AIAD\\cc-connect"
+language = "zh"
+
+[log]
+level = "info"
+
+[management]
+enabled = true
+port = 59020
+token = "${AIAD_CC_CONNECT_MANAGEMENT_TOKEN}"
+
+[[projects]]
+name = "claude-private"
+admin_from = "123456789"
+inject_sender = true
+disabled_commands = ["upgrade"]
+
+[projects.agent]
+type = "claudecode"
+
+[projects.agent.options]
+work_dir = "C:\\AIAD\\workspaces\\claude"
+
+[[projects.platforms]]
+type = "telegram"
+
+[projects.platforms.options]
+token = "${AIAD_TELEGRAM_CLAUDE_BOT_TOKEN}"
+allow_from = "123456789"
+group_reply_all = false
+share_session_in_channel = false
+progress_style = "compact"
+
+[[projects]]
+name = "codex-group"
+admin_from = "123456789"
+inject_sender = true
+disabled_commands = ["upgrade"]
+
+[projects.agent]
+type = "codex"
+
+[projects.agent.options]
+work_dir = "C:\\AIAD\\workspaces\\codex"
+
+[[projects.platforms]]
+type = "telegram"
+
+[projects.platforms.options]
+token = "${AIAD_TELEGRAM_CODEX_BOT_TOKEN}"
+allow_from = "123456789"
+group_reply_all = false
+share_session_in_channel = false
+progress_style = "compact"

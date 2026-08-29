@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CONTRACTS = os.path.join(REPO_ROOT, "contracts", "control-plane-v1")
 VALIDATION_SCRIPT = Path(REPO_ROOT) / "control-plane" / "scripts" / "validate_contracts.py"
@@ -199,6 +201,32 @@ def test_managed_runtime_schema_has_non_secret_lifecycle_models():
         "management_api_bind_scope",
     ]:
         assert field in health["properties"]
+
+    renderer_schema = {
+        "$schema": models["$schema"],
+        "$ref": "#/$defs/NativeRendererCapability",
+        "$defs": models["$defs"],
+    }
+    validator = Draft202012Validator(renderer_schema)
+    capability = {
+        "renderer_version": "cc-connect-17c6106-native-v2",
+        "source_commit": "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+        "environment_placeholders_supported": True,
+        "project_types": ["claudecode", "codex"],
+        "telegram_platform_supported": True,
+        "allow_from_supported": True,
+        "admin_from_supported": True,
+        "group_chat_filter_supported": False,
+        "management_api_bind_host": "all_interfaces_upstream_limit",
+        "management_api_bearer_required": True,
+        "config_must_remain_present": True,
+        "startup_argument": "-config",
+    }
+    assert validator.is_valid(capability)
+    capability["renderer_version"] = "cc-connect-fc315d2-native-v1"
+    assert not validator.is_valid(capability)
+    capability["source_commit"] = "fc315d213b49d62e9d90ea4a510189d4115e636f"
+    assert validator.is_valid(capability)
 
     created = models["$defs"]["BindingSessionCreated"]
     assert "group_deep_links" in created["required"]

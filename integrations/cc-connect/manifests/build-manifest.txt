@@ -3,24 +3,29 @@ cc-connect locked Windows distributable build manifest
 schemaVersion: 1.0
 status: implemented
 sourceRepository: https://github.com/chenhg5/cc-connect.git
-sourceCommit: fc315d213b49d62e9d90ea4a510189d4115e636f
-upstreamVersion: 1.4.1
-patchset: 0.1
-version: v1.4.1-patchset0.1-fc315d2
+sourceTag: v1.5.0
+sourceCommit: 17c61062c2f9ce9bcdd45a2082e491f9743a2770
+previousSourceCommit: fc315d213b49d62e9d90ea4a510189d4115e636f
+upstreamVersion: 1.5.0
+patchset: 0.2
+activePatchCount: 4
+retiredPatch: 005-windows-build-compat (already fixed upstream)
+version: v1.5.0-patchset0.2-17c6106
+artifactId: cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64
 platform: windows
 architecture: amd64
 goVersion: 1.26.5
 buildTags: no_web goolm no_pi
-sourceDateEpoch: 1784463303
-buildTimestamp: 2026-07-19T12:15:03Z
+sourceDateEpoch: 1786892660
+buildTimestamp: 2026-08-16T15:04:20Z
 buildTimestampPolicy: locked_upstream_commit_timestamp_utc
-ldflags: -buildid= -s -w -X main.version=v1.4.1-patchset0.1-fc315d2 -X main.commit=fc315d2 -X main.buildTime=2026-07-19T12:15:03Z
+ldflags: -buildid= -s -w -X main.version=v1.5.0-patchset0.2-17c6106 -X main.commit=17c6106 -X main.buildTime=2026-08-16T15:04:20Z
 artifactFilename: cc-connect.exe
-artifactSize: 26928640
-artifactSHA256: cd1b0787709c0401a42f7c3ce5321184889adbfbf3b080190fee180afc977eec
+artifactSize: 54266368
+artifactSHA256: 67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144
 signatureStatus: unsigned
 minimumOS: Windows 10 x64
 installSideRequiresGo: false
-reproducibility: four local PowerShell 5.1/7 builds from the same locked inputs produced the same SHA256
+reproducibility: Windows PowerShell 5.1 and PowerShell 7 builds from identical locked inputs produced the same SHA256
 machineManifest: artifact-lock.json plus generated cc-connect-artifact-manifest.json
 referenceBaselineChanged: false

@@ -38,6 +38,14 @@ def test_manifest_rejects_lock_mismatch_and_duplicate_keys():
     )
 
 
+def test_manifest_rejects_unlocked_artifact_digest_and_size():
+    payload = manifest_payload(make_pe())
+    assert_code(
+        "MANIFEST_LOCK_MISMATCH",
+        lambda: load_manifest_bytes(json.dumps(payload).encode()),
+    )
+
+
 def test_sha256_mismatch_never_verifies(tmp_path):
     bundle, manifest = write_test_bundle(tmp_path)
     artifact = bundle / manifest.artifact_filename

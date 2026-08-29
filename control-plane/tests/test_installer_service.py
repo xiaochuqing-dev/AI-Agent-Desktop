@@ -27,12 +27,13 @@ from control_plane.persistence.models import (
 )
 from control_plane.persistence.session import Database
 
-from .installer_helpers import manifest_payload, write_test_bundle
+from .installer_helpers import bind_test_artifact_lock, manifest_payload, write_test_bundle
 
 
 @pytest.fixture
 def installer_environment(tmp_path, monkeypatch):
     bundle, manifest = write_test_bundle(tmp_path / "可信 产物 (bundle)")
+    bind_test_artifact_lock(monkeypatch, manifest)
     settings = Settings(
         data_dir=str(tmp_path / "隔离 LocalAppData (验收)"),
         trusted_artifact_dir=str(bundle),
@@ -354,6 +355,36 @@ def _add_previous_version(installer, database, manifest) -> ArtifactManifest:
             )
         )
     return previous
+
+
+def test_upgrade_refuses_to_switch_current_while_product_process_is_running(
+    installer_environment, monkeypatch
+):
+    installer, database, manifest = installer_environment
+    install_once(installer, database, manifest, key="running-upgrade-base")
+    previous = _add_previous_version(installer, database, manifest)
+    prior_pointer = installer.layout.read_current()
+    assert prior_pointer is not None
+    prior_pointer.update(
+        {
+            "artifact_id": previous.artifact_id,
+            "version": previous.version,
+            "artifact_sha256": previous.artifact_sha256,
+            "previous_artifact_id": None,
+            "revision": "running-upgrade-previous",
+        }
+    )
+    installer.layout.write_current(prior_pointer)
+    monkeypatch.setattr(installer, "_product_process_running", lambda: True)
+
+    plan = make_plan(installer, manifest)
+    operation, _, _, _ = confirm_plan(installer, plan, "running-upgrade-target")
+    installer.execute_install(operation.operation_id, plan.plan_id, "test")
+    failed = load_operation(database, operation.operation_id)
+
+    assert failed and failed.error
+    assert failed.error.code == "PRODUCT_MANAGED_PROCESS_MUST_STOP_FOR_UPGRADE"
+    assert installer.layout.read_current() == prior_pointer
 
 
 def test_restore_previous_then_uninstall_noncurrent_but_not_current(installer_environment):

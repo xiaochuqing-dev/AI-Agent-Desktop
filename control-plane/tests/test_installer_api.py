@@ -10,11 +10,12 @@ from control_plane.infrastructure.config import Settings
 
 from .conftest import TEST_TOKEN, wait_for_operation
 from .fakes import make_fake_adapters
-from .installer_helpers import write_test_bundle
+from .installer_helpers import bind_test_artifact_lock, write_test_bundle
 
 
 def _client(tmp_path, monkeypatch, *, fault_injector=None):
     bundle, manifest = write_test_bundle(tmp_path / "API 可信产物")
+    bind_test_artifact_lock(monkeypatch, manifest)
 
     def successful_probe(_path, probed_manifest, *, cancel_check=None, **_kwargs):
         if cancel_check:

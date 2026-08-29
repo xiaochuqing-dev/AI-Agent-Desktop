@@ -36,6 +36,24 @@
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
+    "CcConnectRendererEvidence": {
+      "oneOf": [
+        {
+          "required": ["renderer_version", "source_commit"],
+          "properties": {
+            "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+            "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" }
+          }
+        },
+        {
+          "required": ["renderer_version", "source_commit"],
+          "properties": {
+            "renderer_version": { "const": "cc-connect-17c6106-native-v2" },
+            "source_commit": { "const": "17c61062c2f9ce9bcdd45a2082e491f9743a2770" }
+          }
+        }
+      ]
+    },
     "ManagementOwnerValue": {
       "type": "string",
       "enum": ["external", "product", "unmanaged", "conflict", "unknown"]
@@ -549,6 +567,7 @@
     "NativeRuntimeConfig": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/CcConnectRendererEvidence" }],
       "required": [
         "schema_version", "renderer_version", "source_commit", "data_dir", "log_dir",
         "management_port", "management_credential_reference_id",
@@ -556,8 +575,8 @@
       ],
       "properties": {
         "schema_version": { "const": "1.0" },
-        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
-        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "renderer_version": { "type": "string", "enum": ["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] },
+        "source_commit": { "type": "string", "enum": ["fc315d213b49d62e9d90ea4a510189d4115e636f", "17c61062c2f9ce9bcdd45a2082e491f9743a2770"] },
         "data_dir": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "log_dir": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "management_port": { "type": "integer", "minimum": 59000, "maximum": 59999 },
@@ -569,6 +588,7 @@
     "ManagedCcConnectState": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/CcConnectRendererEvidence" }],
       "required": [
         "schema_version", "product_instance_id", "artifact_id", "management_owner",
         "lifecycle_owner", "configuration_revision", "runtime_config_revision",
@@ -586,8 +606,8 @@
         "lifecycle_owner": { "const": "product" },
         "configuration_revision": { "type": "integer", "minimum": 1 },
         "runtime_config_revision": { "type": "integer", "minimum": 1 },
-        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
-        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "renderer_version": { "type": "string", "enum": ["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] },
+        "source_commit": { "type": "string", "enum": ["fc315d213b49d62e9d90ea4a510189d4115e636f", "17c61062c2f9ce9bcdd45a2082e491f9743a2770"] },
         "binding_session_id": { "type": "string" },
         "binding_revision": { "type": "integer", "minimum": 1 },
         "operator_user_id": { "type": "integer", "minimum": 1 },
@@ -608,6 +628,7 @@
     "NativeRendererCapability": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/CcConnectRendererEvidence" }],
       "required": [
         "renderer_version", "source_commit", "environment_placeholders_supported",
         "project_types", "telegram_platform_supported", "allow_from_supported",
@@ -615,8 +636,8 @@
         "management_api_bearer_required", "config_must_remain_present", "startup_argument"
       ],
       "properties": {
-        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
-        "source_commit": { "const": "fc315d213b49d62e9d90ea4a510189d4115e636f" },
+        "renderer_version": { "type": "string", "enum": ["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] },
+        "source_commit": { "type": "string", "enum": ["fc315d213b49d62e9d90ea4a510189d4115e636f", "17c61062c2f9ce9bcdd45a2082e491f9743a2770"] },
         "environment_placeholders_supported": { "const": true },
         "project_types": { "type": "array", "items": { "type": "string", "enum": ["claudecode", "codex"] } },
         "telegram_platform_supported": { "const": true },
@@ -645,7 +666,7 @@
         "current_revision": { "type": "integer", "minimum": 0 },
         "target_revision": { "type": "integer", "minimum": 1 },
         "artifact_id": { "type": "string" },
-        "renderer_version": { "const": "cc-connect-fc315d2-native-v1" },
+        "renderer_version": { "type": "string", "enum": ["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] },
         "managed_state_relative_path": { "const": "state/managed/cc-connect-state.json" },
         "runtime_config_relative_path": { "const": "state/runtime-config/cc-connect.toml" },
         "expected_changes": { "type": "array", "items": { "type": "string" } },

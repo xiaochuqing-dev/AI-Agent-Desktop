@@ -1,153 +1,138 @@
 diff --git a/platform/telegram/telegram.go b/platform/telegram/telegram.go
-index 95a78ee..733fec6 100644
+index 95a78ee4ae619f9b7d4d9e9a761eca5643b16a7d..a366e7f19aac185f740f87b5cda1b627719810fe 100644
 --- a/platform/telegram/telegram.go
 +++ b/platform/telegram/telegram.go
-@@ -959,9 +1022,12 @@ func (p *Platform) handleCallbackQuery(ctx context.Context, cb *models.CallbackQ
- 
- // isDirectedAtBot checks whether a group message is directed at this bot:
+@@ -961,7 +961,8 @@ func (p *Platform) handleCallbackQuery(ctx context.Context, cb *models.CallbackQ
  //   - Command with @thisbot suffix (e.g. /help@thisbot)
--//   - Command without @suffix (broadcast to all bots — accept it)
--//   - Command with @otherbot suffix → reject
+ //   - Command without @suffix (broadcast to all bots — accept it)
+ //   - Command with @otherbot suffix → reject
 -//   - Non-command: accept if bot is @mentioned or message is a reply to bot
-+//   - Command without @suffix (broadcast to all bots - accept it)
-+//   - Command with @otherbot suffix -> reject
-+//   - Non-command: explicit @mention decides the recipient. An @mention of this
-+//     bot activates it; an @mention of any other bot suppresses reply-to-self
-+//     activation ("explicit @ overrides Reply"). Reply-to-self activates this
-+//     bot only when the message carries no @mention at all (text or caption).
++//   - Non-command: explicit @mentions decide the recipient; reply-to-self is
++//     considered only when the message has no explicit mention
  func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
  	p.mu.RLock()
  	self := p.selfUser
-@@ -989,7 +1055,14 @@ func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
+@@ -989,20 +990,30 @@ func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
  		return true // /cmd without @suffix — accept
  	}
  
 -	// Non-command: check @mention
-+	// Non-command: check @mention.  An explicit @mention decides the sole
-+	// recipient ("explicit @ overrides Reply activation"): when the message
-+	// contains ANY @mention (text or caption) that does not name this bot, the
-+	// reply-to-self branch below is suppressed so a Reply+@Other scenario only
-+	// activates the @'d bot.  Reply then contributes reference context only.
-+	hasMentionToOther := false
-+
-+	// Text @mentions.
- 	if msg.Entities != nil {
- 		for _, e := range msg.Entities {
- 			if e.Type == models.MessageEntityTypeMention {
-@@ -998,19 +1071,12 @@ func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
- 				if strings.EqualFold(mention, "@"+botName) {
- 					return true
- 				}
-+				hasMentionToOther = true
+-	if msg.Entities != nil {
+-		for _, e := range msg.Entities {
+-			if e.Type == models.MessageEntityTypeMention {
+-				mention := extractEntityText(msg.Text, e.Offset, e.Length)
+-				slog.Debug("telegram: checking mention", "bot", botName, "mention", mention, "match", strings.EqualFold(mention, "@"+botName))
+-				if strings.EqualFold(mention, "@"+botName) {
+-					return true
+-				}
++	// An explicit mention overrides reply routing. This prevents a message that
++	// replies to bot A while mentioning bot B from activating both bots. Text
++	// and caption entities are evaluated together before reply-to-self.
++	hasExplicitMention := false
++	mentionsSelf := false
++	checkMentions := func(text string, entities []models.MessageEntity) {
++		for _, entity := range entities {
++			if entity.Type != models.MessageEntityTypeMention {
++				continue
  			}
++			hasExplicitMention = true
++			mention := extractEntityText(text, entity.Offset, entity.Length)
++			matched := strings.EqualFold(mention, "@"+botName)
++			slog.Debug("telegram: checking mention", "bot", botName, "mention", mention, "match", matched)
++			mentionsSelf = mentionsSelf || matched
+ 		}
+ 	}
++	checkMentions(msg.Text, msg.Entities)
++	checkMentions(msg.Caption, msg.CaptionEntities)
++	if hasExplicitMention {
++		return mentionsSelf
++	}
+ 
+-	// Check if replying to a message from this bot
++	// With no explicit mention, a reply to this bot is directed at it.
+ 	if msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil {
+ 		slog.Debug("telegram: checking reply", "bot_id", self.ID, "reply_from_id", msg.ReplyToMessage.From.ID)
+ 		if msg.ReplyToMessage.From.ID == self.ID {
+@@ -1010,18 +1021,6 @@ func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
  		}
  	}
  
--	// Check if replying to a message from this bot
--	if msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil {
--		slog.Debug("telegram: checking reply", "bot_id", self.ID, "reply_from_id", msg.ReplyToMessage.From.ID)
--		if msg.ReplyToMessage.From.ID == self.ID {
--			return true
+-	// Also check caption entities (for photos with captions)
+-	if msg.CaptionEntities != nil {
+-		for _, e := range msg.CaptionEntities {
+-			if e.Type == models.MessageEntityTypeMention {
+-				mention := extractEntityText(msg.Caption, e.Offset, e.Length)
+-				if strings.EqualFold(mention, "@"+botName) {
+-					return true
+-				}
+-			}
 -		}
 -	}
 -
--	// Also check caption entities (for photos with captions)
-+	// Caption @mentions (photos/files/documents with a caption).
- 	if msg.CaptionEntities != nil {
- 		for _, e := range msg.CaptionEntities {
- 			if e.Type == models.MessageEntityTypeMention {
-@@ -1018,6 +1084,19 @@ func (p *Platform) isDirectedAtBot(msg *models.Message) bool {
- 				if strings.EqualFold(mention, "@"+botName) {
- 					return true
- 				}
-+				hasMentionToOther = true
-+			}
-+		}
-+	}
-+
-+	// Reply-to-self activates this bot ONLY when the message carries no explicit
-+	// @mention of another bot.  If the user @'d another bot, that bot is the
-+	// intended recipient and this reply merely provides reference context.
-+	if !hasMentionToOther {
-+		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil {
-+			slog.Debug("telegram: checking reply", "bot_id", self.ID, "reply_from_id", msg.ReplyToMessage.From.ID)
-+			if msg.ReplyToMessage.From.ID == self.ID {
-+				return true
- 			}
- 		}
- 	}
+ 	slog.Debug("telegram: ignoring group message not directed at bot", "chat", msg.Chat.ID, "bot", botName, "text", msg.Text, "entities", msg.Entities)
+ 	return false
+ }
 diff --git a/platform/telegram/telegram_test.go b/platform/telegram/telegram_test.go
-index f6a3b89..3aae364 100644
+index f6a3b8973919b5c7b557bd7eea246bdb3cc7868f..8090cded4304e2f0efff314cb677890082809f75 100644
 --- a/platform/telegram/telegram_test.go
 +++ b/platform/telegram/telegram_test.go
-@@ -839,6 +839,69 @@ func TestIsDirectedAtBot(t *testing.T) {
+@@ -831,6 +831,54 @@ func TestIsDirectedAtBot(t *testing.T) {
  			},
- 			want: false,
+ 			want: true,
  		},
-+		// ── Stage 2 P0: "explicit @ overrides Reply activation" ──────────────
-+		// Reply to this bot + @another bot -> only the @'d bot activates; this
-+		// bot must NOT trigger (reply contributes reference context only).
 +		{
-+			name: "reply to bot + @otherbot in text -> not directed (P0)",
++			name: "text mention of other bot overrides reply to self",
 +			msg: &models.Message{
-+				Text: "@otherbot can you see this?",
++				Text: "@otherbot continue",
 +				Chat: models.Chat{ID: 1, Type: models.ChatTypeGroup},
 +				Entities: []models.MessageEntity{
 +					{Type: models.MessageEntityTypeMention, Offset: 0, Length: 9},
 +				},
-+				ReplyToMessage: &models.Message{
-+					From: &models.User{ID: 42},
-+				},
++				ReplyToMessage: &models.Message{From: &models.User{ID: 42}},
 +			},
 +			want: false,
 +		},
-+		// Reply to this bot + @thisbot -> still directed (explicit @ of self wins).
 +		{
-+			name: "reply to bot + @mybot in text -> directed (P0)",
++			name: "text mention of self remains directed when replying to self",
 +			msg: &models.Message{
-+				Text: "@mybot please continue",
++				Text: "@mybot continue",
 +				Chat: models.Chat{ID: 1, Type: models.ChatTypeGroup},
 +				Entities: []models.MessageEntity{
 +					{Type: models.MessageEntityTypeMention, Offset: 0, Length: 6},
 +				},
-+				ReplyToMessage: &models.Message{
-+					From: &models.User{ID: 42},
-+				},
++				ReplyToMessage: &models.Message{From: &models.User{ID: 42}},
 +			},
 +			want: true,
 +		},
-+		// Reply to this bot's photo/file (caption) + @another bot in caption ->
-+		// only the @'d bot activates.  Covers caption entities (constraint #4).
 +		{
-+			name: "reply to bot photo + @otherbot in caption -> not directed (P0)",
++			name: "caption mention of other bot overrides reply to self",
 +			msg: &models.Message{
-+				Caption: "@otherbot analyze this image",
++				Caption: "@otherbot inspect",
 +				Chat:    models.Chat{ID: 1, Type: models.ChatTypeGroup},
 +				CaptionEntities: []models.MessageEntity{
 +					{Type: models.MessageEntityTypeMention, Offset: 0, Length: 9},
 +				},
-+				ReplyToMessage: &models.Message{
-+					From: &models.User{ID: 42},
-+				},
++				ReplyToMessage: &models.Message{From: &models.User{ID: 42}},
 +			},
 +			want: false,
 +		},
-+		// Reply to this bot's photo + @thisbot in caption -> directed.
 +		{
-+			name: "reply to bot photo + @mybot in caption -> directed (P0)",
++			name: "caption mention of self remains directed when replying to self",
 +			msg: &models.Message{
-+				Caption: "@mybot look at this",
++				Caption: "@mybot inspect",
 +				Chat:    models.Chat{ID: 1, Type: models.ChatTypeGroup},
 +				CaptionEntities: []models.MessageEntity{
 +					{Type: models.MessageEntityTypeMention, Offset: 0, Length: 6},
 +				},
-+				ReplyToMessage: &models.Message{
-+					From: &models.User{ID: 42},
-+				},
++				ReplyToMessage: &models.Message{From: &models.User{ID: 42}},
 +			},
 +			want: true,
 +		},
+ 		{
+ 			name: "plain text not directed",
+ 			msg: &models.Message{
+@@ -1035,4 +1083,3 @@ func TestProgressStyleProviderInterface(t *testing.T) {
+ 		t.Fatalf("ProgressStyle() = %q, want compact", got)
  	}
- 
- 	for _, tt := range tests {
-
+ }
+-

@@ -10,6 +10,17 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+_RENDERER_SOURCE_COMMITS = {
+    "cc-connect-fc315d2-native-v1": "fc315d213b49d62e9d90ea4a510189d4115e636f",
+    "cc-connect-17c6106-native-v2": "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+}
+
+
+def _require_matching_renderer_source(renderer_version: str, source_commit: str) -> None:
+    if _RENDERER_SOURCE_COMMITS[renderer_version] != source_commit:
+        raise ValueError("renderer version and locked cc-connect source commit do not match")
+
+
 class NativeTelegramPlatform(StrictModel):
     credential_reference_id: str
     environment_variable: str = Field(pattern=r"^AIAD_[A-Z0-9_]+$")
@@ -41,10 +52,13 @@ class NativeProject(StrictModel):
 
 class NativeRuntimeConfig(StrictModel):
     schema_version: Literal["1.0"] = "1.0"
-    renderer_version: Literal["cc-connect-fc315d2-native-v1"] = "cc-connect-fc315d2-native-v1"
-    source_commit: Literal["fc315d213b49d62e9d90ea4a510189d4115e636f"] = (
-        "fc315d213b49d62e9d90ea4a510189d4115e636f"
+    renderer_version: Literal["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] = (
+        "cc-connect-17c6106-native-v2"
     )
+    source_commit: Literal[
+        "fc315d213b49d62e9d90ea4a510189d4115e636f",
+        "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+    ] = "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
     data_dir: str = Field(min_length=1, max_length=1024)
     log_dir: str = Field(min_length=1, max_length=1024)
     management_port: int = Field(ge=59000, le=59999)
@@ -56,6 +70,7 @@ class NativeRuntimeConfig(StrictModel):
 
     @model_validator(mode="after")
     def unique_projects(self) -> NativeRuntimeConfig:
+        _require_matching_renderer_source(self.renderer_version, self.source_commit)
         if len({item.project_id for item in self.projects}) != len(self.projects):
             raise ValueError("project identifiers must be unique")
         if len({item.slot for item in self.projects}) != len(self.projects):
@@ -71,10 +86,13 @@ class ManagedCcConnectState(StrictModel):
     lifecycle_owner: Literal["product"] = "product"
     configuration_revision: int = Field(ge=1)
     runtime_config_revision: int = Field(ge=1)
-    renderer_version: Literal["cc-connect-fc315d2-native-v1"] = "cc-connect-fc315d2-native-v1"
-    source_commit: Literal["fc315d213b49d62e9d90ea4a510189d4115e636f"] = (
-        "fc315d213b49d62e9d90ea4a510189d4115e636f"
+    renderer_version: Literal["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"] = (
+        "cc-connect-17c6106-native-v2"
     )
+    source_commit: Literal[
+        "fc315d213b49d62e9d90ea4a510189d4115e636f",
+        "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+    ] = "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
     binding_session_id: str
     binding_revision: int = Field(ge=1)
     operator_user_id: int = Field(gt=0)
@@ -93,10 +111,15 @@ class ManagedCcConnectState(StrictModel):
     created_at: datetime
     updated_at: datetime
 
+    @model_validator(mode="after")
+    def renderer_matches_source(self) -> ManagedCcConnectState:
+        _require_matching_renderer_source(self.renderer_version, self.source_commit)
+        return self
+
 
 class NativeRendererCapability(StrictModel):
-    renderer_version: Literal["cc-connect-fc315d2-native-v1"]
-    source_commit: Literal["fc315d213b49d62e9d90ea4a510189d4115e636f"]
+    renderer_version: Literal["cc-connect-17c6106-native-v2"]
+    source_commit: Literal["17c61062c2f9ce9bcdd45a2082e491f9743a2770"]
     environment_placeholders_supported: Literal[True] = True
     project_types: list[Literal["claudecode", "codex"]]
     telegram_platform_supported: Literal[True] = True
@@ -127,7 +150,7 @@ class NativeConfigurationPlan(StrictModel):
     current_revision: int = Field(ge=0)
     target_revision: int = Field(ge=1)
     artifact_id: str
-    renderer_version: str
+    renderer_version: Literal["cc-connect-fc315d2-native-v1", "cc-connect-17c6106-native-v2"]
     managed_state_relative_path: Literal["state/managed/cc-connect-state.json"]
     runtime_config_relative_path: Literal["state/runtime-config/cc-connect.toml"]
     expected_changes: list[str]

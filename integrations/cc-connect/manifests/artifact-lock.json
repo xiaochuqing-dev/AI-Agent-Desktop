@@ -1,48 +1,97 @@
 {
   "schema_version": "1.0",
   "component_id": "cc-connect",
-  "artifact_id": "cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64",
+  "artifact_id": "cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64",
   "source_repo": "https://github.com/chenhg5/cc-connect.git",
-  "source_commit": "fc315d213b49d62e9d90ea4a510189d4115e636f",
-  "upstream_version": "1.4.1",
-  "patchset_version": "0.1",
-  "version": "v1.4.1-patchset0.1-fc315d2",
+  "source_tag": "v1.5.0",
+  "source_commit": "17c61062c2f9ce9bcdd45a2082e491f9743a2770",
+  "previous_source_commit": "fc315d213b49d62e9d90ea4a510189d4115e636f",
+  "upstream_version": "1.5.0",
+  "patchset_version": "0.2",
+  "version": "v1.5.0-patchset0.2-17c6106",
   "patch_files": [
     {
       "filename": "001-telegram-directed-routing.patch",
-      "sha256": "475441717ea8ddafa216a0440e66eaaac2cf2e04001b4469e4cca91e75069745"
+      "sha256": "675437ee433a1f9cca6e43b8e3f7b77e012098cbff0bbfdf65a19d12bed89b37"
     },
     {
       "filename": "002-hook-config-headers.patch",
-      "sha256": "a59c42b63dfcf9662188831c6a57695ecfa03491d2041f111dbe4f5c256f6cae"
+      "sha256": "136edd956a33bca4225841a6473b512e05e109edcf09d350e8c54d9c6c3be246"
     },
     {
       "filename": "003-relay-response-prefix.patch",
-      "sha256": "3a7cdc0af7ac156b72598b39e47fda2c2b4e071dbf769c0ee83cd30f7b7b3ce8"
+      "sha256": "f1d1e6dc7a553b889e9a6d04c4215bc1de5a920310f1c3602c18d0a56e5ed2b8"
     },
     {
       "filename": "004-message-delivery-hooks.patch",
-      "sha256": "dc4a5a9c4830ddf46778c5e192840e1c8f5a89b59994dc968aea024b0a907ddf"
-    },
-    {
-      "filename": "005-windows-build-compat.patch",
-      "sha256": "a23f557bc2ce36469f6d55e1a0dc019fb3cb31056d03a5e524ff57ae12494fd0"
+      "sha256": "5302466a7d65c09cc61aa8686d113ff5e9a6b6bb98040ba49d553924cf72b101"
     }
   ],
   "patched_files": [
-    {"path": "agent/pi/proc_windows.go", "sha256": "d576ac6aebdf559a668589707f3a768d24e20b66100a30852779d4b0cd3f7a43"},
-    {"path": "cmd/cc-connect/main.go", "sha256": "ae1351b1b02502427381ec815e0cdf84e8949df0ff800139e6e0ca13ce418995"},
-    {"path": "config/config.go", "sha256": "568836d4d116634394a923cf13931e743ea87e1c1603b8eca83d6ce1b98133a5"},
-    {"path": "core/engine.go", "sha256": "7a64a3822d7290142037823cc1a465f440f30e5d1831e24aa20c9c8fa4f769e0"},
-    {"path": "core/hooks.go", "sha256": "a0d801d181b6d44f510b9a609e20a7252240f3cd46ac18ca45b4b69da6085d15"},
-    {"path": "core/interfaces.go", "sha256": "bdcee053f24f17cfae7ad8137189c5608555ad20c23a1bbc35b544df098ed2e0"},
-    {"path": "core/message.go", "sha256": "9b63db943852904665014a56f42b28716bc75c389643b205afc32de781987648"},
-    {"path": "core/multiagent_hook_test.go", "sha256": "31aa23d4a450e5a5da39dc9f62a41f732f47de1059d5dc8ac356b878e98a205f"},
-    {"path": "core/relay.go", "sha256": "597ba9b8344b1dd46e09e8fc2f1c4f912d3c25f38adf3b185ca2d77721ae182a"},
-    {"path": "core/relay_test.go", "sha256": "c93222a0475339011faf00e8f7ddc905a9c4c5a216098670b87022b2240232e6"},
-    {"path": "platform/telegram/multiagent_metadata_test.go", "sha256": "05e6ce1d4bbe072a4573b692728d4b4cf279c6b458091a94dc4acd8354c4e60c"},
-    {"path": "platform/telegram/telegram.go", "sha256": "8ede2e66be903d13b18be4a0c2191ac654f63b09a98174932bb7cb110e707d24"},
-    {"path": "platform/telegram/telegram_test.go", "sha256": "369f00fda87ade09127d24822af7fa341544caf39a2c12e726fc585e2a750db9"}
+    {
+      "path": "cmd/cc-connect/main.go",
+      "sha256": "19f76748eac093d86b34f35d31c01de6a24d84445f4080b24c7647d60e10ddbe"
+    },
+    {
+      "path": "cmd/cc-connect/main_test.go",
+      "sha256": "2f2a8f980c9a6b7a6858f4263592dab58a550d68bb7d25c5e6c8f31d24813b81"
+    },
+    {
+      "path": "config/config.go",
+      "sha256": "75acc41214a945a5170067ce5df5ab5c1580f0f027b8f1beb6f1f71b03852b83"
+    },
+    {
+      "path": "config/config_test.go",
+      "sha256": "ceb0d3ba583bfb9055a3a3e2b5c7a02258f97b8794e35dfb14d3bd1ebe8c801d"
+    },
+    {
+      "path": "core/engine.go",
+      "sha256": "e582d9a6144758ea737e4091d08c8a52ddbae7fc4fabfa9d16b9963c7d524811"
+    },
+    {
+      "path": "core/hooks.go",
+      "sha256": "aa2ed8ba389cef1a6505d07b19a29f4a70d728e9b5f5582d28f8ef2342a20588"
+    },
+    {
+      "path": "core/hooks_test.go",
+      "sha256": "30ff3f45a942968ca20c1f486f9a4894e618905f65bbe6f881943e03a03aa7c0"
+    },
+    {
+      "path": "core/interfaces.go",
+      "sha256": "0042100680eee4b5e81910289fa70a6b7e6d275e95ec68ad6ff14321bd455554"
+    },
+    {
+      "path": "core/message.go",
+      "sha256": "5dba7988e975d329491167d6cdd6659b39a4d0d83afbaa3905d36dce796914e7"
+    },
+    {
+      "path": "core/multiagent_hook_test.go",
+      "sha256": "50836ed94b78d35f5fa4de71a2d14d69d7af72333e0562af0fae53670bd7d331"
+    },
+    {
+      "path": "core/relay.go",
+      "sha256": "7ca05dee02ea62334d721574a07bbbb98e91a69979d17903b7e824dc7b2008cd"
+    },
+    {
+      "path": "core/relay_test.go",
+      "sha256": "c93222a0475339011faf00e8f7ddc905a9c4c5a216098670b87022b2240232e6"
+    },
+    {
+      "path": "core/streaming.go",
+      "sha256": "292b760f81b9f46754c0197290a161f4f1d91a526677cf3bbcf89a76be4ebd02"
+    },
+    {
+      "path": "platform/telegram/multiagent_metadata_test.go",
+      "sha256": "899fa7ee798bbd5ff7d6bbe863b36c2acd6eddb7d378b9eea603d0aef7256498"
+    },
+    {
+      "path": "platform/telegram/telegram.go",
+      "sha256": "4cc54401db97cee9fb46b8ec923d7b80e8f079184700daa5027250897ccedf66"
+    },
+    {
+      "path": "platform/telegram/telegram_test.go",
+      "sha256": "1744ba0efab43b7303719709c266cbd655b06332eb80db51b343b038baa9a153"
+    }
   ],
   "toolchain": {
     "go_version": "1.26.5",
@@ -56,13 +105,15 @@
       "goolm",
       "no_pi"
     ],
-    "source_date_epoch": 1784463303,
-    "build_timestamp": "2026-07-19T12:15:03Z",
+    "source_date_epoch": 1786892660,
+    "build_timestamp": "2026-08-16T15:04:20Z",
     "trimpath": true,
     "buildvcs": false,
     "ldflags_template": "-buildid= -s -w -X main.version={version} -X main.commit={short_commit} -X main.buildTime={build_timestamp}"
   },
   "artifact_filename": "cc-connect.exe",
+  "artifact_size": 54266368,
+  "artifact_sha256": "67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144",
   "signature_status": "unsigned",
   "compatibility": {
     "supported_os": [

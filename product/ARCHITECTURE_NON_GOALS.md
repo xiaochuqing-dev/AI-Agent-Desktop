@@ -10,7 +10,7 @@
 4. 不把 Control Plane 变成通用 DAG、工作流市场或插件市场。
 5. 不让 GUI 直接依赖或写入上游内部目录。
 6. 不新增 Telegram 之外的 Channel，也不新增其他 Agent Runtime。
-7. 不扩大 dual_agent 或现有 5 个 cc-connect Patch。
+7. 不扩大 dual_agent，也不在 v1.5.0 已收敛的 Patch 001–004 之外增加 Patch。
 8. 不把配置存在、Token 引用或普通消息证据虚报为健康、认证有效、命令可用或 Session 隔离已验证。
 9. 不让两个 ManagementOwner 同时写同一配置作用域。
 10. 不静默升级上游，不在没有快照和回滚点时接管生命周期。

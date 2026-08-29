@@ -17,6 +17,8 @@ from control_plane.updates.models import (
 )
 from control_plane.updates.providers import CcConnectArtifactProvider, HermesUpdateProvider
 
+from .test_installer_service import _add_previous_version
+
 
 def exact_policy(version: str) -> VersionPolicy:
     return VersionPolicy(channel=UpdateChannel.EXACT, requested_version=version)
@@ -67,6 +69,38 @@ def test_unlocked_target_and_latest_policy_are_never_assumed(managed_runtime_env
             requested_version="latest",
             use_latest=True,  # type: ignore[arg-type]
         )
+
+
+def test_locked_upgrade_requires_native_configuration_revision_refresh(
+    managed_runtime_environment,
+):
+    environment = managed_runtime_environment
+    previous = _add_previous_version(
+        environment["installer"], environment["database"], environment["manifest"]
+    )
+    current = environment["installer"].layout.read_current()
+    assert current is not None
+    current.update(
+        {
+            "artifact_id": previous.artifact_id,
+            "version": previous.version,
+            "artifact_sha256": previous.artifact_sha256,
+            "previous_artifact_id": None,
+            "revision": "update-assessment-previous",
+        }
+    )
+    environment["installer"].layout.write_current(current)
+
+    lock = load_artifact_lock()
+    assessment = CcConnectArtifactProvider(
+        environment["database"], environment["version_store"]
+    ).assess(exact_policy(lock["version"]))
+
+    assert assessment.status == "compatible"
+    assert assessment.migration.required is True
+    assert assessment.migration.status == "planned"
+    assert assessment.migration.entrypoint == "cc_connect.native_configuration.create_plan"
+    assert assessment.rollback_version.artifact_id == previous.artifact_id
 
 
 def test_hermes_boundary_is_explicitly_unsupported_not_success():

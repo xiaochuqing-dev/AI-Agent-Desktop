@@ -93,6 +93,9 @@ $actualSize = (Get-Item -LiteralPath $artifactPath).Length
 if ($actualSize -ne [long]$manifest.artifact_size) { throw "artifact size mismatch" }
 $actualHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualHash -ne $manifest.artifact_sha256) { throw "artifact SHA256 mismatch" }
+if ($actualSize -ne [long]$lock.artifact_size -or $actualHash -ne [string]$lock.artifact_sha256) {
+  throw "artifact does not match the locked digest and size"
+}
 $shaPath = Join-Path $bundlePath "cc-connect.sha256"
 if (-not (Test-Path -LiteralPath $shaPath -PathType Leaf)) { throw "artifact SHA256 sidecar is missing" }
 $shaText = (Get-Content -LiteralPath $shaPath -Raw -Encoding UTF8).Trim()

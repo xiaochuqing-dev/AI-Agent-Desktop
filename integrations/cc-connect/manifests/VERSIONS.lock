@@ -18,7 +18,7 @@ upstream_sync = "本地 origin/main 与 HEAD 一致 (ahead 0 / behind 0，未 fe
 note = "用户提示该 HEAD 落后上游约 7 个提交，但本轮禁止 fetch/pull，仅记录当前状态。后续在全新 clone 中验证 Patch 时再对齐。"
 
 # cc-connect npm 包
-[cc-connect-windows-distributable]
+[cc-connect-windows-distributable-v141-historical]
 status = "implemented"
 artifact_lock = "artifact-lock.json"
 artifact_id = "cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64"
@@ -137,3 +137,22 @@ readme_claim = "cc-connect v1.4.1 (与 npm 一致，与运行二进制 v1.3.3 �
 patches_readme_claim = "v1.3.3 patch-noprefix (与运行二进制一致)"
 test_status_claim = "Hermes v0.18.2 (实际已升 v0.19.0)"
 phase1_claim = "Claude CLI v2.1.216 (实际 2.1.220), Codex 0.144.5 (实际 0.145.0)"
+# Current product-managed cc-connect distributable. The historical v0.1
+# baseline below remains unchanged for rollback and provenance comparison.
+[cc-connect-windows-distributable]
+status = "implemented"
+artifact_lock = "artifact-lock.json"
+artifact_id = "cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64"
+source_tag = "v1.5.0"
+source_commit = "17c61062c2f9ce9bcdd45a2082e491f9743a2770"
+previous_source_commit = "fc315d213b49d62e9d90ea4a510189d4115e636f"
+patchset = "0.2"
+active_patch_count = 4
+retired_patch = "005-windows-build-compat (fixed upstream)"
+go_version = "1.26.5"
+build_tags = "no_web goolm no_pi"
+version = "v1.5.0-patchset0.2-17c6106"
+artifact_size_bytes = 54266368
+artifact_sha256 = "67a127b6c59b942058ed2bd8c6237ff613e37eb3df64e7cd6ea0c18f3c418144"
+signature_status = "unsigned"
+build_reproducibility = "Windows PowerShell 5.1 and PowerShell 7 builds produced identical SHA256"

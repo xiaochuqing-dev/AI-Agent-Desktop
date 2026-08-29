@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  CC_CONNECT_COMMIT: fc315d213b49d62e9d90ea4a510189d4115e636f
+  CC_CONNECT_COMMIT: 17c61062c2f9ce9bcdd45a2082e491f9743a2770
   CC_CONNECT_REPOSITORY: https://github.com/chenhg5/cc-connect.git
   CONTROL_PLANE_DISABLE_LIVE_TELEGRAM: "1"
 
@@ -169,8 +169,53 @@ jobs:
           $ErrorActionPreference = "Stop"
           Push-Location -LiteralPath $env:CC_CONNECT_SOURCE
           try {
-            go test -mod=readonly -tags "no_web goolm no_pi" ./core -run 'Test(MessageReceivedExtra|MessageSentDeliveredExtra|RelayManager_(DefaultVisibilityEchoesFullMessages|VisibilitySummarySuppressesBodies|VisibilityNoneSuppressesGroupEcho))$'
-            go test -mod=readonly -tags "no_web goolm no_pi" ./platform/telegram -run 'Test(IsDirectedAtBot|SendRecordsMessageID|SendImageRecordsMessageID|SendFileRecordsMessageID|DispatchMessagePopulatesMetadata|DispatchMessageBotSender)$'
+            go test -mod=readonly -tags "no_web goolm no_pi" ./config -run '^TestHookConfigHeadersDecode$'
+            go test -mod=readonly -tags "no_web goolm no_pi" ./core -run '^Test(Emit_HTTPHookCustomHeadersPreserveProtocolHeaders|HookConfigJSONOmitsHeaders|EngineDeliveryReporterEmitsExactHook|StreamPreviewReportsOnlySuccessfulFinalDelivery|RelayManager_(DefaultVisibilityEchoesFullMessages|VisibilitySummarySuppressesBodies|VisibilityNoneSuppressesGroupEcho))$'
+            go test -mod=readonly -tags "no_web goolm no_pi" ./platform/telegram -run '^Test(IsDirectedAtBot|DispatchMessagePopulatesGovernanceMetadata|DeliveryReportingDirectFallbackAndFailure|DeliveryReportingAttachmentsButtonsAndPreview|ChunkedDeliveryReportsEachSuccessfulNativeMessage|ConcurrentDeliveryReportingDoesNotReuseMessageIDs|DeliveryHandlerPanicCannotFailSuccessfulSend)$'
+            go test -mod=readonly -tags "no_web goolm no_pi" ./core -run '^TestMgmt_(AuthRequired|Status)$'
+            go build -mod=readonly -tags "no_web goolm no_pi" -o (Join-Path $env:RUNNER_TEMP "cc-connect-ci-smoke.exe") ./cmd/cc-connect
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Verify native configuration compatibility with the real v1.5.0 loader
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\verify-cc-connect-native-config.ps1" -SourceDir $env:CC_CONNECT_SOURCE
+
+      - name: Prove every active patch has an effective semantic test
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ".\integrations\cc-connect\scripts\verify-cc-connect-patch-effectiveness.ps1" -SourceDir $env:CC_CONNECT_SOURCE
+
+      - name: Check Go formatting and vet related packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Push-Location -LiteralPath $env:CC_CONNECT_SOURCE
+          try {
+            $changed = @(
+              "cmd/cc-connect/main.go",
+              "cmd/cc-connect/main_test.go",
+              "config/config.go",
+              "config/config_test.go",
+              "core/engine.go",
+              "core/hooks.go",
+              "core/hooks_test.go",
+              "core/interfaces.go",
+              "core/message.go",
+              "core/multiagent_hook_test.go",
+              "core/relay.go",
+              "core/relay_test.go",
+              "core/streaming.go",
+              "platform/telegram/multiagent_metadata_test.go",
+              "platform/telegram/telegram.go",
+              "platform/telegram/telegram_test.go"
+            )
+            $unformatted = @(gofmt -l $changed)
+            if ($unformatted.Count -ne 0) { throw "gofmt mismatch: $($unformatted -join ', ')" }
+            go vet -mod=readonly -tags "no_web goolm no_pi" ./config ./core ./platform/telegram
           }
           finally {
             Pop-Location
@@ -287,7 +332,7 @@ jobs:
       - name: Upload verified GUI candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: ai-agent-desktop-0.4.0-prebeta-windows-x64
+          name: ai-agent-desktop-0.4.1-prebeta-windows-x64
           path: ${{ runner.temp }}/AI-Agent-Desktop GUI candidate
           if-no-files-found: error
           compression-level: 0
@@ -296,7 +341,7 @@ jobs:
       - name: Upload verified distributable bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: cc-connect-v1.4.1-patchset0.1-fc315d2-windows-amd64
+          name: cc-connect-v1.5.0-patchset0.2-17c6106-windows-amd64
           path: |
             ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect.exe
             ${{ runner.temp }}/cc-connect artifact one (ci)/cc-connect-artifact-manifest.json
